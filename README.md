@@ -222,16 +222,6 @@ A comprehensive Bible study plugin for Obsidian with multi-version support, Stro
 
 ## 🔧 Advanced Features
 
-### Custom Bible Versions
-
-If you have Bible data in markdown format, you can convert it:
-
-1. **Open Command Palette** → "Bible Portal: Convert Bible"
-2. Enter version code (e.g., "ESV")
-3. Select source folder (markdown Bible files)
-4. Plugin converts to JSON format
-5. Converted Bible appears in version selector
-
 ### Verse of the Day Mapping
 
 Generate custom VOTD mapping:
@@ -275,7 +265,6 @@ If you distribute this plugin or derivative works, you must:
 
 ### Bible version not available
 - Download version via Settings → "Download Bible Version"
-- OR convert markdown Bible via Command Palette → "Convert Bible"
 
 ### Highlights not showing
 - Highlights persist in plugin data (`.obsidian/plugins/bible-portal/data/`)
