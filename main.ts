@@ -3248,53 +3248,90 @@ export default class BiblePortalPlugin extends Plugin {
 	}
 
 	/**
-	 * Download Strong's dictionaries from GitHub
+	 * Download Strong's dictionaries and interlinear data from GitHub
 	 */
 	async downloadStrongsDictionaries() {
-		const modal = new DownloadProgressModal(this.app, "Downloading Strong's Concordance");
+		const modal = new DownloadProgressModal(this.app, "Downloading Strong's Concordance & Interlinear Data");
 		modal.open();
 
 		try {
+			// Step 1: Download Greek dictionary (10%)
 			modal.setStatus('Downloading Greek dictionary (~1.2 MB)...');
-			modal.setProgress(10);
+			modal.setProgress(5);
 
 			const greekUrl = `${this.DATA_REPO_URL}/strongs/strongs-greek.json`;
 			const hebrewUrl = `${this.DATA_REPO_URL}/strongs/strongs-hebrew.json`;
 
-			// Download Greek
 			const greekResponse = await requestUrl(greekUrl);
 			if (greekResponse.status !== 200) {
 				modal.setError('Failed to download Greek dictionary');
 				return;
 			}
 
+			// Step 2: Download Hebrew dictionary (20%)
 			modal.setStatus('Downloading Hebrew dictionary (~2 MB)...');
-			modal.setProgress(40);
+			modal.setProgress(15);
 
-			// Download Hebrew
 			const hebrewResponse = await requestUrl(hebrewUrl);
 			if (hebrewResponse.status !== 200) {
 				modal.setError('Failed to download Hebrew dictionary');
 				return;
 			}
 
+			// Step 3: Save dictionaries (25%)
 			modal.setStatus('Saving dictionaries...');
-			modal.setProgress(70);
+			modal.setProgress(20);
 
 			const greekData = greekResponse.json;
 			const hebrewData = hebrewResponse.json;
 
-			// Save to plugin data folder
 			await this.writePluginDataFile('strongs-greek.json', greekData);
 			await this.writePluginDataFile('strongs-hebrew.json', hebrewData);
 
 			const greekCount = Object.keys(greekData).length;
 			const hebrewCount = Object.keys(hebrewData).length;
 
-			// Load into memory
+			// Load dictionaries into memory
 			await this.loadStrongsDictionaries();
 
-			modal.setComplete(`✓ Downloaded ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew entries`);
+			// Step 4: Download interlinear data (25% - 95%)
+			modal.setStatus('Downloading interlinear data (66 books)...');
+
+			const interlinearFiles = Object.values(INTERLINEAR_BOOK_MAPPING);
+			const totalFiles = interlinearFiles.length;
+			let downloadedFiles = 0;
+			let failedFiles: string[] = [];
+
+			for (const filename of interlinearFiles) {
+				const url = `${this.DATA_REPO_URL}/interlinear/${filename}.json`;
+				try {
+					const response = await requestUrl(url);
+					if (response.status === 200) {
+						await this.writePluginDataFile(`interlinear/${filename}.json`, response.json);
+						downloadedFiles++;
+					} else {
+						failedFiles.push(filename);
+					}
+				} catch (e) {
+					failedFiles.push(filename);
+				}
+
+				// Update progress (25% to 95% range for interlinear)
+				const interlinearProgress = 25 + (downloadedFiles / totalFiles) * 70;
+				modal.setProgress(Math.round(interlinearProgress));
+				modal.setStatus(`Downloading interlinear: ${downloadedFiles}/${totalFiles} books...`);
+			}
+
+			// Clear interlinear cache so new data is used
+			this.interlinearData = {};
+			this.interlinearCache.clear();
+
+			// Step 5: Complete
+			if (failedFiles.length === 0) {
+				modal.setComplete(`✓ Downloaded ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew entries\n✓ Downloaded ${downloadedFiles} interlinear books`);
+			} else {
+				modal.setComplete(`✓ Downloaded dictionaries + ${downloadedFiles}/${totalFiles} interlinear books\n⚠️ Failed: ${failedFiles.slice(0, 5).join(', ')}${failedFiles.length > 5 ? '...' : ''}`);
+			}
 
 		} catch (error) {
 			console.error('Strong\'s download error:', error);
@@ -16826,11 +16863,11 @@ class BibleView extends ItemView {
 			const icon = placeholder.createSpan({ cls: 'placeholder-icon' });
 			setIcon(icon, 'languages');
 			placeholder.createEl('h3', { text: 'Word Studies' });
-			placeholder.createEl('p', { text: 'Strong\'s Concordance not downloaded.' });
-			placeholder.createEl('p', { text: 'Download to enable Greek & Hebrew word studies.', cls: 'text-muted' });
+			placeholder.createEl('p', { text: 'Strong\'s data not downloaded.' });
+			placeholder.createEl('p', { text: 'Download to enable Greek & Hebrew word studies with clickable words.', cls: 'text-muted' });
 
 			const downloadBtn = placeholder.createEl('button', {
-				text: 'Download Strong\'s',
+				text: 'Download Strong\'s & Interlinear',
 				cls: 'sidebar-download-btn'
 			});
 			this.registerDomEvent(downloadBtn, 'click', async () => {
@@ -18336,14 +18373,14 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					const greekCount = this.plugin.strongsDictionary.greek ? Object.keys(this.plugin.strongsDictionary.greek).length : 0;
 					const hebrewCount = this.plugin.strongsDictionary.hebrew ? Object.keys(this.plugin.strongsDictionary.hebrew).length : 0;
 					strongsStatus.createSpan({
-						text: `Strong's loaded: ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew`,
+						text: `Strong's loaded: ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew + Interlinear`,
 						cls: 'status-text'
 					});
 				} else {
 					const strongsStatus = content.createDiv({ cls: 'bp-settings-status' });
 					strongsStatus.createSpan({ cls: 'status-icon warning' });
 					strongsStatus.createSpan({
-						text: "Strong's Concordance not downloaded",
+						text: "Strong's & Interlinear data not downloaded",
 						cls: 'status-text'
 					});
 					const downloadBtn = strongsStatus.createEl('button', { text: 'Download', cls: 'action-primary action-inline' });

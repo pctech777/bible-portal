@@ -2253,14 +2253,14 @@ Saved to: ${outputPath}`, 8e3);
     }
   }
   /**
-   * Download Strong's dictionaries from GitHub
+   * Download Strong's dictionaries and interlinear data from GitHub
    */
   async downloadStrongsDictionaries() {
-    const modal = new DownloadProgressModal(this.app, "Downloading Strong's Concordance");
+    const modal = new DownloadProgressModal(this.app, "Downloading Strong's Concordance & Interlinear Data");
     modal.open();
     try {
       modal.setStatus("Downloading Greek dictionary (~1.2 MB)...");
-      modal.setProgress(10);
+      modal.setProgress(5);
       const greekUrl = `${this.DATA_REPO_URL}/strongs/strongs-greek.json`;
       const hebrewUrl = `${this.DATA_REPO_URL}/strongs/strongs-hebrew.json`;
       const greekResponse = await (0, import_obsidian.requestUrl)(greekUrl);
@@ -2269,14 +2269,14 @@ Saved to: ${outputPath}`, 8e3);
         return;
       }
       modal.setStatus("Downloading Hebrew dictionary (~2 MB)...");
-      modal.setProgress(40);
+      modal.setProgress(15);
       const hebrewResponse = await (0, import_obsidian.requestUrl)(hebrewUrl);
       if (hebrewResponse.status !== 200) {
         modal.setError("Failed to download Hebrew dictionary");
         return;
       }
       modal.setStatus("Saving dictionaries...");
-      modal.setProgress(70);
+      modal.setProgress(20);
       const greekData = greekResponse.json;
       const hebrewData = hebrewResponse.json;
       await this.writePluginDataFile("strongs-greek.json", greekData);
@@ -2284,7 +2284,37 @@ Saved to: ${outputPath}`, 8e3);
       const greekCount = Object.keys(greekData).length;
       const hebrewCount = Object.keys(hebrewData).length;
       await this.loadStrongsDictionaries();
-      modal.setComplete(`\u2713 Downloaded ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew entries`);
+      modal.setStatus("Downloading interlinear data (66 books)...");
+      const interlinearFiles = Object.values(INTERLINEAR_BOOK_MAPPING);
+      const totalFiles = interlinearFiles.length;
+      let downloadedFiles = 0;
+      let failedFiles = [];
+      for (const filename of interlinearFiles) {
+        const url = `${this.DATA_REPO_URL}/interlinear/${filename}.json`;
+        try {
+          const response = await (0, import_obsidian.requestUrl)(url);
+          if (response.status === 200) {
+            await this.writePluginDataFile(`interlinear/${filename}.json`, response.json);
+            downloadedFiles++;
+          } else {
+            failedFiles.push(filename);
+          }
+        } catch (e) {
+          failedFiles.push(filename);
+        }
+        const interlinearProgress = 25 + downloadedFiles / totalFiles * 70;
+        modal.setProgress(Math.round(interlinearProgress));
+        modal.setStatus(`Downloading interlinear: ${downloadedFiles}/${totalFiles} books...`);
+      }
+      this.interlinearData = {};
+      this.interlinearCache.clear();
+      if (failedFiles.length === 0) {
+        modal.setComplete(`\u2713 Downloaded ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew entries
+\u2713 Downloaded ${downloadedFiles} interlinear books`);
+      } else {
+        modal.setComplete(`\u2713 Downloaded dictionaries + ${downloadedFiles}/${totalFiles} interlinear books
+\u26A0\uFE0F Failed: ${failedFiles.slice(0, 5).join(", ")}${failedFiles.length > 5 ? "..." : ""}`);
+      }
     } catch (error) {
       console.error("Strong's download error:", error);
       modal.setError(`Download failed: ${error.message}`);
@@ -13077,10 +13107,10 @@ ${disputedInfo.manuscriptInfo}`);
       const icon = placeholder.createSpan({ cls: "placeholder-icon" });
       (0, import_obsidian.setIcon)(icon, "languages");
       placeholder.createEl("h3", { text: "Word Studies" });
-      placeholder.createEl("p", { text: "Strong's Concordance not downloaded." });
-      placeholder.createEl("p", { text: "Download to enable Greek & Hebrew word studies.", cls: "text-muted" });
+      placeholder.createEl("p", { text: "Strong's data not downloaded." });
+      placeholder.createEl("p", { text: "Download to enable Greek & Hebrew word studies with clickable words.", cls: "text-muted" });
       const downloadBtn = placeholder.createEl("button", {
-        text: "Download Strong's",
+        text: "Download Strong's & Interlinear",
         cls: "sidebar-download-btn"
       });
       this.registerDomEvent(downloadBtn, "click", async () => {
@@ -14230,14 +14260,14 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           const greekCount = this.plugin.strongsDictionary.greek ? Object.keys(this.plugin.strongsDictionary.greek).length : 0;
           const hebrewCount = this.plugin.strongsDictionary.hebrew ? Object.keys(this.plugin.strongsDictionary.hebrew).length : 0;
           strongsStatus.createSpan({
-            text: `Strong's loaded: ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew`,
+            text: `Strong's loaded: ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew + Interlinear`,
             cls: "status-text"
           });
         } else {
           const strongsStatus = content.createDiv({ cls: "bp-settings-status" });
           strongsStatus.createSpan({ cls: "status-icon warning" });
           strongsStatus.createSpan({
-            text: "Strong's Concordance not downloaded",
+            text: "Strong's & Interlinear data not downloaded",
             cls: "status-text"
           });
           const downloadBtn = strongsStatus.createEl("button", { text: "Download", cls: "action-primary action-inline" });
