@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+
+# Build artifacts (keep main.js for direct cloning)
+*.js.map
+
+# Logs
+*.log
+build.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Session/temp files
+.session-log.md
+
+# Backup files
+*.bak
+*~
+
+# Local development paths in scripts
+# (package.json has hardcoded local paths - that's fine for personal use)
+
+# Data folder (users download their own)
+data/
+
+# Backups folder (development only)
+.backups/
+
+# Checklist folder (development only)
+checklist/
+
+# Scripts folder (development only)
+scripts/
+
+# Claude config (development only)
+.claude/
+CLAUDE.md
+
+# Audit files (development only)
+audit.md
+
+# Level up ideas (development only)
+LEVEL-UP-IDEAS.md
