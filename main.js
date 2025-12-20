@@ -27,414 +27,7 @@ __export(main_exports, {
   default: () => BiblePortalPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian2 = require("obsidian");
-
-// converter.ts
 var import_obsidian = require("obsidian");
-var DEFAULT_FORMAT = {
-  name: "Hash Marker (ESV style)",
-  verseMarker: /^###### (\d+)$/gm,
-  verseExtractor: (match, content) => {
-    const verseNum = match[1];
-    const startIndex = match.index + match[0].length;
-    const nextMatch = content.slice(startIndex).match(/^###### \d+$/m);
-    const endIndex = nextMatch ? startIndex + nextMatch.index : content.length;
-    let text = content.slice(startIndex, endIndex).trim();
-    text = cleanVerseText(text);
-    return { num: verseNum, text };
-  },
-  bookDetection: "filename",
-  fileStructure: "chapter-per-file"
-};
-function cleanVerseText(text) {
-  text = text.replace(/\*\*\[\[.*?\]\].*?\[\[.*?\]\].*?\[\[.*?\]\]\*\*/g, "");
-  text = text.replace(/\[\[.*?Reflections#Reflections\|.*?\]\]/g, "");
-  text = text.replace(/\[\^\d+\]:/g, "");
-  text = text.replace(/\[\[/g, "[");
-  text = text.replace(/\]\]/g, "]");
-  text = text.replace(/\[\[.*?\|.*?\]\]/g, "");
-  text = text.replace(/\[\[.*?\]\]/g, "");
-  return text.trim();
-}
-var BIBLE_BOOKS = {
-  "Genesis": 50,
-  "Exodus": 40,
-  "Leviticus": 27,
-  "Numbers": 36,
-  "Deuteronomy": 34,
-  "Joshua": 24,
-  "Judges": 21,
-  "Ruth": 4,
-  "1 Samuel": 31,
-  "2 Samuel": 24,
-  "1 Kings": 22,
-  "2 Kings": 25,
-  "1 Chronicles": 29,
-  "2 Chronicles": 36,
-  "Ezra": 10,
-  "Nehemiah": 13,
-  "Esther": 10,
-  "Job": 42,
-  "Psalms": 150,
-  "Proverbs": 31,
-  "Ecclesiastes": 12,
-  "Song of Solomon": 8,
-  "Isaiah": 66,
-  "Jeremiah": 52,
-  "Lamentations": 5,
-  "Ezekiel": 48,
-  "Daniel": 12,
-  "Hosea": 14,
-  "Joel": 3,
-  "Amos": 9,
-  "Obadiah": 1,
-  "Jonah": 4,
-  "Micah": 7,
-  "Nahum": 3,
-  "Habakkuk": 3,
-  "Zephaniah": 3,
-  "Haggai": 2,
-  "Zechariah": 14,
-  "Malachi": 4,
-  "Matthew": 28,
-  "Mark": 16,
-  "Luke": 24,
-  "John": 21,
-  "Acts": 28,
-  "Romans": 16,
-  "1 Corinthians": 16,
-  "2 Corinthians": 13,
-  "Galatians": 6,
-  "Ephesians": 6,
-  "Philippians": 4,
-  "Colossians": 4,
-  "1 Thessalonians": 5,
-  "2 Thessalonians": 3,
-  "1 Timothy": 6,
-  "2 Timothy": 4,
-  "Titus": 3,
-  "Philemon": 1,
-  "Hebrews": 13,
-  "James": 5,
-  "1 Peter": 5,
-  "2 Peter": 3,
-  "1 John": 5,
-  "2 John": 1,
-  "3 John": 1,
-  "Jude": 1,
-  "Revelation": 22
-};
-var BibleConverter = class {
-  constructor(app, format) {
-    this.app = app;
-    this.format = format || DEFAULT_FORMAT;
-  }
-  /**
-   * Convert Bible markdown files to JSON
-   *
-   * @param sourcePath - Path to folder containing Bible markdown files
-   * @param version - Bible version name (e.g., "ESV", "NIV")
-   * @returns Conversion result with statistics and errors
-   */
-  async convertBible(sourcePath, version) {
-    const result = {
-      success: false,
-      version,
-      totalBooks: 0,
-      totalChapters: 0,
-      totalVerses: 0,
-      errors: [],
-      warnings: []
-    };
-    new import_obsidian.Notice(`Starting ${version} Bible conversion...`);
-    console.log(`[BibleConverter] Starting conversion for ${version} from ${sourcePath}`);
-    try {
-      const bibleData = {};
-      const files = this.app.vault.getMarkdownFiles().filter((file) => file.path.includes(sourcePath));
-      if (files.length === 0) {
-        result.errors.push(`No markdown files found in ${sourcePath}`);
-        new import_obsidian.Notice(`\u274C No files found in ${sourcePath}`);
-        return result;
-      }
-      console.log(`[BibleConverter] Found ${files.length} markdown files`);
-      const bookFiles = this.groupFilesByBook(files);
-      for (const [bookName, chapterFiles] of Object.entries(bookFiles)) {
-        try {
-          const bookData = await this.parseBook(bookName, chapterFiles);
-          if (bookData && Object.keys(bookData).length > 0) {
-            bibleData[bookName] = bookData;
-            result.totalBooks++;
-            result.totalChapters += Object.keys(bookData).length;
-          }
-        } catch (error) {
-          result.errors.push(`Failed to parse book ${bookName}: ${error.message}`);
-          console.error(`[BibleConverter] Book parsing error:`, error);
-        }
-      }
-      for (const book of Object.values(bibleData)) {
-        for (const chapter of Object.values(book)) {
-          result.totalVerses += Object.keys(chapter).length;
-        }
-      }
-      const outputPath = await this.saveBibleJSON(bibleData, version);
-      result.outputPath = outputPath;
-      result.success = true;
-      console.log(`[BibleConverter] \u2713 Converted ${result.totalBooks} books, ${result.totalChapters} chapters, ${result.totalVerses} verses`);
-      new import_obsidian.Notice(`\u2713 Converted ${version}: ${result.totalBooks} books, ${result.totalVerses} verses`);
-      return result;
-    } catch (error) {
-      console.error(`[BibleConverter] Conversion failed:`, error);
-      result.errors.push(`Conversion failed: ${error.message}`);
-      new import_obsidian.Notice(`\u274C ${version} conversion failed - check console`);
-      return result;
-    }
-  }
-  /**
-   * Group markdown files by book name
-   */
-  groupFilesByBook(files) {
-    const grouped = {};
-    for (const file of files) {
-      const pathParts = file.path.split("/");
-      const bookPart = pathParts[pathParts.length - 2];
-      if (!bookPart)
-        continue;
-      const bookName = bookPart.replace(/^\d+\s+/, "").trim();
-      if (!grouped[bookName]) {
-        grouped[bookName] = [];
-      }
-      grouped[bookName].push(file);
-    }
-    return grouped;
-  }
-  /**
-   * Parse all chapters for a book
-   */
-  async parseBook(bookName, chapterFiles) {
-    const chapters = {};
-    chapterFiles.sort((a, b) => {
-      const chapterA = this.extractChapterNumber(a.basename);
-      const chapterB = this.extractChapterNumber(b.basename);
-      return chapterA - chapterB;
-    });
-    for (const file of chapterFiles) {
-      if (/^--.*--$/.test(file.basename.trim())) {
-        continue;
-      }
-      const chapterNum = this.extractChapterNumber(file.basename);
-      if (chapterNum === -1) {
-        console.warn(`[BibleConverter] Could not extract chapter number from ${file.basename}`);
-        continue;
-      }
-      try {
-        const chapterData = await this.parseChapter(file);
-        if (chapterData && Object.keys(chapterData).length > 0) {
-          chapters[chapterNum.toString()] = chapterData;
-        }
-      } catch (error) {
-        console.error(`[BibleConverter] Failed to parse ${file.path}:`, error);
-      }
-    }
-    return { chapters };
-  }
-  /**
-   * Extract chapter number from filename
-   * e.g., "Chapter 1.md" → 1, "Genesis 01.md" → 1
-   */
-  extractChapterNumber(filename) {
-    const match = filename.match(/(\d+)/);
-    return match ? parseInt(match[1], 10) : -1;
-  }
-  /**
-   * Parse a single chapter file
-   */
-  async parseChapter(file) {
-    const content = await this.app.vault.read(file);
-    const verses = {};
-    const verseMatches = Array.from(content.matchAll(this.format.verseMarker));
-    for (const match of verseMatches) {
-      const verseData = this.format.verseExtractor(match, content);
-      if (verseData) {
-        verses[verseData.num] = verseData.text;
-      }
-    }
-    return { verses };
-  }
-  /**
-   * Save Bible data to JSON file
-   */
-  async saveBibleJSON(data, version) {
-    const filename = `${version.toLowerCase()}.json`;
-    const folderPath = "Bible Portal/Bibles";
-    const folder = this.app.vault.getAbstractFileByPath(folderPath);
-    if (!folder) {
-      await this.app.vault.createFolder(folderPath);
-    }
-    const filePath = `${folderPath}/${filename}`;
-    const wrappedData = {
-      version,
-      books: data
-    };
-    const jsonContent = JSON.stringify(wrappedData, null, 2);
-    const existingFile = this.app.vault.getAbstractFileByPath(filePath);
-    if (existingFile instanceof import_obsidian.TFile) {
-      await this.app.vault.modify(existingFile, jsonContent);
-    } else {
-      await this.app.vault.create(filePath, jsonContent);
-    }
-    console.log(`[BibleConverter] \u2713 Saved to ${filePath}`);
-    return filePath;
-  }
-  /**
-   * Validate converted Bible data
-   */
-  validateBible(data, version) {
-    const errors = [];
-    const warnings = [];
-    const bookCount = Object.keys(data).length;
-    if (bookCount !== 66) {
-      warnings.push(`Expected 66 books, found ${bookCount}`);
-    }
-    for (const [bookName, bookData] of Object.entries(data)) {
-      const expectedChapters = BIBLE_BOOKS[bookName];
-      const actualChapters = Object.keys(bookData.chapters).length;
-      if (expectedChapters && actualChapters !== expectedChapters) {
-        warnings.push(`${bookName}: Expected ${expectedChapters} chapters, found ${actualChapters}`);
-      }
-      for (let i = 1; i <= actualChapters; i++) {
-        if (!bookData.chapters[i.toString()]) {
-          errors.push(`${bookName}: Missing chapter ${i}`);
-        }
-      }
-    }
-    return {
-      valid: errors.length === 0,
-      errors,
-      warnings
-    };
-  }
-  /**
-   * Generate conversion report
-   */
-  generateReport(result) {
-    const lines = [
-      `Bible Conversion Report: ${result.version}`,
-      `====================================`,
-      ``,
-      `Status: ${result.success ? "\u2713 SUCCESS" : "\u2717 FAILED"}`,
-      `Total Books: ${result.totalBooks}`,
-      `Total Chapters: ${result.totalChapters}`,
-      `Total Verses: ${result.totalVerses}`,
-      ``
-    ];
-    if (result.outputPath) {
-      lines.push(`Output: ${result.outputPath}`);
-      lines.push(``);
-    }
-    if (result.errors.length > 0) {
-      lines.push(`Errors (${result.errors.length}):`);
-      result.errors.forEach((err) => lines.push(`  - ${err}`));
-      lines.push(``);
-    }
-    if (result.warnings.length > 0) {
-      lines.push(`Warnings (${result.warnings.length}):`);
-      result.warnings.forEach((warn) => lines.push(`  - ${warn}`));
-      lines.push(``);
-    }
-    lines.push(`Conversion complete!`);
-    return lines.join("\n");
-  }
-};
-
-// book-name-converter.ts
-var BOOK_NAME_CONVERTER = {
-  // NKJV: Pentateuch (verbose)
-  "The First Book of Moses Called GENESIS": "Genesis",
-  "The Second Book of Moses Called EXODUS": "Exodus",
-  "The Third Book of Moses Called LEVITICUS": "Leviticus",
-  "The Fourth Book of Moses Called NUMBERS": "Numbers",
-  "The Fifth Book of Moses Called DEUTERONOMY": "Deuteronomy",
-  // NKJV: Historical Books (verbose)
-  "The Book of JOSHUA": "Joshua",
-  "The Book of JUDGES": "Judges",
-  "The Book of RUTH": "Ruth",
-  "The First Book of SAMUEL": "1 Samuel",
-  "The Second Book of SAMUEL": "2 Samuel",
-  "The First Book of the KINGS": "1 Kings",
-  "The Second Book of the KINGS": "2 Kings",
-  "The First Book of the CHRONICLES": "1 Chronicles",
-  "The Second Book of the CHRONICLES": "2 Chronicles",
-  "The Book of EZRA": "Ezra",
-  "The Book of NEHEMIAH": "Nehemiah",
-  "The Book of ESTHER": "Esther",
-  // NKJV: Wisdom Books (verbose)
-  "The Book of JOB": "Job",
-  "The Book of PSALMS": "Psalm",
-  "The Book of PROVERBS": "Proverbs",
-  "The Book of ECCLESIASTES": "Ecclesiastes",
-  "The SONG OF SOLOMON": "Song of Solomon",
-  // NKJV: Major Prophets (verbose)
-  "The Book of ISAIAH": "Isaiah",
-  "The Book of JEREMIAH": "Jeremiah",
-  "The Book of LAMENTATIONS": "Lamentations",
-  "The Book of EZEKIEL": "Ezekiel",
-  "The Book of DANIEL": "Daniel",
-  // NKJV: Minor Prophets (verbose)
-  "The Book of HOSEA": "Hosea",
-  "The Book of JOEL": "Joel",
-  "The Book of AMOS": "Amos",
-  "The Book of OBADIAH": "Obadiah",
-  "The Book of JONAH": "Jonah",
-  "The Book of MICAH": "Micah",
-  "The Book of NAHUM": "Nahum",
-  "The Book of HABAKKUK": "Habakkuk",
-  "The Book of ZEPHANIAH": "Zephaniah",
-  "The Book of HAGGAI": "Haggai",
-  "The Book of ZECHARIAH": "Zechariah",
-  "The Book of MALACHI": "Malachi",
-  // NKJV: Gospels (verbose)
-  "The Gospel According to MATTHEW": "Matthew",
-  "The Gospel According to MARK": "Mark",
-  "The Gospel According to LUKE": "Luke",
-  "The Gospel According to JOHN": "John",
-  // NKJV: Acts (verbose)
-  "THE ACTS of the Apostles": "Acts",
-  // NKJV: Paul's Epistles (verbose)
-  "The Epistle of Paul the Apostle to the ROMANS": "Romans",
-  "The First Epistle of Paul the Apostle to the CORINTHIANS": "1 Corinthians",
-  "The Second Epistle of Paul the Apostle to the CORINTHIANS": "2 Corinthians",
-  "The Epistle of Paul the Apostle to the GALATIANS": "Galatians",
-  "The Epistle of Paul the Apostle to the EPHESIANS": "Ephesians",
-  "The Epistle of Paul the Apostle to the PHILIPPIANS": "Philippians",
-  "The Epistle of Paul the Apostle to the COLOSSIANS": "Colossians",
-  "The First Epistle of Paul the Apostle to the THESSALONIANS": "1 Thessalonians",
-  "The Second Epistle of Paul the Apostle to the THESSALONIANS": "2 Thessalonians",
-  "The First Epistle of Paul the Apostle to TIMOTHY": "1 Timothy",
-  "The Second Epistle of Paul the Apostle to TIMOTHY": "2 Timothy",
-  "The Epistle of Paul the Apostle to TITUS": "Titus",
-  "The Epistle of Paul the Apostle to PHILEMON": "Philemon",
-  // NKJV: General Epistles (verbose)
-  "The Epistle to the HEBREWS": "Hebrews",
-  "The Epistle of JAMES": "James",
-  "The First Epistle of PETER": "1 Peter",
-  "The Second Epistle of PETER": "2 Peter",
-  "The First Epistle of JOHN": "1 John",
-  "The Second Epistle of JOHN": "2 John",
-  "The Third Epistle of JOHN": "3 John",
-  "The Epistle of JUDE": "Jude",
-  // NKJV: Revelation (verbose)
-  "THE REVELATION of Jesus Christ": "Revelation",
-  // KJV: Psalm/Psalms variation (ESV uses "Psalm" singular)
-  "Psalms": "Psalm"
-};
-function normalizeBookName(bookName) {
-  if (BOOK_NAME_CONVERTER[bookName]) {
-    return BOOK_NAME_CONVERTER[bookName];
-  }
-  return bookName;
-}
-
-// main.ts
 var READING_PLANS = [
   {
     id: "bible-year",
@@ -1283,7 +876,7 @@ var INTERLINEAR_BOOK_MAPPING = {
   "Jude": "jude",
   "Revelation": "revelation"
 };
-var BiblePortalPlugin = class extends import_obsidian2.Plugin {
+var BiblePortalPlugin = class extends import_obsidian.Plugin {
   constructor() {
     super(...arguments);
     this.bibleVersions = /* @__PURE__ */ new Map();
@@ -1362,13 +955,6 @@ var BiblePortalPlugin = class extends import_obsidian2.Plugin {
   // Interval ID for updating timer display
   async onload() {
     await this.loadSettings();
-    this.addCommand({
-      id: "convert-bible-markdown",
-      name: "Convert Bible Markdown to JSON",
-      callback: async () => {
-        await this.convertBibleMarkdown();
-      }
-    });
     await this.loadHighlightsAndNotes();
     await this.loadCrossReferences();
     await this.loadStrongsDictionaries();
@@ -1423,7 +1009,7 @@ var BiblePortalPlugin = class extends import_obsidian2.Plugin {
           stats.p95ResponseTime < 50 ? "\u2713 Performance target met (<50ms p95)" : "\u26A0\uFE0F Performance target not met (>50ms p95)"
         ].join("\n");
         console.log(message);
-        new import_obsidian2.Notice(message, 1e4);
+        new import_obsidian.Notice(message, 1e4);
       }
     });
     this.addCommand({
@@ -1431,7 +1017,7 @@ var BiblePortalPlugin = class extends import_obsidian2.Plugin {
       name: "Strong's: Clear Caches and Reset Stats",
       callback: () => {
         this.clearCaches();
-        new import_obsidian2.Notice("\u2713 Strong's caches cleared and statistics reset", 4e3);
+        new import_obsidian.Notice("\u2713 Strong's caches cleared and statistics reset", 4e3);
       }
     });
     this.addSettingTab(new BiblePortalSettingTab(this.app, this));
@@ -1541,7 +1127,7 @@ var BiblePortalPlugin = class extends import_obsidian2.Plugin {
       this.updateStudyModeStatusBar();
     }, 6e4);
     this.updateStudyModeStatusBar();
-    new import_obsidian2.Notice("\u{1F4D6} Study Mode started - tracking your session");
+    new import_obsidian.Notice("\u{1F4D6} Study Mode started - tracking your session");
   }
   /**
    * End the current study session and save stats
@@ -1582,7 +1168,7 @@ var BiblePortalPlugin = class extends import_obsidian2.Plugin {
     this.currentSession = null;
     this.saveSettings();
     this.updateStatusBar("", 0);
-    new import_obsidian2.Notice(`\u{1F4D6} Study session ended - ${durationMinutes} min, ${((_a = journalEntry.chaptersVisited) == null ? void 0 : _a.length) || 0} chapters`);
+    new import_obsidian.Notice(`\u{1F4D6} Study session ended - ${durationMinutes} min, ${((_a = journalEntry.chaptersVisited) == null ? void 0 : _a.length) || 0} chapters`);
   }
   /**
    * Update status bar with study mode timer
@@ -1958,7 +1544,7 @@ var BiblePortalPlugin = class extends import_obsidian2.Plugin {
     header.createSpan({ text: "Achievement Unlocked!", cls: "achievement-title" });
     const iconContainer = card.createDiv({ cls: "achievement-icon-container" });
     const iconEl = iconContainer.createDiv({ cls: "achievement-icon-large" });
-    (0, import_obsidian2.setIcon)(iconEl, achievement.icon);
+    (0, import_obsidian.setIcon)(iconEl, achievement.icon);
     const nameEl = card.createDiv({ cls: "achievement-name-large", text: achievement.name });
     const descEl = card.createDiv({ cls: "achievement-desc-large", text: achievement.description });
     const rarityBadge = card.createDiv({ cls: `achievement-rarity-badge rarity-${achievement.rarity}` });
@@ -2124,70 +1710,28 @@ var BiblePortalPlugin = class extends import_obsidian2.Plugin {
       }
     } catch (error) {
       console.error("Error loading Bible data:", error);
-      new import_obsidian2.Notice("Error loading Bible data. Check console for details.");
-    }
-  }
-  /**
-   * Convert Bible markdown to JSON
-   * Phase 1: Basic converter for current ESV format
-   */
-  async convertBibleMarkdown() {
-    const sourcePathInput = await this.promptForInput(
-      "Enter source path",
-      "Enter the path to your Bible markdown files (e.g., Bible Stuff/Bibles/ESV)",
-      "Bible Stuff/Bibles/ESV"
-    );
-    if (!sourcePathInput) {
-      new import_obsidian2.Notice("Conversion cancelled");
-      return;
-    }
-    const versionInput = await this.promptForInput(
-      "Enter Bible version",
-      "Enter the Bible version name (e.g., ESV, NIV, KJV)",
-      "ESV"
-    );
-    if (!versionInput) {
-      new import_obsidian2.Notice("Conversion cancelled");
-      return;
-    }
-    const version = versionInput.toUpperCase();
-    const converter = new BibleConverter(this.app);
-    new import_obsidian2.Notice(`Converting ${version} Bible from ${sourcePathInput}...`);
-    const result = await converter.convertBible(sourcePathInput, version);
-    if (result.success) {
-      const fileContent = JSON.parse(await this.app.vault.adapter.read(result.outputPath));
-      const validation = converter.validateBible(
-        fileContent.books,
-        // Extract books object from wrapped format
-        version
-      );
-      const report = converter.generateReport(result);
-      console.log("\n" + report);
-      if (validation.warnings.length > 0) {
-        console.warn("Validation warnings:", validation.warnings);
-      }
-      new import_obsidian2.Notice(
-        `\u2713 ${version} converted successfully!
-${result.totalBooks} books, ${result.totalChapters} chapters, ${result.totalVerses} verses
-Saved to: ${result.outputPath}`,
-        8e3
-      );
-      await this.loadBibleData();
-    } else {
-      new import_obsidian2.Notice(
-        `\u274C ${version} conversion failed!
-${result.errors.length} errors found. Check console for details.`,
-        8e3
-      );
-      console.error("Conversion errors:", result.errors);
+      new import_obsidian.Notice("Error loading Bible data. Check console for details.");
     }
   }
   /**
    * Extract canonical book name from verbose API name
-   * Uses the comprehensive conversion matrix from book-name-converter.ts
+   * Normalizes various book name formats to canonical names
    */
   extractBookName(apiName) {
-    return normalizeBookName(apiName);
+    return this.normalizeBookName(apiName);
+  }
+  /**
+   * Normalize book name to canonical format
+   * Handles abbreviations and various naming conventions
+   */
+  normalizeBookName(name) {
+    if (!name)
+      return name;
+    const upper = name.toUpperCase().trim();
+    if (BOOK_ABBREVIATIONS[upper]) {
+      return BOOK_ABBREVIATIONS[upper];
+    }
+    return name;
   }
   /**
    * Strip HTML tags from text
@@ -2204,9 +1748,9 @@ ${result.errors.length} errors found. Check console for details.`,
       if (onProgress)
         onProgress("fetch", "Fetching available translations...", 0);
       else
-        new import_obsidian2.Notice("Fetching available translations...");
+        new import_obsidian.Notice("Fetching available translations...");
       const languagesUrl = "https://bolls.life/static/bolls/app/views/languages.json";
-      const languagesResponse = await (0, import_obsidian2.requestUrl)(languagesUrl);
+      const languagesResponse = await (0, import_obsidian.requestUrl)(languagesUrl);
       if (languagesResponse.status !== 200) {
         throw new Error(`Failed to fetch translations list: ${languagesResponse.status}`);
       }
@@ -2226,16 +1770,16 @@ ${result.errors.length} errors found. Check console for details.`,
       allTranslations.sort((a, b) => a.short_name.localeCompare(b.short_name));
       const selectedTranslation = await this.showTranslationPicker(allTranslations);
       if (!selectedTranslation) {
-        new import_obsidian2.Notice("Download cancelled");
+        new import_obsidian.Notice("Download cancelled");
         return;
       }
       const versionCode = selectedTranslation.short_name;
       if (onProgress)
         onProgress("books", `Downloading ${versionCode}... Fetching book list`, 5);
       else
-        new import_obsidian2.Notice(`Downloading ${versionCode}... (Step 1/2: Fetching book list)`);
+        new import_obsidian.Notice(`Downloading ${versionCode}... (Step 1/2: Fetching book list)`);
       const booksUrl = `https://bolls.life/get-books/${versionCode}/`;
-      const booksResponse = await (0, import_obsidian2.requestUrl)(booksUrl);
+      const booksResponse = await (0, import_obsidian.requestUrl)(booksUrl);
       if (booksResponse.status !== 200) {
         throw new Error(`Failed to fetch books for ${versionCode}: ${booksResponse.status}`);
       }
@@ -2243,7 +1787,7 @@ ${result.errors.length} errors found. Check console for details.`,
       if (onProgress)
         onProgress("chapters", `Downloading ${versionCode}... Preparing ${booksData.length} books`, 10);
       else
-        new import_obsidian2.Notice(`Downloading ${versionCode}... (Step 2/2: Downloading ${booksData.length} books)`);
+        new import_obsidian.Notice(`Downloading ${versionCode}... (Step 2/2: Downloading ${booksData.length} books)`);
       const bibleData = {
         version: versionCode,
         books: {}
@@ -2269,7 +1813,7 @@ ${result.errors.length} errors found. Check console for details.`,
         const numChapters = book.chapters;
         for (let chapterNum = 1; chapterNum <= numChapters; chapterNum++) {
           const chapterUrl = `https://bolls.life/get-chapter/${versionCode}/${String(bookId).padStart(2, "0")}/${chapterNum}/`;
-          const chapterPromise = (0, import_obsidian2.requestUrl)(chapterUrl).then((response) => {
+          const chapterPromise = (0, import_obsidian.requestUrl)(chapterUrl).then((response) => {
             completedChapters++;
             if (onProgress) {
               const percent = Math.round(10 + completedChapters / totalChapterCount * 80);
@@ -2298,7 +1842,7 @@ ${result.errors.length} errors found. Check console for details.`,
         }
       }
       if (!onProgress)
-        new import_obsidian2.Notice(`Downloading ${chapterPromises.length} chapters in parallel...`);
+        new import_obsidian.Notice(`Downloading ${chapterPromises.length} chapters in parallel...`);
       const chapterResults = await Promise.all(chapterPromises);
       let totalChapters = 0;
       let totalVerses = 0;
@@ -2325,7 +1869,7 @@ ${result.errors.length} errors found. Check console for details.`,
       if (onProgress)
         onProgress("complete", successMsg, 100);
       else
-        new import_obsidian2.Notice(successMsg + `
+        new import_obsidian.Notice(successMsg + `
 Saved to: ${outputPath}`, 8e3);
       await this.loadBibleData();
     } catch (error) {
@@ -2333,7 +1877,7 @@ Saved to: ${outputPath}`, 8e3);
       if (onProgress)
         onProgress("error", `Download failed: ${error.message}`, -1);
       else
-        new import_obsidian2.Notice(`\u274C Download failed: ${error.message}`, 8e3);
+        new import_obsidian.Notice(`\u274C Download failed: ${error.message}`, 8e3);
     }
   }
   /**
@@ -2342,7 +1886,7 @@ Saved to: ${outputPath}`, 8e3);
   async showTranslationPicker(translations) {
     return new Promise((resolve) => {
       let selectedTranslation = null;
-      const modal = new import_obsidian2.Modal(this.app);
+      const modal = new import_obsidian.Modal(this.app);
       modal.titleEl.setText("Select Bible Translation");
       const contentEl = modal.contentEl;
       contentEl.empty();
@@ -2398,7 +1942,7 @@ Saved to: ${outputPath}`, 8e3);
       modal.setStatus("Downloading cross-reference data (~12 MB)...");
       modal.setProgress(10);
       const url = `${this.DATA_REPO_URL}/cross-references.json`;
-      const response = await (0, import_obsidian2.requestUrl)(url);
+      const response = await (0, import_obsidian.requestUrl)(url);
       modal.setProgress(50);
       if (response.status !== 200) {
         throw new Error(`HTTP ${response.status}`);
@@ -2479,7 +2023,7 @@ Saved to: ${outputPath}`, 8e3);
   getCrossReferences(book, chapter, verse) {
     if (!this.crossReferences)
       return [];
-    const normalizedBook = normalizeBookName(book);
+    const normalizedBook = this.normalizeBookName(book);
     const verseRef = `${normalizedBook} ${chapter}:${verse}`;
     return this.crossReferences[verseRef] || [];
   }
@@ -2530,7 +2074,7 @@ Saved to: ${outputPath}`, 8e3);
       const version = this.settings.defaultVersion;
       const bible = this.getBibleData(version);
       if (!bible) {
-        new import_obsidian2.Notice("No Bible data loaded to build concordance from");
+        new import_obsidian.Notice("No Bible data loaded to build concordance from");
         return false;
       }
       const words = {};
@@ -2582,11 +2126,11 @@ Saved to: ${outputPath}`, 8e3);
       };
       const filename = `concordance-${version.toLowerCase()}.json`;
       await this.writePluginDataFile(filename, this.concordanceData);
-      new import_obsidian2.Notice(`Concordance built: ${uniqueWords.toLocaleString()} unique words from ${totalVerses.toLocaleString()} verses`);
+      new import_obsidian.Notice(`Concordance built: ${uniqueWords.toLocaleString()} unique words from ${totalVerses.toLocaleString()} verses`);
       return true;
     } catch (error) {
       console.error("Error building concordance:", error);
-      new import_obsidian2.Notice("Failed to build concordance");
+      new import_obsidian.Notice("Failed to build concordance");
       return false;
     }
   }
@@ -2629,7 +2173,7 @@ Saved to: ${outputPath}`, 8e3);
       modal.setStatus("Downloading Matthew Henry's Commentary (~3.6 MB)...");
       modal.setProgress(10);
       const url = `${this.DATA_REPO_URL}/commentaries/matthew_henry_concise.json`;
-      const response = await (0, import_obsidian2.requestUrl)(url);
+      const response = await (0, import_obsidian.requestUrl)(url);
       modal.setProgress(50);
       if (response.status !== 200) {
         throw new Error(`HTTP ${response.status}`);
@@ -2719,14 +2263,14 @@ Saved to: ${outputPath}`, 8e3);
       modal.setProgress(10);
       const greekUrl = `${this.DATA_REPO_URL}/strongs/strongs-greek.json`;
       const hebrewUrl = `${this.DATA_REPO_URL}/strongs/strongs-hebrew.json`;
-      const greekResponse = await (0, import_obsidian2.requestUrl)(greekUrl);
+      const greekResponse = await (0, import_obsidian.requestUrl)(greekUrl);
       if (greekResponse.status !== 200) {
         modal.setError("Failed to download Greek dictionary");
         return;
       }
       modal.setStatus("Downloading Hebrew dictionary (~2 MB)...");
       modal.setProgress(40);
-      const hebrewResponse = await (0, import_obsidian2.requestUrl)(hebrewUrl);
+      const hebrewResponse = await (0, import_obsidian.requestUrl)(hebrewUrl);
       if (hebrewResponse.status !== 200) {
         modal.setError("Failed to download Hebrew dictionary");
         return;
@@ -2768,7 +2312,7 @@ Saved to: ${outputPath}`, 8e3);
         modal.setProgress(progress);
         try {
           const url = `${this.DATA_REPO_URL}/${file.path}`;
-          const response = await (0, import_obsidian2.requestUrl)(url);
+          const response = await (0, import_obsidian.requestUrl)(url);
           if (response.status !== 200) {
             console.error(`Failed to download ${file.path}: HTTP ${response.status}`);
             continue;
@@ -3470,7 +3014,7 @@ Saved to: ${outputPath}`, 8e3);
         const loadTime = (endTime - startTime).toFixed(2);
         console.log(`\u2713 Jesus Words loaded: ${this.jesusWordsLookup.size} verses in ${loadTime}ms`);
         const gospelsText = (((_e = this.jesusWordsData) == null ? void 0 : _e.gospels) || []).join(", ") || "Gospels";
-        new import_obsidian2.Notice(`\u2713 Jesus Words loaded: ${this.jesusWordsLookup.size} red-letter verses across ${gospelsText}`);
+        new import_obsidian.Notice(`\u2713 Jesus Words loaded: ${this.jesusWordsLookup.size} red-letter verses across ${gospelsText}`);
       } else {
         console.log("\u2139\uFE0F Jesus Words file not found - red-letter features disabled");
         console.log(`   Expected location: ${jesusWordsPath}`);
@@ -3478,7 +3022,7 @@ Saved to: ${outputPath}`, 8e3);
       }
     } catch (error) {
       console.error("Error loading Jesus Words:", error);
-      new import_obsidian2.Notice("Error loading Jesus Words - check console for details");
+      new import_obsidian.Notice("Error loading Jesus Words - check console for details");
       this.jesusWordsData = null;
     }
   }
@@ -3519,12 +3063,12 @@ Saved to: ${outputPath}`, 8e3);
       const votdPath = ".obsidian/plugins/bible-portal/data/verse-of-the-day.json";
       const fileExists = await adapter.exists(votdPath);
       if (fileExists) {
-        new import_obsidian2.Notice("Regenerating Verse of the Day mapping...");
+        new import_obsidian.Notice("Regenerating Verse of the Day mapping...");
       }
       const version = this.settings.defaultVersion;
       const bible = this.getBibleData(version);
       if (!bible) {
-        new import_obsidian2.Notice("Error: Bible data not loaded");
+        new import_obsidian.Notice("Error: Bible data not loaded");
         return false;
       }
       const allVerses = [];
@@ -3555,12 +3099,12 @@ Saved to: ${outputPath}`, 8e3);
       const mappingJson = JSON.stringify(mapping, null, 2);
       await adapter.write(votdPath, mappingJson);
       this.votdMapping = mapping;
-      new import_obsidian2.Notice(`\u2705 Generated mapping with 365 verses and saved to ${votdPath}`);
+      new import_obsidian.Notice(`\u2705 Generated mapping with 365 verses and saved to ${votdPath}`);
       this.refreshView();
       return true;
     } catch (error) {
       console.error("Error generating VOTD mapping:", error);
-      new import_obsidian2.Notice("Error generating Verse of the Day mapping");
+      new import_obsidian.Notice("Error generating Verse of the Day mapping");
       return false;
     }
   }
@@ -3738,7 +3282,7 @@ Saved to: ${outputPath}`, 8e3);
    */
   async promptBookmarkName(defaultName) {
     return new Promise((resolve) => {
-      const modal = new import_obsidian2.Modal(this.app);
+      const modal = new import_obsidian.Modal(this.app);
       modal.titleEl.setText("Name Your Bookmark");
       const contentEl = modal.contentEl;
       contentEl.empty();
@@ -4113,7 +3657,7 @@ tags:
     return notePath;
   }
 };
-var BibleView = class extends import_obsidian2.ItemView {
+var BibleView = class extends import_obsidian.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.currentBook = "Genesis";
@@ -4303,7 +3847,7 @@ var BibleView = class extends import_obsidian2.ItemView {
         attr: { "aria-label": m.title, title: m.title }
       });
       const iconSpan = btn.createSpan({ cls: "sidebar-mode-icon" });
-      (0, import_obsidian2.setIcon)(iconSpan, m.icon);
+      (0, import_obsidian.setIcon)(iconSpan, m.icon);
       btn.createSpan({ text: m.title, cls: "sidebar-mode-title" });
       btn.addEventListener("click", () => {
         this.viewMode = m.mode;
@@ -4342,7 +3886,7 @@ var BibleView = class extends import_obsidian2.ItemView {
       const verseCount = this.selectedVerseEnd - this.selectedVerseStart + 1;
       const badge = this.containerEl.createDiv({ cls: "selection-badge" });
       const iconSpan = badge.createSpan({ cls: "selection-badge-icon" });
-      (0, import_obsidian2.setIcon)(iconSpan, "check-square");
+      (0, import_obsidian.setIcon)(iconSpan, "check-square");
       badge.createSpan({ text: `${verseCount} verses selected` });
     }
   }
@@ -4462,17 +4006,17 @@ var BibleView = class extends import_obsidian2.ItemView {
         if (this.plugin.settings.studyStreak > 0) {
           const streakEl = sessionDiv.createSpan({ cls: "session-streak" });
           const streakIcon = streakEl.createSpan({ cls: "session-stat-icon" });
-          (0, import_obsidian2.setIcon)(streakIcon, "flame");
+          (0, import_obsidian.setIcon)(streakIcon, "flame");
           streakEl.createSpan({ text: `${this.plugin.settings.studyStreak} day streak`, cls: "session-stat-text" });
         }
         const statsContainer = sessionDiv.createDiv({ cls: "session-stats-row" });
         const durationEl = statsContainer.createSpan({ cls: "session-stat" });
         const durationIcon = durationEl.createSpan({ cls: "session-stat-icon" });
-        (0, import_obsidian2.setIcon)(durationIcon, "clock");
+        (0, import_obsidian.setIcon)(durationIcon, "clock");
         durationEl.createSpan({ text: `${stats.duration}m`, cls: "session-stat-text", attr: { title: "Session duration" } });
         const chaptersEl = statsContainer.createSpan({ cls: "session-stat session-stat-clickable" });
         const chaptersIcon = chaptersEl.createSpan({ cls: "session-stat-icon" });
-        (0, import_obsidian2.setIcon)(chaptersIcon, "book-open");
+        (0, import_obsidian.setIcon)(chaptersIcon, "book-open");
         chaptersEl.createSpan({ text: `${stats.chapters}`, cls: "session-stat-text" });
         chaptersEl.setAttribute("title", "Click to see session details");
         chaptersEl.addEventListener("click", (e) => {
@@ -4482,13 +4026,13 @@ var BibleView = class extends import_obsidian2.ItemView {
         if (stats.notes > 0) {
           const notesEl = statsContainer.createSpan({ cls: "session-stat" });
           const notesIcon = notesEl.createSpan({ cls: "session-stat-icon" });
-          (0, import_obsidian2.setIcon)(notesIcon, "sticky-note");
+          (0, import_obsidian.setIcon)(notesIcon, "sticky-note");
           notesEl.createSpan({ text: `${stats.notes}`, cls: "session-stat-text", attr: { title: "Notes created" } });
         }
         if (stats.highlights > 0) {
           const highlightsEl = statsContainer.createSpan({ cls: "session-stat" });
           const highlightsIcon = highlightsEl.createSpan({ cls: "session-stat-icon" });
-          (0, import_obsidian2.setIcon)(highlightsIcon, "highlighter");
+          (0, import_obsidian.setIcon)(highlightsIcon, "highlighter");
           highlightsEl.createSpan({ text: `${stats.highlights}`, cls: "session-stat-text", attr: { title: "Highlights added" } });
         }
       }
@@ -4499,7 +4043,7 @@ var BibleView = class extends import_obsidian2.ItemView {
         const quickLink = banner.createDiv({ cls: "reading-plan-quick-link" });
         quickLink.setAttribute("title", "Click to open Reading Plans");
         const iconSpan = quickLink.createSpan({ cls: "quick-link-icon" });
-        (0, import_obsidian2.setIcon)(iconSpan, "book-open-check");
+        (0, import_obsidian.setIcon)(iconSpan, "book-open-check");
         const textSpan = quickLink.createSpan({ cls: "quick-link-text" });
         const completedCount = todaysReadings.filter((r) => r.completed).length;
         const totalCount = todaysReadings.length;
@@ -4544,14 +4088,14 @@ var BibleView = class extends import_obsidian2.ItemView {
       hints.forEach((hint) => {
         const hintEl = hintsContainer.createDiv({ cls: "onboarding-hint" });
         const iconSpan = hintEl.createSpan({ cls: "onboarding-hint-icon" });
-        (0, import_obsidian2.setIcon)(iconSpan, hint.icon);
+        (0, import_obsidian.setIcon)(iconSpan, hint.icon);
         hintEl.createSpan({ text: hint.text, cls: "onboarding-hint-text" });
       });
       const dismissBtn = onboardingBar.createEl("button", {
         cls: "onboarding-dismiss-btn",
         attr: { "aria-label": "Dismiss hints" }
       });
-      (0, import_obsidian2.setIcon)(dismissBtn, "x");
+      (0, import_obsidian.setIcon)(dismissBtn, "x");
       dismissBtn.addEventListener("click", async () => {
         this.plugin.settings.onboardingComplete = true;
         await this.plugin.saveSettings();
@@ -4612,7 +4156,7 @@ var BibleView = class extends import_obsidian2.ItemView {
     });
     const searchBtn = searchBar.createEl("button", { cls: "bible-search-btn" });
     const searchIconSpan = searchBtn.createSpan({ cls: "btn-icon" });
-    (0, import_obsidian2.setIcon)(searchIconSpan, "search");
+    (0, import_obsidian.setIcon)(searchIconSpan, "search");
     searchBtn.createSpan({ text: "Search" });
     const scopeSelect = searchBar.createEl("select", { cls: "bible-search-scope" });
     scopeSelect.createEl("option", { value: "all", text: "All Books" });
@@ -4633,7 +4177,7 @@ var BibleView = class extends import_obsidian2.ItemView {
       cls: "bible-history-btn",
       attr: { "aria-label": homeVerseLabel, "title": homeVerseLabel }
     });
-    (0, import_obsidian2.setIcon)(homeBtn, "home");
+    (0, import_obsidian.setIcon)(homeBtn, "home");
     homeBtn.addEventListener("click", () => {
       if (this.plugin.settings.homeVerse) {
         this.navigateToReference(this.plugin.settings.homeVerse);
@@ -4649,7 +4193,7 @@ var BibleView = class extends import_obsidian2.ItemView {
         "title": this.plugin.isStudyModeActive ? "End Study Session" : "Start Study Session"
       }
     });
-    (0, import_obsidian2.setIcon)(studyModeBtn, this.plugin.isStudyModeActive ? "pause-circle" : "play-circle");
+    (0, import_obsidian.setIcon)(studyModeBtn, this.plugin.isStudyModeActive ? "pause-circle" : "play-circle");
     if (this.plugin.isStudyModeActive && this.plugin.currentSession) {
       const mins = Math.floor((Date.now() - this.plugin.currentSession.startTime) / 6e4);
       studyModeBtn.createSpan({ text: ` ${mins}m`, cls: "study-timer" });
@@ -4664,7 +4208,7 @@ var BibleView = class extends import_obsidian2.ItemView {
         "title": this.plugin.settings.showContextSidebar ? "Hide Study Context" : "Show Study Context"
       }
     });
-    (0, import_obsidian2.setIcon)(contextBtn, "panel-right");
+    (0, import_obsidian.setIcon)(contextBtn, "panel-right");
     contextBtn.addEventListener("click", async () => {
       this.plugin.settings.showContextSidebar = !this.plugin.settings.showContextSidebar;
       await this.plugin.saveSettings();
@@ -4677,9 +4221,9 @@ var BibleView = class extends import_obsidian2.ItemView {
         "title": "Chapter Actions (bulk move highlights)"
       }
     });
-    (0, import_obsidian2.setIcon)(chapterActionsBtn, "more-vertical");
+    (0, import_obsidian.setIcon)(chapterActionsBtn, "more-vertical");
     chapterActionsBtn.addEventListener("click", (e) => {
-      const menu = new import_obsidian2.Menu();
+      const menu = new import_obsidian.Menu();
       const chapterHighlights = this.plugin.getHighlightsForChapter(this.currentBook, this.currentChapter);
       if (chapterHighlights.length > 0) {
         menu.addItem((item) => {
@@ -4713,7 +4257,7 @@ var BibleView = class extends import_obsidian2.ItemView {
       cls: "bible-history-btn",
       attr: { "aria-label": "Go back" }
     });
-    (0, import_obsidian2.setIcon)(backBtn, "chevron-left");
+    (0, import_obsidian.setIcon)(backBtn, "chevron-left");
     backBtn.disabled = this.historyIndex <= 0;
     backBtn.addEventListener("click", () => {
       this.navigateBack();
@@ -4722,7 +4266,7 @@ var BibleView = class extends import_obsidian2.ItemView {
       cls: "bible-history-btn",
       attr: { "aria-label": "Go forward" }
     });
-    (0, import_obsidian2.setIcon)(forwardBtn, "chevron-right");
+    (0, import_obsidian.setIcon)(forwardBtn, "chevron-right");
     forwardBtn.disabled = this.historyIndex >= this.navigationHistory.length - 1;
     forwardBtn.addEventListener("click", () => {
       this.navigateForward();
@@ -4757,7 +4301,7 @@ var BibleView = class extends import_obsidian2.ItemView {
       this.render();
     });
     const prevBtn = primaryNav.createEl("button", { cls: "bible-nav-btn" });
-    (0, import_obsidian2.setIcon)(prevBtn, "arrow-left");
+    (0, import_obsidian.setIcon)(prevBtn, "arrow-left");
     prevBtn.createSpan({ text: " Prev" });
     prevBtn.addEventListener("click", () => {
       if (this.currentChapter > 1) {
@@ -4782,7 +4326,7 @@ var BibleView = class extends import_obsidian2.ItemView {
     });
     const nextBtn = primaryNav.createEl("button", { cls: "bible-nav-btn" });
     nextBtn.createSpan({ text: "Next " });
-    (0, import_obsidian2.setIcon)(nextBtn, "arrow-right");
+    (0, import_obsidian.setIcon)(nextBtn, "arrow-right");
     nextBtn.addEventListener("click", () => {
       const chapters2 = this.plugin.getChaptersArray(this.currentVersion, this.currentBook);
       const maxChapter = Math.max(...chapters2);
@@ -4808,7 +4352,7 @@ var BibleView = class extends import_obsidian2.ItemView {
       cls: "bible-toggle-secondary-btn",
       attr: { "aria-label": "Toggle options", "title": "Toggle options" }
     });
-    (0, import_obsidian2.setIcon)(toggleSecondaryBtn, this.plugin.settings.showSecondaryNav ? "chevron-up" : "chevron-down");
+    (0, import_obsidian.setIcon)(toggleSecondaryBtn, this.plugin.settings.showSecondaryNav ? "chevron-up" : "chevron-down");
     toggleSecondaryBtn.addEventListener("click", async () => {
       this.plugin.settings.showSecondaryNav = !this.plugin.settings.showSecondaryNav;
       await this.plugin.saveSettings();
@@ -4865,7 +4409,7 @@ var BibleView = class extends import_obsidian2.ItemView {
     }
     const layerGroup = secondaryNav.createDiv({ cls: "nav-layer-group" });
     const layerIcon = layerGroup.createSpan({ cls: "layer-icon" });
-    (0, import_obsidian2.setIcon)(layerIcon, "layers");
+    (0, import_obsidian.setIcon)(layerIcon, "layers");
     const layerSelect = layerGroup.createEl("select", {
       cls: "layer-select",
       attr: { "aria-label": "Active annotation layer" }
@@ -4891,7 +4435,7 @@ var BibleView = class extends import_obsidian2.ItemView {
       });
       toggle.style.setProperty("--layer-color", layer.color);
       const eyeIcon = toggle.createSpan({ cls: "toggle-icon" });
-      (0, import_obsidian2.setIcon)(eyeIcon, this.plugin.settings.visibleAnnotationLayers.includes(layer.id) ? "eye" : "eye-off");
+      (0, import_obsidian.setIcon)(eyeIcon, this.plugin.settings.visibleAnnotationLayers.includes(layer.id) ? "eye" : "eye-off");
       toggle.addEventListener("click", async () => {
         const idx = this.plugin.settings.visibleAnnotationLayers.indexOf(layer.id);
         if (idx > -1) {
@@ -4998,7 +4542,7 @@ var BibleView = class extends import_obsidian2.ItemView {
   renderNoBiblesState(container) {
     const emptyState = container.createDiv({ cls: "bible-empty-state" });
     const iconDiv = emptyState.createDiv({ cls: "empty-state-icon" });
-    (0, import_obsidian2.setIcon)(iconDiv, "book-open");
+    (0, import_obsidian.setIcon)(iconDiv, "book-open");
     emptyState.createEl("h2", { text: "No Bible Translations Installed", cls: "empty-state-title" });
     emptyState.createEl("p", {
       text: "Download a Bible translation to get started with Bible Portal.",
@@ -5133,7 +4677,7 @@ var BibleView = class extends import_obsidian2.ItemView {
     }
     const layerGroup = navControls.createDiv({ cls: "nav-layer-group" });
     const layerIcon = layerGroup.createSpan({ cls: "layer-icon" });
-    (0, import_obsidian2.setIcon)(layerIcon, "layers");
+    (0, import_obsidian.setIcon)(layerIcon, "layers");
     const layerSelect = layerGroup.createEl("select", {
       cls: "layer-select",
       attr: { "aria-label": "Active annotation layer" }
@@ -5156,7 +4700,7 @@ var BibleView = class extends import_obsidian2.ItemView {
       });
       toggle.style.setProperty("--layer-color", layer.color);
       const eyeIcon = toggle.createSpan({ cls: "toggle-icon" });
-      (0, import_obsidian2.setIcon)(eyeIcon, this.plugin.settings.visibleAnnotationLayers.includes(layer.id) ? "eye" : "eye-off");
+      (0, import_obsidian.setIcon)(eyeIcon, this.plugin.settings.visibleAnnotationLayers.includes(layer.id) ? "eye" : "eye-off");
       toggle.addEventListener("click", async () => {
         const idx = this.plugin.settings.visibleAnnotationLayers.indexOf(layer.id);
         if (idx > -1) {
@@ -5350,7 +4894,7 @@ var BibleView = class extends import_obsidian2.ItemView {
     }
     const layerGroup = navControls.createDiv({ cls: "nav-layer-group" });
     const layerIcon = layerGroup.createSpan({ cls: "layer-icon" });
-    (0, import_obsidian2.setIcon)(layerIcon, "layers");
+    (0, import_obsidian.setIcon)(layerIcon, "layers");
     const layerSelect = layerGroup.createEl("select", {
       cls: "layer-select",
       attr: { "aria-label": "Active annotation layer" }
@@ -5373,7 +4917,7 @@ var BibleView = class extends import_obsidian2.ItemView {
       });
       toggle.style.setProperty("--layer-color", layer.color);
       const eyeIcon = toggle.createSpan({ cls: "toggle-icon" });
-      (0, import_obsidian2.setIcon)(eyeIcon, this.plugin.settings.visibleAnnotationLayers.includes(layer.id) ? "eye" : "eye-off");
+      (0, import_obsidian.setIcon)(eyeIcon, this.plugin.settings.visibleAnnotationLayers.includes(layer.id) ? "eye" : "eye-off");
       toggle.addEventListener("click", async () => {
         const idx = this.plugin.settings.visibleAnnotationLayers.indexOf(layer.id);
         if (idx > -1) {
@@ -5646,7 +5190,7 @@ var BibleView = class extends import_obsidian2.ItemView {
           cls: "note-delete-btn",
           attr: { title: "Delete book note" }
         });
-        (0, import_obsidian2.setIcon)(deleteBookNoteBtn, "trash-2");
+        (0, import_obsidian.setIcon)(deleteBookNoteBtn, "trash-2");
         deleteBookNoteBtn.addEventListener("click", async (e) => {
           e.stopPropagation();
           const notePath = currentBookNoteRefs[0].notePath;
@@ -5663,7 +5207,7 @@ var BibleView = class extends import_obsidian2.ItemView {
           cls: "note-action-btn note-create-btn"
         });
         const bookNoteIcon = createBookNoteBtn.createSpan({ cls: "btn-icon" });
-        (0, import_obsidian2.setIcon)(bookNoteIcon, "book-marked");
+        (0, import_obsidian.setIcon)(bookNoteIcon, "book-marked");
         createBookNoteBtn.createSpan({ text: "Create Book Note" });
         createBookNoteBtn.addEventListener("click", async (e) => {
           console.log("\u{1F4DA} Create book note button clicked!");
@@ -5710,7 +5254,7 @@ var BibleView = class extends import_obsidian2.ItemView {
           cls: "note-delete-btn",
           attr: { title: "Delete chapter note" }
         });
-        (0, import_obsidian2.setIcon)(deleteChapterNoteBtn, "trash-2");
+        (0, import_obsidian.setIcon)(deleteChapterNoteBtn, "trash-2");
         deleteChapterNoteBtn.addEventListener("click", async (e) => {
           e.stopPropagation();
           const notePath = currentChapterNoteRefs[0].notePath;
@@ -5727,7 +5271,7 @@ var BibleView = class extends import_obsidian2.ItemView {
           cls: "note-action-btn note-create-btn"
         });
         const chapterNoteIcon = createChapterNoteBtn.createSpan({ cls: "btn-icon" });
-        (0, import_obsidian2.setIcon)(chapterNoteIcon, "book-open");
+        (0, import_obsidian.setIcon)(chapterNoteIcon, "book-open");
         createChapterNoteBtn.createSpan({ text: "Create Chapter Note" });
         createChapterNoteBtn.addEventListener("click", async (e) => {
           e.stopPropagation();
@@ -5779,7 +5323,7 @@ var BibleView = class extends import_obsidian2.ItemView {
           cls: "bulk-action-btn"
         });
         const clearIcon = clearBtn.createSpan({ cls: "btn-icon" });
-        (0, import_obsidian2.setIcon)(clearIcon, "trash-2");
+        (0, import_obsidian.setIcon)(clearIcon, "trash-2");
         clearBtn.createSpan({ text: `Clear all (${chapterHighlights.length})` });
         clearBtn.addEventListener("click", async () => {
           await Promise.all(chapterHighlights.map((h) => this.plugin.removeHighlight(h.id)));
@@ -5817,7 +5361,7 @@ var BibleView = class extends import_obsidian2.ItemView {
         if (disputedInfo) {
           verseDiv.addClass("disputed-passage");
           const disputedIcon = verseDiv.createSpan({ cls: "disputed-icon", attr: { "aria-label": "Disputed passage" } });
-          (0, import_obsidian2.setIcon)(disputedIcon, "alert-circle");
+          (0, import_obsidian.setIcon)(disputedIcon, "alert-circle");
           if (this.plugin.settings.showDisputedTooltips) {
             disputedIcon.setAttribute("title", `${disputedInfo.name}
 
@@ -6047,7 +5591,7 @@ ${disputedInfo.manuscriptInfo}`);
               tagPill.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const menu = new import_obsidian2.Menu();
+                const menu = new import_obsidian.Menu();
                 menu.addItem((item) => {
                   item.setTitle(`Remove "${tag.tag}" tag`).setIcon("x").onClick(async () => {
                     this.plugin.removeVerseTag(tag.id);
@@ -6513,7 +6057,7 @@ ${disputedInfo.manuscriptInfo}`);
         cls: "bible-menu-item"
       });
       const itemIcon = item.createSpan({ cls: "menu-icon" });
-      (0, import_obsidian2.setIcon)(itemIcon, "trash-2");
+      (0, import_obsidian.setIcon)(itemIcon, "trash-2");
       item.createSpan({ text: "Remove highlight" });
       item.addEventListener("click", async () => {
         await Promise.all(highlights.map((h) => this.plugin.removeHighlight(h.id)));
@@ -6611,7 +6155,7 @@ ${disputedInfo.manuscriptInfo}`);
           cls: "bible-menu-item bible-menu-item-danger"
         });
         const deleteIcon = deleteNoteItem.createSpan({ cls: "menu-icon" });
-        (0, import_obsidian2.setIcon)(deleteIcon, "trash-2");
+        (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
         deleteNoteItem.createSpan({ text: `Delete ${(noteTypeInfo == null ? void 0 : noteTypeInfo.label) || "Study"} note` });
         deleteNoteItem.addEventListener("click", async () => {
           const file = this.plugin.app.vault.getAbstractFileByPath(noteRefs[0].notePath);
@@ -6630,7 +6174,7 @@ ${disputedInfo.manuscriptInfo}`);
             cls: "bible-menu-item bible-menu-item-danger"
           });
           const deleteIcon = deleteNoteItem.createSpan({ cls: "menu-icon" });
-          (0, import_obsidian2.setIcon)(deleteIcon, "trash-2");
+          (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
           deleteNoteItem.createSpan({ text: `Delete ${(noteTypeInfo == null ? void 0 : noteTypeInfo.label) || "Study"} note` });
           deleteNoteItem.addEventListener("click", async () => {
             const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
@@ -6717,7 +6261,7 @@ ${disputedInfo.manuscriptInfo}`);
       cls: "bible-menu-item"
     });
     const chapterBookmarkIcon = bookmarkChapterItem.createSpan({ cls: "menu-icon" });
-    (0, import_obsidian2.setIcon)(chapterBookmarkIcon, chapterBookmarked ? "bookmark-minus" : "bookmark-plus");
+    (0, import_obsidian.setIcon)(chapterBookmarkIcon, chapterBookmarked ? "bookmark-minus" : "bookmark-plus");
     bookmarkChapterItem.createSpan({ text: chapterBookmarked ? "Remove chapter bookmark" : "Bookmark chapter" });
     bookmarkChapterItem.addEventListener("click", async () => {
       menu.remove();
@@ -6754,7 +6298,7 @@ ${disputedInfo.manuscriptInfo}`);
       cls: "bible-menu-item"
     });
     const bookBookmarkIcon = bookmarkBookItem.createSpan({ cls: "menu-icon" });
-    (0, import_obsidian2.setIcon)(bookBookmarkIcon, bookBookmarked ? "book-minus" : "book-plus");
+    (0, import_obsidian.setIcon)(bookBookmarkIcon, bookBookmarked ? "book-minus" : "book-plus");
     bookmarkBookItem.createSpan({ text: bookBookmarked ? "Remove book bookmark" : "Bookmark book" });
     bookmarkBookItem.addEventListener("click", async () => {
       if (bookBookmarked) {
@@ -6798,7 +6342,7 @@ ${disputedInfo.manuscriptInfo}`);
           cls: "bible-menu-item bible-menu-tag-item"
         });
         const tagIcon = tagItem.createSpan({ cls: "menu-icon" });
-        (0, import_obsidian2.setIcon)(tagIcon, "tag");
+        (0, import_obsidian.setIcon)(tagIcon, "tag");
         tagItem.createSpan({ text: `${tag.tag} \u2715` });
         tagItem.addEventListener("click", async () => {
           this.plugin.removeVerseTag(tag.id);
@@ -6816,7 +6360,7 @@ ${disputedInfo.manuscriptInfo}`);
         cls: "bible-menu-item bible-menu-item-expand"
       });
       const addExistingIcon = addExistingHeader.createSpan({ cls: "menu-icon" });
-      (0, import_obsidian2.setIcon)(addExistingIcon, "tag");
+      (0, import_obsidian.setIcon)(addExistingIcon, "tag");
       addExistingHeader.createSpan({ text: "Add existing tag..." });
       const tagSubmenu = menu.createEl("div", { cls: "bible-menu-submenu" });
       tagSubmenu.style.display = "none";
@@ -6849,7 +6393,7 @@ ${disputedInfo.manuscriptInfo}`);
       cls: "bible-menu-item"
     });
     const addNewIcon = addNewTagItem.createSpan({ cls: "menu-icon" });
-    (0, import_obsidian2.setIcon)(addNewIcon, "tag-plus");
+    (0, import_obsidian.setIcon)(addNewIcon, "tag-plus");
     addNewTagItem.createSpan({ text: "Add new tag..." });
     addNewTagItem.addEventListener("click", () => {
       menu.remove();
@@ -6864,7 +6408,7 @@ ${disputedInfo.manuscriptInfo}`);
           cls: "bible-menu-item"
         });
         const removeMemIcon = removeMemItem.createSpan({ cls: "menu-icon" });
-        (0, import_obsidian2.setIcon)(removeMemIcon, "brain");
+        (0, import_obsidian.setIcon)(removeMemIcon, "brain");
         removeMemItem.createSpan({ text: "Remove from memorization" });
         removeMemItem.addEventListener("click", async () => {
           this.plugin.settings.memorizationVerses = this.plugin.settings.memorizationVerses.filter(
@@ -6879,7 +6423,7 @@ ${disputedInfo.manuscriptInfo}`);
           cls: "bible-menu-item"
         });
         const addMemIcon = addMemItem.createSpan({ cls: "menu-icon" });
-        (0, import_obsidian2.setIcon)(addMemIcon, "brain");
+        (0, import_obsidian.setIcon)(addMemIcon, "brain");
         addMemItem.createSpan({ text: "Add to memorization" });
         addMemItem.addEventListener("click", async () => {
           const verseText = this.plugin.getVerseText(this.currentVersion, book, chapter, verse) || "";
@@ -6946,7 +6490,7 @@ ${disputedInfo.manuscriptInfo}`);
     setTimeout(() => document.addEventListener("click", closeMenu), 10);
   }
   showCrossReferencePopup(event, book, chapter, verse, crossRefs) {
-    const modal = new import_obsidian2.Modal(this.app);
+    const modal = new import_obsidian.Modal(this.app);
     modal.titleEl.setText(`Cross-References for ${book} ${chapter}:${verse}`);
     const { contentEl } = modal;
     contentEl.empty();
@@ -7341,7 +6885,7 @@ ${disputedInfo.manuscriptInfo}`);
           cls: "search-result-action-btn"
         });
         const goToIcon = goToVerseBtn.createSpan({ cls: "btn-icon" });
-        (0, import_obsidian2.setIcon)(goToIcon, "book-open");
+        (0, import_obsidian.setIcon)(goToIcon, "book-open");
         goToVerseBtn.createSpan({ text: "Go to Verse" });
         const openNoteBtn = actionsEl.createEl("button", {
           text: "\u{1F4DD} Open Note",
@@ -7443,7 +6987,7 @@ ${disputedInfo.manuscriptInfo}`);
           cls: "bookmark-delete-btn",
           attr: { title: "Remove bookmark" }
         });
-        (0, import_obsidian2.setIcon)(deleteBtn, "trash-2");
+        (0, import_obsidian.setIcon)(deleteBtn, "trash-2");
         deleteBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           this.plugin.removeBookmark(bookmark.id);
@@ -8281,7 +7825,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "theographic-view-header" });
     const h2 = header.createEl("h2", { cls: "theographic-view-title" });
     const peopleIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(peopleIcon, "users");
+    (0, import_obsidian.setIcon)(peopleIcon, "users");
     h2.createSpan({ text: "People Index" });
     header.createEl("p", {
       text: `Browse all ${((_a = this.plugin.theographicData.people) == null ? void 0 : _a.length.toLocaleString()) || 0} people mentioned in the Bible`,
@@ -8629,7 +8173,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "theographic-view-header" });
     const h2 = header.createEl("h2", { cls: "theographic-view-title" });
     const mapIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(mapIcon, "map");
+    (0, import_obsidian.setIcon)(mapIcon, "map");
     h2.createSpan({ text: "Biblical Places" });
     header.createEl("p", {
       text: `Browse ${((_a = this.plugin.theographicData.places) == null ? void 0 : _a.length.toLocaleString()) || 0} biblical locations`,
@@ -8702,7 +8246,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "theographic-view-header" });
     const h2 = header.createEl("h2", { cls: "theographic-view-title" });
     const timelineIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(timelineIcon, "calendar");
+    (0, import_obsidian.setIcon)(timelineIcon, "calendar");
     h2.createSpan({ text: "Biblical Timeline" });
     header.createEl("p", {
       text: `Explore ${((_a = this.plugin.theographicData.events) == null ? void 0 : _a.length.toLocaleString()) || 0} biblical events in chronological order`,
@@ -8809,7 +8353,7 @@ ${disputedInfo.manuscriptInfo}`);
       chapterCounts.set(chapterKey, (chapterCounts.get(chapterKey) || 0) + 1);
       try {
         const file = this.app.vault.getAbstractFileByPath(note.notePath);
-        if (file instanceof import_obsidian2.TFile) {
+        if (file instanceof import_obsidian.TFile) {
           const content = await this.app.vault.read(file);
           totalWordCount += content.split(/\s+/).filter((w) => w.length > 0).length;
         }
@@ -8831,7 +8375,7 @@ ${disputedInfo.manuscriptInfo}`);
       for (const note of this.plugin.noteReferences) {
         try {
           const file = this.app.vault.getAbstractFileByPath(note.notePath);
-          if (file instanceof import_obsidian2.TFile) {
+          if (file instanceof import_obsidian.TFile) {
             const mtime = file.stat.mtime;
             if (mtime >= dayStart && mtime < dayEnd) {
               count++;
@@ -8850,7 +8394,7 @@ ${disputedInfo.manuscriptInfo}`);
       for (const note of this.plugin.noteReferences) {
         try {
           const file = this.app.vault.getAbstractFileByPath(note.notePath);
-          if (file instanceof import_obsidian2.TFile) {
+          if (file instanceof import_obsidian.TFile) {
             const mtime = file.stat.mtime;
             if (mtime >= dayStart && mtime < dayEnd) {
               hasActivity = true;
@@ -8891,7 +8435,7 @@ ${disputedInfo.manuscriptInfo}`);
       const orphanedNotes = [];
       for (const noteRef of this.plugin.noteReferences) {
         const file = this.app.vault.getAbstractFileByPath(noteRef.notePath);
-        if (!(file instanceof import_obsidian2.TFile)) {
+        if (!(file instanceof import_obsidian.TFile)) {
           orphanedNotes.push(noteRef);
         }
       }
@@ -8908,7 +8452,7 @@ ${disputedInfo.manuscriptInfo}`);
       if (confirmRemove) {
         const validNotes = this.plugin.noteReferences.filter((noteRef) => {
           const file = this.app.vault.getAbstractFileByPath(noteRef.notePath);
-          return file instanceof import_obsidian2.TFile;
+          return file instanceof import_obsidian.TFile;
         });
         this.plugin.noteReferences = validNotes;
         await this.plugin.saveHighlightsAndNotes();
@@ -8928,7 +8472,7 @@ ${disputedInfo.manuscriptInfo}`);
       const notesWithContent = [];
       for (const noteRef of this.plugin.noteReferences) {
         const file = this.app.vault.getAbstractFileByPath(noteRef.notePath);
-        if (file instanceof import_obsidian2.TFile) {
+        if (file instanceof import_obsidian.TFile) {
           const content = await this.app.vault.read(file);
           const filename = noteRef.notePath.split("/").pop() || `${noteRef.book} ${noteRef.chapter}_${noteRef.verse} - ${noteRef.noteLevel} note.md`;
           notesWithContent.push({
@@ -9147,14 +8691,14 @@ ${disputedInfo.manuscriptInfo}`);
       attr: { title: "Toggle bulk selection mode" }
     });
     const bulkToggleIcon = bulkToggleBtn.createSpan({ cls: "bulk-icon" });
-    (0, import_obsidian2.setIcon)(bulkToggleIcon, "check-square");
+    (0, import_obsidian.setIcon)(bulkToggleIcon, "check-square");
     bulkToggleBtn.createSpan({ text: " Select" });
     const bulkDeleteBtn = bulkActionsDiv.createEl("button", {
       cls: "notes-action-btn bulk-delete-btn",
       attr: { title: "Delete selected notes" }
     });
     const bulkDeleteIcon = bulkDeleteBtn.createSpan({ cls: "bulk-icon" });
-    (0, import_obsidian2.setIcon)(bulkDeleteIcon, "trash-2");
+    (0, import_obsidian.setIcon)(bulkDeleteIcon, "trash-2");
     bulkDeleteBtn.createSpan({ text: " Delete", cls: "bulk-count" });
     const bulkSelectAllBtn = bulkActionsDiv.createEl("button", {
       text: "All",
@@ -9248,7 +8792,7 @@ ${disputedInfo.manuscriptInfo}`);
           let content = noteContentCache.get(note.notePath);
           if (!content) {
             const file = this.app.vault.getAbstractFileByPath(note.notePath);
-            if (file instanceof import_obsidian2.TFile) {
+            if (file instanceof import_obsidian.TFile) {
               try {
                 content = await this.app.vault.read(file);
                 noteContentCache.set(note.notePath, content);
@@ -9284,7 +8828,7 @@ ${disputedInfo.manuscriptInfo}`);
         const notesWithMtime = [];
         for (const note of filteredNotes) {
           const file = this.app.vault.getAbstractFileByPath(note.notePath);
-          const mtime = file instanceof import_obsidian2.TFile ? file.stat.mtime : 0;
+          const mtime = file instanceof import_obsidian.TFile ? file.stat.mtime : 0;
           notesWithMtime.push({ note, mtime });
         }
         notesWithMtime.sort((a, b) => {
@@ -9357,7 +8901,7 @@ ${disputedInfo.manuscriptInfo}`);
               attr: { title: note.isPinned ? "Unpin note" : "Pin note" }
             });
             const pinIcon = pinBtn.createSpan({ cls: "pin-icon" });
-            (0, import_obsidian2.setIcon)(pinIcon, "pin");
+            (0, import_obsidian.setIcon)(pinIcon, "pin");
             pinBtn.addEventListener("click", (e) => {
               e.stopPropagation();
               togglePin(note);
@@ -9387,7 +8931,7 @@ ${disputedInfo.manuscriptInfo}`);
           noteItem.addEventListener("dblclick", async () => {
             if (!bulkMode) {
               const file = this.app.vault.getAbstractFileByPath(note.notePath);
-              if (file instanceof import_obsidian2.TFile) {
+              if (file instanceof import_obsidian.TFile) {
                 await this.app.workspace.getLeaf("split").openFile(file);
                 this.navigateToReference(referenceText);
               }
@@ -9444,7 +8988,7 @@ ${disputedInfo.manuscriptInfo}`);
             attr: { title: note.isPinned ? "Unpin note" : "Pin note" }
           });
           const pinIcon = pinBtn.createSpan({ cls: "pin-icon" });
-          (0, import_obsidian2.setIcon)(pinIcon, "pin");
+          (0, import_obsidian.setIcon)(pinIcon, "pin");
           pinBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             togglePin(note);
@@ -9454,7 +8998,7 @@ ${disputedInfo.manuscriptInfo}`);
           const cardContent = card.createDiv({ cls: "card-content-preview" });
           try {
             const file = this.app.vault.getAbstractFileByPath(note.notePath);
-            if (file instanceof import_obsidian2.TFile) {
+            if (file instanceof import_obsidian.TFile) {
               const content = await this.app.vault.read(file);
               let textContent = content.replace(/^\s*---[\s\S]*?---\r?\n*/m, "").trim();
               textContent = textContent.replace(/^#+\s+.*\r?\n*/m, "").trim();
@@ -9472,7 +9016,7 @@ ${disputedInfo.manuscriptInfo}`);
           card.addEventListener("click", () => handleNoteClick(note, referenceText, card));
           card.addEventListener("dblclick", async () => {
             const file = this.app.vault.getAbstractFileByPath(note.notePath);
-            if (file instanceof import_obsidian2.TFile) {
+            if (file instanceof import_obsidian.TFile) {
               await this.app.workspace.getLeaf("split").openFile(file);
               this.navigateToReference(referenceText);
             }
@@ -9483,7 +9027,7 @@ ${disputedInfo.manuscriptInfo}`);
         const notesWithDates = [];
         for (const note of filteredNotes) {
           const file = this.app.vault.getAbstractFileByPath(note.notePath);
-          if (file instanceof import_obsidian2.TFile) {
+          if (file instanceof import_obsidian.TFile) {
             const mtime = file.stat.mtime;
             const date = new Date(mtime).toLocaleDateString("en-US", {
               year: "numeric",
@@ -9564,7 +9108,7 @@ ${disputedInfo.manuscriptInfo}`);
     const renderPreview = async (note, referenceText) => {
       previewPanel.empty();
       const file = this.app.vault.getAbstractFileByPath(note.notePath);
-      if (!(file instanceof import_obsidian2.TFile)) {
+      if (!(file instanceof import_obsidian.TFile)) {
         previewPanel.createEl("div", { text: "Note file not found", cls: "notes-preview-error" });
         return;
       }
@@ -9609,7 +9153,7 @@ ${disputedInfo.manuscriptInfo}`);
       });
       const previewContent = previewPanel.createDiv({ cls: "notes-preview-content" });
       try {
-        await import_obsidian2.MarkdownRenderer.renderMarkdown(
+        await import_obsidian.MarkdownRenderer.renderMarkdown(
           fileContent,
           previewContent,
           note.notePath,
@@ -10033,7 +9577,7 @@ ${disputedInfo.manuscriptInfo}`);
     bulkMoveToLayerBtn.addEventListener("click", (e) => {
       if (selectedHighlightIds.size === 0)
         return;
-      const menu = new import_obsidian2.Menu();
+      const menu = new import_obsidian.Menu();
       this.plugin.settings.annotationLayers.forEach((layer) => {
         menu.addItem((item) => {
           item.setTitle(layer.name);
@@ -10113,7 +9657,7 @@ ${disputedInfo.manuscriptInfo}`);
       const colorLabel = colorPickerContainer.createSpan({ text: currentColorName, cls: "preview-color-label" });
       colorPickerContainer.setAttribute("title", "Click to change color");
       colorPickerContainer.addEventListener("click", (e) => {
-        const menu = new import_obsidian2.Menu();
+        const menu = new import_obsidian.Menu();
         this.plugin.settings.highlightColors.forEach((color) => {
           menu.addItem((item) => {
             item.setTitle(color.name);
@@ -10537,7 +10081,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   async showDeleteHighlightConfirmation(reference) {
     return new Promise((resolve) => {
-      const modal = new import_obsidian2.Modal(this.app);
+      const modal = new import_obsidian.Modal(this.app);
       modal.titleEl.setText("\u26A0\uFE0F Delete Highlight");
       const content = modal.contentEl;
       content.createEl("p", {
@@ -10573,7 +10117,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   async showBulkDeleteHighlightsConfirmation(count) {
     return new Promise((resolve) => {
-      const modal = new import_obsidian2.Modal(this.app);
+      const modal = new import_obsidian.Modal(this.app);
       modal.titleEl.setText("\u26A0\uFE0F Delete Multiple Highlights");
       const content = modal.contentEl;
       content.createEl("p", {
@@ -10609,7 +10153,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   async showClearAllHighlightsConfirmation(count) {
     return new Promise((resolve) => {
-      const modal = new import_obsidian2.Modal(this.app);
+      const modal = new import_obsidian.Modal(this.app);
       modal.titleEl.setText("\u26A0\uFE0F Clear All Visible Highlights");
       const content = modal.contentEl;
       content.createEl("p", {
@@ -11187,7 +10731,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "concordance-header" });
     const h2 = header.createEl("h2", { cls: "concordance-title" });
     const concordanceIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(concordanceIcon, "list");
+    (0, import_obsidian.setIcon)(concordanceIcon, "list");
     h2.createSpan({ text: "Concordance" });
     if (!this.plugin.concordanceData) {
       const noConcordanceDiv = container.createDiv({ cls: "concordance-empty-state" });
@@ -11515,7 +11059,7 @@ ${disputedInfo.manuscriptInfo}`);
     const exportBtn = actionsDiv.createEl("button", { text: "\u{1F4E4} Export", cls: "tags-action-btn" });
     exportBtn.addEventListener("click", async () => {
       if (this.plugin.verseTags.length === 0) {
-        new import_obsidian2.Notice("No tags to export");
+        new import_obsidian.Notice("No tags to export");
         return;
       }
       try {
@@ -11533,10 +11077,10 @@ ${disputedInfo.manuscriptInfo}`);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        new import_obsidian2.Notice(`\u2705 Exported ${this.plugin.verseTags.length} verse-tag associations`);
+        new import_obsidian.Notice(`\u2705 Exported ${this.plugin.verseTags.length} verse-tag associations`);
       } catch (error) {
         console.error("Error exporting tags:", error);
-        new import_obsidian2.Notice("Error exporting tags");
+        new import_obsidian.Notice("Error exporting tags");
       }
     });
     const importBtn = actionsDiv.createEl("button", { text: "\u{1F4E5} Import", cls: "tags-action-btn" });
@@ -11553,12 +11097,12 @@ ${disputedInfo.manuscriptInfo}`);
           const text = await file.text();
           const importData = JSON.parse(text);
           if (!importData.tags || !Array.isArray(importData.tags)) {
-            new import_obsidian2.Notice("Invalid tags file format");
+            new import_obsidian.Notice("Invalid tags file format");
             return;
           }
           for (const tag of importData.tags) {
             if (!tag.book || !tag.chapter || !tag.verse || !tag.tag) {
-              new import_obsidian2.Notice("Invalid tag entry found - missing required fields");
+              new import_obsidian.Notice("Invalid tag entry found - missing required fields");
               return;
             }
           }
@@ -11576,11 +11120,11 @@ ${disputedInfo.manuscriptInfo}`);
             ...await this.plugin.loadData(),
             verseTags: this.plugin.verseTags
           });
-          new import_obsidian2.Notice(`\u2705 Imported ${added} new tags (${importData.tags.length - added} duplicates skipped)`);
+          new import_obsidian.Notice(`\u2705 Imported ${added} new tags (${importData.tags.length - added} duplicates skipped)`);
           this.render();
         } catch (error) {
           console.error("Error importing tags:", error);
-          new import_obsidian2.Notice("Error importing tags file. Make sure it is valid JSON.");
+          new import_obsidian.Notice("Error importing tags file. Make sure it is valid JSON.");
         }
       };
       input.click();
@@ -11658,7 +11202,7 @@ ${disputedInfo.manuscriptInfo}`);
           });
           verseItem.addEventListener("contextmenu", (e) => {
             e.preventDefault();
-            const menu = new import_obsidian2.Menu();
+            const menu = new import_obsidian.Menu();
             menu.addItem((item) => {
               item.setTitle("Remove Tag").setIcon("x").onClick(() => {
                 this.plugin.removeVerseTag(vt.id);
@@ -11741,7 +11285,7 @@ ${disputedInfo.manuscriptInfo}`);
         });
         tagItem.addEventListener("contextmenu", (e) => {
           e.preventDefault();
-          const menu = new import_obsidian2.Menu();
+          const menu = new import_obsidian.Menu();
           menu.addItem((item) => {
             item.setTitle("Rename Tag").setIcon("pencil").onClick(() => {
               this.showRenameTagDialog(tag);
@@ -11906,7 +11450,7 @@ ${disputedInfo.manuscriptInfo}`);
    * Show dialog to create a new tag and apply to a verse
    */
   showCreateTagDialog() {
-    const modal = new import_obsidian2.Modal(this.app);
+    const modal = new import_obsidian.Modal(this.app);
     modal.titleEl.setText("Create New Tag");
     const content = modal.contentEl;
     content.createEl("p", {
@@ -11951,7 +11495,7 @@ ${disputedInfo.manuscriptInfo}`);
    * Show dialog to add a new tag to a specific verse
    */
   showAddTagToVerseDialog(book, chapter, verse) {
-    const modal = new import_obsidian2.Modal(this.app);
+    const modal = new import_obsidian.Modal(this.app);
     modal.titleEl.setText("Add Tag to Verse");
     const content = modal.contentEl;
     content.createEl("p", {
@@ -12024,7 +11568,7 @@ ${disputedInfo.manuscriptInfo}`);
    * Show dialog to rename a tag
    */
   showRenameTagDialog(oldName) {
-    const modal = new import_obsidian2.Modal(this.app);
+    const modal = new import_obsidian.Modal(this.app);
     modal.titleEl.setText("Rename Tag");
     const content = modal.contentEl;
     content.createEl("p", {
@@ -12062,7 +11606,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   showDeleteTagConfirmation(tagName) {
     const verseCount = this.plugin.getVersesWithTag(tagName).length;
-    const modal = new import_obsidian2.Modal(this.app);
+    const modal = new import_obsidian.Modal(this.app);
     modal.titleEl.setText("Delete Tag");
     const content = modal.contentEl;
     content.createEl("p", {
@@ -12185,7 +11729,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   async showBookmarkImportModeDialog(importCount) {
     return new Promise((resolve) => {
-      const modal = new import_obsidian2.Modal(this.app);
+      const modal = new import_obsidian.Modal(this.app);
       modal.titleEl.setText("Import Bookmarks");
       const content = modal.contentEl;
       content.createEl("p", {
@@ -12242,7 +11786,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   async showDeleteBookmarkConfirmation(reference) {
     return new Promise((resolve) => {
-      const modal = new import_obsidian2.Modal(this.app);
+      const modal = new import_obsidian.Modal(this.app);
       modal.titleEl.setText("\u26A0\uFE0F Delete Bookmark");
       const content = modal.contentEl;
       content.createEl("p", {
@@ -12278,7 +11822,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   async showClearAllBookmarksConfirmation() {
     return new Promise((resolve) => {
-      const modal = new import_obsidian2.Modal(this.app);
+      const modal = new import_obsidian.Modal(this.app);
       modal.titleEl.setText("\u26A0\uFE0F Clear All Bookmarks");
       const content = modal.contentEl;
       content.createEl("p", {
@@ -12411,7 +11955,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   async showImportModeDialog(importCount) {
     return new Promise((resolve) => {
-      const modal = new import_obsidian2.Modal(this.app);
+      const modal = new import_obsidian.Modal(this.app);
       modal.titleEl.setText("Import Highlights");
       const content = modal.contentEl;
       content.createEl("p", {
@@ -12478,7 +12022,7 @@ ${disputedInfo.manuscriptInfo}`);
     statItems.forEach((item) => {
       const statEl = statsGrid.createDiv({ cls: "stat-item" });
       const iconSpan = statEl.createSpan({ cls: "stat-icon" });
-      (0, import_obsidian2.setIcon)(iconSpan, item.icon);
+      (0, import_obsidian.setIcon)(iconSpan, item.icon);
       statEl.createSpan({ text: String(item.value), cls: "stat-value" });
       statEl.createSpan({ text: item.label, cls: "stat-label" });
     });
@@ -12514,7 +12058,7 @@ ${disputedInfo.manuscriptInfo}`);
         card.style.setProperty("--rarity-color", rarityColors[achievement.rarity]);
         const iconDiv = card.createDiv({ cls: "achievement-icon" });
         const iconSpan = iconDiv.createSpan();
-        (0, import_obsidian2.setIcon)(iconSpan, unlocked ? achievement.icon : "lock");
+        (0, import_obsidian.setIcon)(iconSpan, unlocked ? achievement.icon : "lock");
         const infoDiv = card.createDiv({ cls: "achievement-info" });
         infoDiv.createEl("span", { text: achievement.name, cls: "achievement-name" });
         infoDiv.createEl("span", { text: achievement.description, cls: "achievement-desc" });
@@ -12534,7 +12078,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "reading-plan-view-header" });
     const h2 = header.createEl("h2");
     const readingIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(readingIcon, "book-open-check");
+    (0, import_obsidian.setIcon)(readingIcon, "book-open-check");
     h2.createSpan({ text: "Reading Plans" });
     if (activePlans.length > 0) {
       header.createEl("p", {
@@ -12564,7 +12108,7 @@ ${disputedInfo.manuscriptInfo}`);
       });
       const toggleSlider = toggleLabel.createSpan({ cls: "plan-toggle-slider" });
       const planIcon = planCard.createDiv({ cls: "plan-card-icon" });
-      (0, import_obsidian2.setIcon)(planIcon, isActive ? "book-open-check" : "book-open");
+      (0, import_obsidian.setIcon)(planIcon, isActive ? "book-open-check" : "book-open");
       planCard.createEl("h4", { text: p.name });
       planCard.createEl("p", { text: p.description, cls: "plan-card-desc" });
       planCard.createEl("span", { text: `${p.totalDays} days`, cls: "plan-card-duration" });
@@ -12591,7 +12135,7 @@ ${disputedInfo.manuscriptInfo}`);
           cls: `adaptive-mode-card ${this.plugin.settings.readingPlanMode === mode.id ? "active" : ""}`
         });
         const modeIcon = modeCard.createDiv({ cls: "mode-icon" });
-        (0, import_obsidian2.setIcon)(modeIcon, mode.icon);
+        (0, import_obsidian.setIcon)(modeIcon, mode.icon);
         modeCard.createDiv({ text: mode.label, cls: "mode-label" });
         modeCard.createDiv({ text: mode.desc, cls: "mode-desc" });
         modeCard.addEventListener("click", async () => {
@@ -12609,13 +12153,13 @@ ${disputedInfo.manuscriptInfo}`);
         const todayCard = todaySection.createDiv({ cls: "today-reading-card" });
         const planHeader = todayCard.createDiv({ cls: "today-plan-header" });
         const planIcon = planHeader.createSpan({ cls: "today-plan-icon" });
-        (0, import_obsidian2.setIcon)(planIcon, "book-open-check");
+        (0, import_obsidian.setIcon)(planIcon, "book-open-check");
         planHeader.createSpan({ text: reading.plan.name, cls: "today-plan-name" });
         planHeader.createSpan({ text: `Day ${reading.day} of ${reading.plan.totalDays}`, cls: "today-plan-day" });
         if (reading.completed) {
           todayCard.addClass("completed");
           const completedBadge = todayCard.createDiv({ cls: "today-completed-badge" });
-          (0, import_obsidian2.setIcon)(completedBadge, "check-circle");
+          (0, import_obsidian.setIcon)(completedBadge, "check-circle");
           completedBadge.createSpan({ text: "Completed!" });
         }
         const passagesDiv = todayCard.createDiv({ cls: "today-passages" });
@@ -12640,7 +12184,7 @@ ${disputedInfo.manuscriptInfo}`);
             cls: "mark-complete-btn"
           });
           const btnIcon = markCompleteBtn.createSpan({ cls: "btn-icon" });
-          (0, import_obsidian2.setIcon)(btnIcon, "check");
+          (0, import_obsidian.setIcon)(btnIcon, "check");
           markCompleteBtn.createSpan({ text: "Mark as Complete" });
           markCompleteBtn.addEventListener("click", async () => {
             await this.plugin.markReadingComplete(reading.day, reading.plan.id);
@@ -12661,7 +12205,7 @@ ${disputedInfo.manuscriptInfo}`);
         const planProgressCard = progressSection.createDiv({ cls: "plan-progress-card" });
         const planProgressHeader = planProgressCard.createDiv({ cls: "plan-progress-header" });
         const headerIcon = planProgressHeader.createSpan({ cls: "plan-progress-icon" });
-        (0, import_obsidian2.setIcon)(headerIcon, "book-open-check");
+        (0, import_obsidian.setIcon)(headerIcon, "book-open-check");
         planProgressHeader.createSpan({ text: plan.name, cls: "plan-progress-name" });
         const progressBarContainer = planProgressCard.createDiv({ cls: "progress-bar-large-container" });
         const progressBar = progressBarContainer.createDiv({ cls: "progress-bar-large" });
@@ -12683,7 +12227,7 @@ ${disputedInfo.manuscriptInfo}`);
           if (behindBy > 1 && this.plugin.settings.readingPlanMode !== "skip-ahead") {
             const behindWarning = planProgressCard.createDiv({ cls: "behind-schedule-warning" });
             const warningIcon = behindWarning.createSpan({ cls: "warning-icon" });
-            (0, import_obsidian2.setIcon)(warningIcon, "alert-triangle");
+            (0, import_obsidian.setIcon)(warningIcon, "alert-triangle");
             behindWarning.createSpan({ text: `${behindBy} days behind schedule` });
           }
         }
@@ -12694,7 +12238,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "journal-header" });
     const h2 = header.createEl("h2");
     const journalIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(journalIcon, "book-text");
+    (0, import_obsidian.setIcon)(journalIcon, "book-text");
     h2.createSpan({ text: "Study Journal" });
     const entrySection = container.createDiv({ cls: "journal-entry-section" });
     entrySection.createEl("h3", { text: "Add Reflection" });
@@ -12758,25 +12302,25 @@ ${disputedInfo.manuscriptInfo}`);
           if (entry.duration) {
             const statItem = statsGrid.createDiv({ cls: "stat-item" });
             const iconSpan = statItem.createSpan({ cls: "stat-icon" });
-            (0, import_obsidian2.setIcon)(iconSpan, "clock");
+            (0, import_obsidian.setIcon)(iconSpan, "clock");
             statItem.createSpan({ text: `${entry.duration} min`, cls: "stat-value" });
           }
           if (entry.versesRead) {
             const statItem = statsGrid.createDiv({ cls: "stat-item" });
             const iconSpan = statItem.createSpan({ cls: "stat-icon" });
-            (0, import_obsidian2.setIcon)(iconSpan, "book-open");
+            (0, import_obsidian.setIcon)(iconSpan, "book-open");
             statItem.createSpan({ text: `${entry.versesRead} verses`, cls: "stat-value" });
           }
           if (entry.notesCreated && entry.notesCreated > 0) {
             const statItem = statsGrid.createDiv({ cls: "stat-item" });
             const iconSpan = statItem.createSpan({ cls: "stat-icon" });
-            (0, import_obsidian2.setIcon)(iconSpan, "sticky-note");
+            (0, import_obsidian.setIcon)(iconSpan, "sticky-note");
             statItem.createSpan({ text: `${entry.notesCreated} notes`, cls: "stat-value" });
           }
           if (entry.highlightsAdded && entry.highlightsAdded > 0) {
             const statItem = statsGrid.createDiv({ cls: "stat-item" });
             const iconSpan = statItem.createSpan({ cls: "stat-icon" });
-            (0, import_obsidian2.setIcon)(iconSpan, "highlighter");
+            (0, import_obsidian.setIcon)(iconSpan, "highlighter");
             statItem.createSpan({ text: `${entry.highlightsAdded} highlights`, cls: "stat-value" });
           }
           if (entry.chaptersVisited && entry.chaptersVisited.length > 0) {
@@ -12796,7 +12340,7 @@ ${disputedInfo.manuscriptInfo}`);
           attr: { "aria-label": "Delete entry", title: "Delete entry" }
         });
         const deleteIcon = deleteBtn.createSpan();
-        (0, import_obsidian2.setIcon)(deleteIcon, "trash-2");
+        (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
         deleteBtn.addEventListener("click", async () => {
           if (confirm("Are you sure you want to delete this journal entry?")) {
             const index = this.plugin.settings.journalEntries.findIndex((e) => e.id === entry.id);
@@ -12861,14 +12405,14 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "collections-header" });
     const h2 = header.createEl("h2");
     const titleIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "folder-open");
+    (0, import_obsidian.setIcon)(titleIcon, "folder-open");
     h2.createSpan({ text: "Study Collections" });
     const layout = container.createDiv({ cls: "collections-layout" });
     const listPanel = layout.createDiv({ cls: "collections-list-panel" });
     const detailPanel = layout.createDiv({ cls: "collections-detail-panel" });
     const newBtn = listPanel.createEl("button", { cls: "collections-new-btn" });
     const plusIcon = newBtn.createSpan({ cls: "btn-icon" });
-    (0, import_obsidian2.setIcon)(plusIcon, "plus");
+    (0, import_obsidian.setIcon)(plusIcon, "plus");
     newBtn.createSpan({ text: "New Collection" });
     this.registerDomEvent(newBtn, "click", async (e) => {
       e.preventDefault();
@@ -12970,7 +12514,7 @@ ${disputedInfo.manuscriptInfo}`);
       placeholder: "Collection name..."
     });
     const editHint = nameWrapper.createSpan({ cls: "collection-name-edit-hint" });
-    (0, import_obsidian2.setIcon)(editHint, "pencil");
+    (0, import_obsidian.setIcon)(editHint, "pencil");
     this.registerDomEvent(nameInput, "change", async () => {
       collection.name = nameInput.value || "Untitled Collection";
       await this.plugin.saveSettings();
@@ -12984,7 +12528,7 @@ ${disputedInfo.manuscriptInfo}`);
     }
     const deleteBtn = header.createEl("button", { cls: "collection-delete-btn" });
     const deleteIcon = deleteBtn.createSpan();
-    (0, import_obsidian2.setIcon)(deleteIcon, "trash-2");
+    (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
     this.registerDomEvent(deleteBtn, "click", async () => {
       if (confirm(`Delete collection "${collection.name}"?`)) {
         const idx = this.plugin.settings.collections.findIndex((c) => c.id === collection.id);
@@ -13023,7 +12567,7 @@ ${disputedInfo.manuscriptInfo}`);
     });
     const addBtn = addRow.createEl("button", { cls: "collection-add-btn" });
     const addBtnIcon = addBtn.createSpan({ cls: "btn-icon" });
-    (0, import_obsidian2.setIcon)(addBtnIcon, "plus");
+    (0, import_obsidian.setIcon)(addBtnIcon, "plus");
     addBtn.createSpan({ text: "Add Verse" });
     const addVerse = async () => {
       const ref = addInput.value.trim();
@@ -13057,7 +12601,7 @@ ${disputedInfo.manuscriptInfo}`);
       });
       const removeBtn = verseItem.createEl("button", { cls: "collection-verse-remove" });
       const removeIcon = removeBtn.createSpan();
-      (0, import_obsidian2.setIcon)(removeIcon, "x");
+      (0, import_obsidian.setIcon)(removeIcon, "x");
       this.registerDomEvent(removeBtn, "click", async () => {
         collection.verses.splice(idx, 1);
         await this.plugin.saveSettings();
@@ -13077,7 +12621,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "memorization-header" });
     const h2 = header.createEl("h2");
     const titleIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "brain");
+    (0, import_obsidian.setIcon)(titleIcon, "brain");
     h2.createSpan({ text: "Scripture Memorization" });
     const verses = this.plugin.settings.memorizationVerses || [];
     const today = new Date().toISOString().split("T")[0];
@@ -13097,7 +12641,7 @@ ${disputedInfo.manuscriptInfo}`);
     ].forEach((stat) => {
       const card = statsGrid.createDiv({ cls: `memorization-stat-card ${stat.cls}` });
       const iconEl = card.createDiv({ cls: "stat-icon" });
-      (0, import_obsidian2.setIcon)(iconEl, stat.icon);
+      (0, import_obsidian.setIcon)(iconEl, stat.icon);
       card.createDiv({ text: stat.value.toString(), cls: "stat-value" });
       card.createDiv({ text: stat.label, cls: "stat-label" });
     });
@@ -13105,7 +12649,7 @@ ${disputedInfo.manuscriptInfo}`);
     if (dueCount > 0 || newCount > 0) {
       const practiceBtn = actionsSection.createEl("button", { cls: "memorization-practice-btn primary" });
       const practiceIcon = practiceBtn.createSpan({ cls: "btn-icon" });
-      (0, import_obsidian2.setIcon)(practiceIcon, "play");
+      (0, import_obsidian.setIcon)(practiceIcon, "play");
       practiceBtn.createSpan({ text: `Practice (${dueCount + Math.min(newCount, this.plugin.settings.memorizationSettings.newCardsPerDay)} cards)` });
       this.registerDomEvent(practiceBtn, "click", () => {
         this.startMemorizationSession();
@@ -13113,7 +12657,7 @@ ${disputedInfo.manuscriptInfo}`);
     }
     const addBtn = actionsSection.createEl("button", { cls: "memorization-add-btn" });
     const addIcon = addBtn.createSpan({ cls: "btn-icon" });
-    (0, import_obsidian2.setIcon)(addIcon, "plus");
+    (0, import_obsidian.setIcon)(addIcon, "plus");
     addBtn.createSpan({ text: "Add Verse" });
     this.registerDomEvent(addBtn, "click", () => {
       this.showAddMemorizationVerseModal();
@@ -13123,7 +12667,7 @@ ${disputedInfo.manuscriptInfo}`);
     if (verses.length === 0) {
       const emptyState = versesSection.createDiv({ cls: "memorization-empty" });
       const emptyIcon = emptyState.createDiv({ cls: "empty-icon" });
-      (0, import_obsidian2.setIcon)(emptyIcon, "book-open");
+      (0, import_obsidian.setIcon)(emptyIcon, "book-open");
       emptyState.createEl("p", { text: "No verses added yet" });
       emptyState.createEl("p", { text: 'Add verses from any chapter view using the bookmark menu, or click "Add Verse" above.', cls: "text-muted" });
     } else {
@@ -13157,7 +12701,7 @@ ${disputedInfo.manuscriptInfo}`);
           }
           verseFooter.createSpan({ text: `${verse.repetitions} reviews`, cls: "review-count" });
           const deleteBtn = verseCard.createEl("button", { cls: "verse-delete-btn" });
-          (0, import_obsidian2.setIcon)(deleteBtn, "trash-2");
+          (0, import_obsidian.setIcon)(deleteBtn, "trash-2");
           this.registerDomEvent(deleteBtn, "click", async (e) => {
             e.stopPropagation();
             if (confirm(`Remove "${verse.reference}" from memorization?`)) {
@@ -13394,10 +12938,10 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "context-sidebar-header" });
     const titleDiv = header.createDiv({ cls: "context-sidebar-title" });
     const titleIcon = titleDiv.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "book-marked");
+    (0, import_obsidian.setIcon)(titleIcon, "book-marked");
     titleDiv.createSpan({ text: "Study Context" });
     const closeBtn = header.createEl("button", { cls: "context-sidebar-close" });
-    (0, import_obsidian2.setIcon)(closeBtn, "x");
+    (0, import_obsidian.setIcon)(closeBtn, "x");
     this.registerDomEvent(closeBtn, "click", async () => {
       this.plugin.settings.showContextSidebar = false;
       await this.plugin.saveSettings();
@@ -13416,7 +12960,7 @@ ${disputedInfo.manuscriptInfo}`);
         cls: `context-tab ${this.plugin.settings.contextSidebarTab === tab.id ? "active" : ""}`
       });
       const tabIcon = tabBtn.createSpan({ cls: "tab-icon" });
-      (0, import_obsidian2.setIcon)(tabIcon, tab.icon);
+      (0, import_obsidian.setIcon)(tabIcon, tab.icon);
       tabBtn.createSpan({ text: tab.label, cls: "tab-label" });
       this.registerDomEvent(tabBtn, "click", async () => {
         this.plugin.settings.contextSidebarTab = tab.id;
@@ -13450,7 +12994,7 @@ ${disputedInfo.manuscriptInfo}`);
     if (!this.plugin.commentaryData) {
       const placeholder = container.createDiv({ cls: "context-placeholder" });
       const icon = placeholder.createSpan({ cls: "placeholder-icon" });
-      (0, import_obsidian2.setIcon)(icon, "book-open");
+      (0, import_obsidian.setIcon)(icon, "book-open");
       placeholder.createEl("h3", { text: "Commentary" });
       placeholder.createEl("p", { text: "No commentary data installed yet." });
       placeholder.createEl("p", {
@@ -13478,7 +13022,7 @@ ${disputedInfo.manuscriptInfo}`);
     if (!chapterCommentary) {
       const placeholder = container.createDiv({ cls: "context-placeholder" });
       const icon = placeholder.createSpan({ cls: "placeholder-icon" });
-      (0, import_obsidian2.setIcon)(icon, "book-open");
+      (0, import_obsidian.setIcon)(icon, "book-open");
       placeholder.createEl("h3", { text: "Commentary" });
       placeholder.createEl("p", { text: `No commentary available for ${reference}.` });
       return;
@@ -13486,7 +13030,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "commentary-header" });
     const titleRow = header.createDiv({ cls: "commentary-title-row" });
     const titleIcon = titleRow.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "book-open");
+    (0, import_obsidian.setIcon)(titleIcon, "book-open");
     titleRow.createEl("h3", { text: reference });
     if (this.plugin.commentaryMetadata) {
       header.createEl("p", {
@@ -13531,7 +13075,7 @@ ${disputedInfo.manuscriptInfo}`);
     if (!this.plugin.strongsDictionary) {
       const placeholder = container.createDiv({ cls: "context-placeholder" });
       const icon = placeholder.createSpan({ cls: "placeholder-icon" });
-      (0, import_obsidian2.setIcon)(icon, "languages");
+      (0, import_obsidian.setIcon)(icon, "languages");
       placeholder.createEl("h3", { text: "Word Studies" });
       placeholder.createEl("p", { text: "Strong's Concordance not downloaded." });
       placeholder.createEl("p", { text: "Download to enable Greek & Hebrew word studies.", cls: "text-muted" });
@@ -13550,13 +13094,13 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "word-study-header" });
     const titleRow = header.createDiv({ cls: "word-study-title-row" });
     const titleIcon = titleRow.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "languages");
+    (0, import_obsidian.setIcon)(titleIcon, "languages");
     titleRow.createEl("h3", { text: reference });
     if (this.selectedStrongsWord) {
       const selectedSection = container.createDiv({ cls: "selected-word-section" });
       const sectionHeader = selectedSection.createDiv({ cls: "section-header" });
       const headerIcon = sectionHeader.createSpan({ cls: "section-icon" });
-      (0, import_obsidian2.setIcon)(headerIcon, "target");
+      (0, import_obsidian.setIcon)(headerIcon, "target");
       sectionHeader.createSpan({ text: "Selected Word" });
       const clearBtn = sectionHeader.createEl("button", { cls: "clear-selection-btn", text: "\u2715" });
       this.registerDomEvent(clearBtn, "click", () => {
@@ -13621,7 +13165,7 @@ ${disputedInfo.manuscriptInfo}`);
     if (chapterWords.size > 0) {
       const sectionHeader = wordsContainer.createDiv({ cls: "section-header" });
       const headerIcon = sectionHeader.createSpan({ cls: "section-icon" });
-      (0, import_obsidian2.setIcon)(headerIcon, "book-open");
+      (0, import_obsidian.setIcon)(headerIcon, "book-open");
       sectionHeader.createSpan({ text: `Key Words in ${this.currentBook} ${this.currentChapter}` });
       const sortedWords = Array.from(chapterWords.entries()).sort((a, b) => b[1].count - a[1].count).slice(0, 12);
       for (const [strongsNum, data] of sortedWords) {
@@ -13698,7 +13242,7 @@ ${disputedInfo.manuscriptInfo}`);
     if (!this.plugin.theographicData.loaded) {
       const placeholder = container.createDiv({ cls: "context-placeholder" });
       const icon = placeholder.createSpan({ cls: "placeholder-icon" });
-      (0, import_obsidian2.setIcon)(icon, "map-pin");
+      (0, import_obsidian.setIcon)(icon, "map-pin");
       placeholder.createEl("h3", { text: "Historical Context" });
       placeholder.createEl("p", { text: "Theographic metadata not downloaded." });
       placeholder.createEl("p", { text: "Download to see people, places, and events mentioned in Scripture.", cls: "text-muted" });
@@ -13717,7 +13261,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "context-header" });
     const titleRow = header.createDiv({ cls: "context-title-row" });
     const titleIcon = titleRow.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "map-pin");
+    (0, import_obsidian.setIcon)(titleIcon, "map-pin");
     titleRow.createEl("h3", { text: reference });
     const bookPeople = /* @__PURE__ */ new Map();
     const bookPlaces = /* @__PURE__ */ new Map();
@@ -13756,7 +13300,7 @@ ${disputedInfo.manuscriptInfo}`);
     const peopleSection = container.createDiv({ cls: "context-section" });
     const peopleHeader = peopleSection.createDiv({ cls: "section-header" });
     const peopleIcon = peopleHeader.createSpan({ cls: "section-icon" });
-    (0, import_obsidian2.setIcon)(peopleIcon, "users");
+    (0, import_obsidian.setIcon)(peopleIcon, "users");
     peopleHeader.createSpan({ text: `People (${bookPeople.size})` });
     if (bookPeople.size > 0) {
       const peopleList = peopleSection.createDiv({ cls: "context-tags" });
@@ -13780,7 +13324,7 @@ ${disputedInfo.manuscriptInfo}`);
     const placesSection = container.createDiv({ cls: "context-section" });
     const placesHeader = placesSection.createDiv({ cls: "section-header" });
     const placesIcon = placesHeader.createSpan({ cls: "section-icon" });
-    (0, import_obsidian2.setIcon)(placesIcon, "map-pin");
+    (0, import_obsidian.setIcon)(placesIcon, "map-pin");
     placesHeader.createSpan({ text: `Places (${bookPlaces.size})` });
     if (bookPlaces.size > 0) {
       const placesList = placesSection.createDiv({ cls: "context-tags" });
@@ -13805,7 +13349,7 @@ ${disputedInfo.manuscriptInfo}`);
       const eventsSection = container.createDiv({ cls: "context-section" });
       const eventsHeader = eventsSection.createDiv({ cls: "section-header" });
       const eventsIcon = eventsHeader.createSpan({ cls: "section-icon" });
-      (0, import_obsidian2.setIcon)(eventsIcon, "calendar");
+      (0, import_obsidian.setIcon)(eventsIcon, "calendar");
       eventsHeader.createSpan({ text: `Events (${bookEvents.size})` });
       if (bookEvents.size > 0) {
         const eventsList = eventsSection.createDiv({ cls: "context-events" });
@@ -13835,7 +13379,7 @@ ${disputedInfo.manuscriptInfo}`);
     if (!this.plugin.crossReferences) {
       const placeholder = container.createDiv({ cls: "context-placeholder" });
       const icon = placeholder.createSpan({ cls: "placeholder-icon" });
-      (0, import_obsidian2.setIcon)(icon, "git-compare");
+      (0, import_obsidian.setIcon)(icon, "git-compare");
       placeholder.createEl("h3", { text: "Parallel Passages" });
       placeholder.createEl("p", { text: "Cross-references not downloaded." });
       placeholder.createEl("p", { text: "Download to see related Scripture passages.", cls: "text-muted" });
@@ -13854,7 +13398,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "parallels-header" });
     const titleRow = header.createDiv({ cls: "parallels-title-row" });
     const titleIcon = titleRow.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "git-compare");
+    (0, import_obsidian.setIcon)(titleIcon, "git-compare");
     titleRow.createEl("h3", { text: reference });
     const chapterRefs = [];
     const chapter = this.plugin.getChapter(this.currentVersion, this.currentBook, this.currentChapter);
@@ -13907,7 +13451,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "notes-tab-header" });
     const titleRow = header.createDiv({ cls: "notes-title-row" });
     const titleIcon = titleRow.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "file-text");
+    (0, import_obsidian.setIcon)(titleIcon, "file-text");
     titleRow.createEl("h3", { text: reference });
     const chapterNotes = [];
     const noteFiles = this.plugin.app.vault.getMarkdownFiles();
@@ -13935,7 +13479,7 @@ ${disputedInfo.manuscriptInfo}`);
     });
     const createBtn = summary.createEl("button", { cls: "notes-tab-create-btn" });
     const createIcon = createBtn.createSpan({ cls: "btn-icon" });
-    (0, import_obsidian2.setIcon)(createIcon, "plus");
+    (0, import_obsidian.setIcon)(createIcon, "plus");
     createBtn.createSpan({ text: "New Note" });
     this.registerDomEvent(createBtn, "click", () => {
       const targetVerse = this.selectedVerseStart || 1;
@@ -13944,7 +13488,7 @@ ${disputedInfo.manuscriptInfo}`);
     const previewPanel = container.createDiv({ cls: "notes-tab-preview" });
     const previewPlaceholder = previewPanel.createDiv({ cls: "preview-placeholder" });
     const placeholderIcon = previewPlaceholder.createSpan({ cls: "placeholder-icon" });
-    (0, import_obsidian2.setIcon)(placeholderIcon, "file-text");
+    (0, import_obsidian.setIcon)(placeholderIcon, "file-text");
     previewPlaceholder.createEl("p", { text: "Select a note to preview" });
     previewPlaceholder.createEl("p", { text: "Or click a verse with a note icon", cls: "text-muted" });
     const notesList = container.createDiv({ cls: "notes-tab-list" });
@@ -13957,7 +13501,7 @@ ${disputedInfo.manuscriptInfo}`);
       previewHeader.createEl("h4", { text: refText });
       const previewActions = previewHeader.createDiv({ cls: "preview-actions" });
       const openBtn = previewActions.createEl("button", { cls: "preview-action-btn", title: "Open in editor" });
-      (0, import_obsidian2.setIcon)(openBtn, "external-link");
+      (0, import_obsidian.setIcon)(openBtn, "external-link");
       this.registerDomEvent(openBtn, "click", async () => {
         const leaf = this.plugin.app.workspace.getLeaf("split", "vertical");
         await leaf.openFile(file);
@@ -13965,7 +13509,7 @@ ${disputedInfo.manuscriptInfo}`);
       const previewContent = previewPanel.createDiv({ cls: "preview-content" });
       const content = await this.plugin.app.vault.read(file);
       const withoutFm = content.replace(/^---[\s\S]*?---\s*/m, "");
-      await import_obsidian2.MarkdownRenderer.render(
+      await import_obsidian.MarkdownRenderer.render(
         this.plugin.app,
         withoutFm,
         previewContent,
@@ -13991,7 +13535,7 @@ ${disputedInfo.manuscriptInfo}`);
         }
         const noteRef = noteItem.createDiv({ cls: "note-ref" });
         const noteIcon = noteRef.createSpan({ cls: "note-icon" });
-        (0, import_obsidian2.setIcon)(noteIcon, note.level === "chapter" ? "file-text" : note.level === "book" ? "book" : "bookmark");
+        (0, import_obsidian.setIcon)(noteIcon, note.level === "chapter" ? "file-text" : note.level === "book" ? "book" : "bookmark");
         noteRef.createSpan({ text: refText });
         this.registerDomEvent(noteItem, "click", () => {
           notesList.querySelectorAll(".notes-tab-item").forEach((el) => el.removeClass("selected"));
@@ -14017,7 +13561,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "insights-header" });
     const h2 = header.createEl("h2");
     const titleIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "bar-chart-2");
+    (0, import_obsidian.setIcon)(titleIcon, "bar-chart-2");
     h2.createSpan({ text: "Study Insights" });
     const studyHistory = this.plugin.settings.studyHistory || {
       totalStudyMinutes: 0,
@@ -14032,24 +13576,24 @@ ${disputedInfo.manuscriptInfo}`);
     const statsGrid = container.createDiv({ cls: "insights-stats-grid" });
     const timeCard = statsGrid.createDiv({ cls: "stat-card" });
     const timeIcon = timeCard.createSpan({ cls: "stat-icon" });
-    (0, import_obsidian2.setIcon)(timeIcon, "clock");
+    (0, import_obsidian.setIcon)(timeIcon, "clock");
     timeCard.createEl("div", { text: `${studyHistory.totalStudyMinutes} min`, cls: "stat-value" });
     timeCard.createEl("div", { text: "Total Study Time", cls: "stat-label" });
     const bookCount = Object.keys(studyHistory.bookVisits).length;
     const bookCard = statsGrid.createDiv({ cls: "stat-card" });
     const bookIcon = bookCard.createSpan({ cls: "stat-icon" });
-    (0, import_obsidian2.setIcon)(bookIcon, "book");
+    (0, import_obsidian.setIcon)(bookIcon, "book");
     bookCard.createEl("div", { text: `${bookCount}`, cls: "stat-value" });
     bookCard.createEl("div", { text: "Books Studied", cls: "stat-label" });
     const chapterCount = Object.keys(studyHistory.chapterVisits).length;
     const chapterCard = statsGrid.createDiv({ cls: "stat-card" });
     const chapterIcon = chapterCard.createSpan({ cls: "stat-icon" });
-    (0, import_obsidian2.setIcon)(chapterIcon, "file-text");
+    (0, import_obsidian.setIcon)(chapterIcon, "file-text");
     chapterCard.createEl("div", { text: `${chapterCount}`, cls: "stat-value" });
     chapterCard.createEl("div", { text: "Chapters Visited", cls: "stat-label" });
     const streakCard = statsGrid.createDiv({ cls: "stat-card" });
     const streakIcon = streakCard.createSpan({ cls: "stat-icon" });
-    (0, import_obsidian2.setIcon)(streakIcon, "flame");
+    (0, import_obsidian.setIcon)(streakIcon, "flame");
     streakCard.createEl("div", { text: `${this.plugin.settings.studyStreak}`, cls: "stat-value" });
     streakCard.createEl("div", { text: "Day Streak", cls: "stat-label" });
     const insightsSection = container.createDiv({ cls: "insights-section" });
@@ -14188,7 +13732,7 @@ ${disputedInfo.manuscriptInfo}`);
     const header = container.createDiv({ cls: "comparison-header" });
     const h2 = header.createEl("h2");
     const titleIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian2.setIcon)(titleIcon, "columns");
+    (0, import_obsidian.setIcon)(titleIcon, "columns");
     h2.createSpan({ text: "Version Comparison" });
     const selectorSection = container.createDiv({ cls: "comparison-selector" });
     selectorSection.createEl("h4", { text: "Select Versions to Compare (2-6):" });
@@ -14298,7 +13842,7 @@ ${disputedInfo.manuscriptInfo}`);
     };
   }
 };
-var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
+var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     // Section collapse state
@@ -14329,7 +13873,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
     });
     const searchContainer = containerEl.createDiv({ cls: "bp-settings-search" });
     const searchIcon = searchContainer.createSpan({ cls: "search-icon" });
-    (0, import_obsidian2.setIcon)(searchIcon, "search");
+    (0, import_obsidian.setIcon)(searchIcon, "search");
     const searchInput = searchContainer.createEl("input", {
       type: "text",
       placeholder: "Search settings..."
@@ -14344,7 +13888,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
       title: "Bible Versions & Reading",
       purpose: "Choose which Bible translations to use and how text is displayed. The default version loads first when you open Bible Portal.",
       content: (content) => {
-        new import_obsidian2.Setting(content).setName("Default Bible version").setDesc("The translation that loads automatically when you open Bible Portal").addDropdown((dropdown) => {
+        new import_obsidian.Setting(content).setName("Default Bible version").setDesc("The translation that loads automatically when you open Bible Portal").addDropdown((dropdown) => {
           this.plugin.settings.bibleVersions.forEach((version) => {
             dropdown.addOption(version, version);
           });
@@ -14361,11 +13905,11 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
             cls: "status-text"
           });
         }
-        new import_obsidian2.Setting(content).setName("Enable parallel view by default").setDesc("Show two Bible versions side-by-side when you open a chapter").addToggle((toggle) => toggle.setValue(this.plugin.settings.parallelViewEnabled).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Enable parallel view by default").setDesc("Show two Bible versions side-by-side when you open a chapter").addToggle((toggle) => toggle.setValue(this.plugin.settings.parallelViewEnabled).onChange(async (value) => {
           this.plugin.settings.parallelViewEnabled = value;
           await this.plugin.saveSettings();
         }));
-        new import_obsidian2.Setting(content).setName("Home verse").setDesc("Your favorite verse - the \u{1F3E0} button navigates here instantly").addText((text) => text.setPlaceholder("John 3:16").setValue(this.plugin.settings.homeVerse).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Home verse").setDesc("Your favorite verse - the \u{1F3E0} button navigates here instantly").addText((text) => text.setPlaceholder("John 3:16").setValue(this.plugin.settings.homeVerse).onChange(async (value) => {
           this.plugin.settings.homeVerse = value;
           await this.plugin.saveSettings();
         }));
@@ -14402,7 +13946,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
           });
         });
         if (this.plugin.settings.bannerTheme === "custom") {
-          new import_obsidian2.Setting(content).setName("Custom banner color").setDesc("Choose your own banner background color").addText((text) => text.setValue(this.plugin.settings.bannerColor).onChange(async (value) => {
+          new import_obsidian.Setting(content).setName("Custom banner color").setDesc("Choose your own banner background color").addText((text) => text.setValue(this.plugin.settings.bannerColor).onChange(async (value) => {
             this.plugin.settings.bannerColor = value;
             await this.plugin.saveSettings();
             this.plugin.refreshView();
@@ -14423,7 +13967,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
             });
           });
         }
-        new import_obsidian2.Setting(content).setName("Banner icon").setDesc("Emoji displayed in the banner (e.g., \u{1F4D6}, \u271D\uFE0F, \u{1F64F})").addText((text) => text.setPlaceholder("\u{1F4D6}").setValue(this.plugin.settings.bannerIcon).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Banner icon").setDesc("Emoji displayed in the banner (e.g., \u{1F4D6}, \u271D\uFE0F, \u{1F64F})").addText((text) => text.setPlaceholder("\u{1F4D6}").setValue(this.plugin.settings.bannerIcon).onChange(async (value) => {
           this.plugin.settings.bannerIcon = value || "\u{1F4D6}";
           await this.plugin.saveSettings();
           this.plugin.refreshView();
@@ -14438,36 +13982,36 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
         fontPreview.style.fontFamily = this.plugin.settings.fontFamily;
         fontPreview.style.fontSize = `${this.plugin.settings.fontSize}px`;
         fontPreview.createDiv({ text: "John 3:16", cls: "sample-ref" });
-        new import_obsidian2.Setting(content).setName("Font size").setDesc("Size of Bible text (12-24 pixels)").addSlider((slider) => slider.setLimits(12, 24, 1).setValue(this.plugin.settings.fontSize).setDynamicTooltip().onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Font size").setDesc("Size of Bible text (12-24 pixels)").addSlider((slider) => slider.setLimits(12, 24, 1).setValue(this.plugin.settings.fontSize).setDynamicTooltip().onChange(async (value) => {
           this.plugin.settings.fontSize = value;
           await this.plugin.saveSettings();
           fontPreview.style.fontSize = `${value}px`;
           this.plugin.refreshView();
         }));
-        new import_obsidian2.Setting(content).setName("Font style").setDesc("Serif fonts have a classic book feel; sans-serif is modern").addDropdown((dropdown) => dropdown.addOption("sans-serif", "Sans-serif (Modern)").addOption("serif", "Serif (Classic)").setValue(this.plugin.settings.fontStyle).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Font style").setDesc("Serif fonts have a classic book feel; sans-serif is modern").addDropdown((dropdown) => dropdown.addOption("sans-serif", "Sans-serif (Modern)").addOption("serif", "Serif (Classic)").setValue(this.plugin.settings.fontStyle).onChange(async (value) => {
           this.plugin.settings.fontStyle = value;
           await this.plugin.saveSettings();
           this.plugin.refreshView();
         }));
-        new import_obsidian2.Setting(content).setName("Font family").setDesc("Specific font to use for Bible text").addDropdown((dropdown) => dropdown.addOption('system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', "System Default").addOption("Georgia, serif", "Georgia").addOption('"Times New Roman", Times, serif', "Times New Roman").addOption("Arial, sans-serif", "Arial").setValue(this.plugin.settings.fontFamily).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Font family").setDesc("Specific font to use for Bible text").addDropdown((dropdown) => dropdown.addOption('system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', "System Default").addOption("Georgia, serif", "Georgia").addOption('"Times New Roman", Times, serif', "Times New Roman").addOption("Arial, sans-serif", "Arial").setValue(this.plugin.settings.fontFamily).onChange(async (value) => {
           this.plugin.settings.fontFamily = value;
           fontPreview.style.fontFamily = value;
           await this.plugin.saveSettings();
           this.plugin.refreshView();
         }));
-        new import_obsidian2.Setting(content).setName("Verse number style").setDesc("How verse numbers appear in the text").addDropdown((dropdown) => dropdown.addOption("default", "Default (Bold, colored)").addOption("superscript", "Superscript (Small, raised)").addOption("badge", "Badge (Pill-shaped)").addOption("margin", "Margin (Left-aligned)").addOption("subtle", "Subtle (Dimmed)").setValue(this.plugin.settings.verseNumberStyle || "default").onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Verse number style").setDesc("How verse numbers appear in the text").addDropdown((dropdown) => dropdown.addOption("default", "Default (Bold, colored)").addOption("superscript", "Superscript (Small, raised)").addOption("badge", "Badge (Pill-shaped)").addOption("margin", "Margin (Left-aligned)").addOption("subtle", "Subtle (Dimmed)").setValue(this.plugin.settings.verseNumberStyle || "default").onChange(async (value) => {
           this.plugin.settings.verseNumberStyle = value;
           await this.plugin.saveSettings();
           this.plugin.refreshView();
         }));
         const layoutGroup = content.createDiv({ cls: "bp-settings-group" });
         layoutGroup.createEl("div", { text: "Layout", cls: "bp-settings-group-title" });
-        new import_obsidian2.Setting(content).setName("Readable line length").setDesc("Limit text width for comfortable reading (like a book)").addToggle((toggle) => toggle.setValue(this.plugin.settings.readableLineLength).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Readable line length").setDesc("Limit text width for comfortable reading (like a book)").addToggle((toggle) => toggle.setValue(this.plugin.settings.readableLineLength).onChange(async (value) => {
           this.plugin.settings.readableLineLength = value;
           await this.plugin.saveSettings();
           this.plugin.refreshView();
         }));
-        new import_obsidian2.Setting(content).setName("Show secondary navigation").setDesc("Display the second row with version selector and view toggles").addToggle((toggle) => toggle.setValue(this.plugin.settings.showSecondaryNav).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Show secondary navigation").setDesc("Display the second row with version selector and view toggles").addToggle((toggle) => toggle.setValue(this.plugin.settings.showSecondaryNav).onChange(async (value) => {
           this.plugin.settings.showSecondaryNav = value;
           await this.plugin.saveSettings();
           this.plugin.refreshView();
@@ -14481,7 +14025,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
       badge: (((_a = this.plugin.highlights) == null ? void 0 : _a.length) || 0) > 0 ? `${this.plugin.highlights.length}` : void 0,
       purpose: "Customize highlight colors and annotation layers. Layers help organize highlights for different study purposes (personal study, sermon prep, word studies).",
       content: (content) => {
-        new import_obsidian2.Setting(content).setName("Highlight style").setDesc("Visual appearance of highlights on verses").addDropdown((dropdown) => dropdown.addOption("handdrawn", "Hand-drawn (natural marker look)").addOption("gradient", "Gradient (fade effect)").addOption("solid", "Solid (uniform color)").setValue(this.plugin.settings.highlightStyle || "handdrawn").onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Highlight style").setDesc("Visual appearance of highlights on verses").addDropdown((dropdown) => dropdown.addOption("handdrawn", "Hand-drawn (natural marker look)").addOption("gradient", "Gradient (fade effect)").addOption("solid", "Solid (uniform color)").setValue(this.plugin.settings.highlightStyle || "handdrawn").onChange(async (value) => {
           this.plugin.settings.highlightStyle = value;
           await this.plugin.saveSettings();
         }));
@@ -14502,7 +14046,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
           }
         });
         this.plugin.settings.highlightColors.forEach((colorDef, index) => {
-          const setting = new import_obsidian2.Setting(content).setName(`${colorDef.name}`).addText((text) => text.setPlaceholder("Name").setValue(colorDef.name).onChange(async (value) => {
+          const setting = new import_obsidian.Setting(content).setName(`${colorDef.name}`).addText((text) => text.setPlaceholder("Name").setValue(colorDef.name).onChange(async (value) => {
             this.plugin.settings.highlightColors[index].name = value;
             await this.plugin.saveSettings();
           })).addExtraButton((btn) => {
@@ -14536,7 +14080,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
         layerGroup.createEl("div", { text: "Annotation Layers", cls: "bp-settings-group-title" });
         const layerPurpose = layerGroup.createDiv({ cls: "bp-settings-purpose" });
         layerPurpose.textContent = "Layers let you organize highlights by purpose. Toggle layers on/off to focus on specific study contexts.";
-        new import_obsidian2.Setting(content).setName("Active layer").setDesc("New highlights are added to this layer").addDropdown((dropdown) => {
+        new import_obsidian.Setting(content).setName("Active layer").setDesc("New highlights are added to this layer").addDropdown((dropdown) => {
           this.plugin.settings.annotationLayers.forEach((layer) => {
             dropdown.addOption(layer.id, layer.name);
           });
@@ -14556,7 +14100,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
           });
           const isVisible = this.plugin.settings.visibleAnnotationLayers.includes(layer.id);
           const visBtn = item.createEl("button", { cls: `layer-visibility ${isVisible ? "visible" : ""}` });
-          (0, import_obsidian2.setIcon)(visBtn, isVisible ? "eye" : "eye-off");
+          (0, import_obsidian.setIcon)(visBtn, isVisible ? "eye" : "eye-off");
           visBtn.addEventListener("click", async () => {
             if (isVisible) {
               this.plugin.settings.visibleAnnotationLayers = this.plugin.settings.visibleAnnotationLayers.filter((id) => id !== layer.id);
@@ -14576,7 +14120,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
           }
           if (!layer.isDefault) {
             const deleteBtn = item.createEl("button", { cls: "layer-delete" });
-            (0, import_obsidian2.setIcon)(deleteBtn, "trash-2");
+            (0, import_obsidian.setIcon)(deleteBtn, "trash-2");
             deleteBtn.addEventListener("click", async () => {
               if (confirm(`Delete layer "${layer.name}"?`)) {
                 this.plugin.settings.annotationLayers.splice(index, 1);
@@ -14613,11 +14157,11 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
       title: "Notes & Study",
       purpose: "Configure where notes are saved and how they're formatted. Notes are stored as regular Obsidian markdown files in your vault.",
       content: (content) => {
-        new import_obsidian2.Setting(content).setName("Notes folder").setDesc("Where Bible study notes are saved in your vault").addText((text) => text.setPlaceholder("Bible Portal/Notes").setValue(this.plugin.settings.notesFolder).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Notes folder").setDesc("Where Bible study notes are saved in your vault").addText((text) => text.setPlaceholder("Bible Portal/Notes").setValue(this.plugin.settings.notesFolder).onChange(async (value) => {
           this.plugin.settings.notesFolder = value;
           await this.plugin.saveSettings();
         }));
-        new import_obsidian2.Setting(content).setName("Note template").setDesc("Template for new notes. Variables: {{reference}}, {{version}}, {{verse}}, {{verseText}}").addTextArea((text) => {
+        new import_obsidian.Setting(content).setName("Note template").setDesc("Template for new notes. Variables: {{reference}}, {{version}}, {{verse}}, {{verseText}}").addTextArea((text) => {
           text.inputEl.rows = 8;
           text.inputEl.style.width = "100%";
           text.inputEl.style.fontFamily = "monospace";
@@ -14628,19 +14172,19 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
         });
         const copyGroup = content.createDiv({ cls: "bp-settings-group" });
         copyGroup.createEl("div", { text: "Copy & Export", cls: "bp-settings-group-title" });
-        new import_obsidian2.Setting(content).setName("Include reference when copying").setDesc('Add verse reference (e.g., "John 3:16") to copied text').addToggle((toggle) => toggle.setValue(this.plugin.settings.copyIncludeReference).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Include reference when copying").setDesc('Add verse reference (e.g., "John 3:16") to copied text').addToggle((toggle) => toggle.setValue(this.plugin.settings.copyIncludeReference).onChange(async (value) => {
           this.plugin.settings.copyIncludeReference = value;
           await this.plugin.saveSettings();
         }));
-        new import_obsidian2.Setting(content).setName("Callout type").setDesc('Type for copied callouts (e.g., "bible" for > [!bible])').addText((text) => text.setPlaceholder("bible").setValue(this.plugin.settings.calloutTitle).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Callout type").setDesc('Type for copied callouts (e.g., "bible" for > [!bible])').addText((text) => text.setPlaceholder("bible").setValue(this.plugin.settings.calloutTitle).onChange(async (value) => {
           this.plugin.settings.calloutTitle = value || "bible";
           await this.plugin.saveSettings();
         }));
-        new import_obsidian2.Setting(content).setName("Image export folder").setDesc("Where verse images are saved").addText((text) => text.setPlaceholder("Bible Portal/Images").setValue(this.plugin.settings.imageExportFolder).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Image export folder").setDesc("Where verse images are saved").addText((text) => text.setPlaceholder("Bible Portal/Images").setValue(this.plugin.settings.imageExportFolder).onChange(async (value) => {
           this.plugin.settings.imageExportFolder = value;
           await this.plugin.saveSettings();
         }));
-        new import_obsidian2.Setting(content).setName("Image quality").setDesc("JPEG quality for exported images (50-100)").addSlider((slider) => slider.setLimits(50, 100, 5).setValue(this.plugin.settings.imageExportQuality).setDynamicTooltip().onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Image quality").setDesc("JPEG quality for exported images (50-100)").addSlider((slider) => slider.setLimits(50, 100, 5).setValue(this.plugin.settings.imageExportQuality).setDynamicTooltip().onChange(async (value) => {
           this.plugin.settings.imageExportQuality = value;
           await this.plugin.saveSettings();
         }));
@@ -14755,18 +14299,18 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
         disputedGroup.createEl("div", { text: "Textual Criticism", cls: "bp-settings-group-title" });
         const disputedPurpose = disputedGroup.createDiv({ cls: "bp-settings-purpose" });
         disputedPurpose.textContent = "Some passages have textual variants between ancient manuscripts. These settings control how disputed passages are indicated.";
-        new import_obsidian2.Setting(content).setName("Show disputed passage indicators").setDesc("Display markers for passages with significant textual variants").addToggle((toggle) => toggle.setValue(this.plugin.settings.showDisputedPassages).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Show disputed passage indicators").setDesc("Display markers for passages with significant textual variants").addToggle((toggle) => toggle.setValue(this.plugin.settings.showDisputedPassages).onChange(async (value) => {
           this.plugin.settings.showDisputedPassages = value;
           await this.plugin.saveSettings();
           this.plugin.refreshView();
         }));
-        new import_obsidian2.Setting(content).setName("Show explanatory tooltips").setDesc("Show manuscript information when hovering over disputed indicators").addToggle((toggle) => toggle.setValue(this.plugin.settings.showDisputedTooltips).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Show explanatory tooltips").setDesc("Show manuscript information when hovering over disputed indicators").addToggle((toggle) => toggle.setValue(this.plugin.settings.showDisputedTooltips).onChange(async (value) => {
           this.plugin.settings.showDisputedTooltips = value;
           await this.plugin.saveSettings();
         }));
         const votdGroup = content.createDiv({ cls: "bp-settings-group" });
         votdGroup.createEl("div", { text: "Verse of the Day", cls: "bp-settings-group-title" });
-        new import_obsidian2.Setting(content).setName("Enable Verse of the Day").setDesc("Show a daily verse on the dashboard").addToggle((toggle) => toggle.setValue(this.plugin.settings.verseOfTheDayEnabled).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Enable Verse of the Day").setDesc("Show a daily verse on the dashboard").addToggle((toggle) => toggle.setValue(this.plugin.settings.verseOfTheDayEnabled).onChange(async (value) => {
           this.plugin.settings.verseOfTheDayEnabled = value;
           await this.plugin.saveSettings();
         }));
@@ -14776,7 +14320,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
           if (confirm("Generate a new random verse mapping? This overwrites the existing mapping.")) {
             const success = await this.plugin.generateVOTDMapping();
             if (success) {
-              new import_obsidian2.Notice("\u2705 Verse mapping regenerated!");
+              new import_obsidian.Notice("\u2705 Verse mapping regenerated!");
             }
           }
         });
@@ -14785,7 +14329,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
           const votdPath = ".obsidian/plugins/bible-portal/data/verse-of-the-day.json";
           const adapter = this.app.vault.adapter;
           if (!await adapter.exists(votdPath)) {
-            new import_obsidian2.Notice("No VOTD mapping found");
+            new import_obsidian.Notice("No VOTD mapping found");
             return;
           }
           const json = await adapter.read(votdPath);
@@ -14796,11 +14340,11 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
           a.download = "bible-portal-votd.json";
           a.click();
           URL.revokeObjectURL(url);
-          new import_obsidian2.Notice("\u2705 Exported!");
+          new import_obsidian.Notice("\u2705 Exported!");
         });
         const searchGroup = content.createDiv({ cls: "bp-settings-group" });
         searchGroup.createEl("div", { text: "Search", cls: "bp-settings-group-title" });
-        new import_obsidian2.Setting(content).setName("Default search scope").setDesc("Initial scope when opening search").addDropdown((dropdown) => dropdown.addOption("all", "All Books").addOption("book", "Current Book").addOption("chapter", "Current Chapter").setValue(this.plugin.settings.defaultSearchScope).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Default search scope").setDesc("Initial scope when opening search").addDropdown((dropdown) => dropdown.addOption("all", "All Books").addOption("book", "Current Book").addOption("chapter", "Current Chapter").setValue(this.plugin.settings.defaultSearchScope).onChange(async (value) => {
           this.plugin.settings.defaultSearchScope = value;
           await this.plugin.saveSettings();
         }));
@@ -14814,12 +14358,12 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
       badge: activePlans.length > 0 ? `${activePlans.length} active` : void 0,
       purpose: "Follow structured Bible reading plans. Activate multiple plans simultaneously and track your progress.",
       content: (content) => {
-        new import_obsidian2.Setting(content).setName("Enable reading plans").setDesc("Track daily reading progress across multiple plans").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableReadingPlan).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Enable reading plans").setDesc("Track daily reading progress across multiple plans").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableReadingPlan).onChange(async (value) => {
           this.plugin.settings.enableReadingPlan = value;
           await this.plugin.saveSettings();
           this.display();
         }));
-        new import_obsidian2.Setting(content).setName("Show reading plan reminder").setDesc("Remind you to read when opening Bible Portal").addToggle((toggle) => toggle.setValue(this.plugin.settings.readingPlanReminder).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Show reading plan reminder").setDesc("Remind you to read when opening Bible Portal").addToggle((toggle) => toggle.setValue(this.plugin.settings.readingPlanReminder).onChange(async (value) => {
           this.plugin.settings.readingPlanReminder = value;
           await this.plugin.saveSettings();
         }));
@@ -14870,17 +14414,17 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
       badge: memVerseCount > 0 ? `${memVerseCount} verses` : void 0,
       purpose: "Practice memorizing Scripture using spaced repetition. Add verses to your list and review them with flashcards.",
       content: (content) => {
-        new import_obsidian2.Setting(content).setName("Enable memorization mode").setDesc("Track and practice Scripture memorization with spaced repetition").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableMemorization).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Enable memorization mode").setDesc("Track and practice Scripture memorization with spaced repetition").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableMemorization).onChange(async (value) => {
           this.plugin.settings.enableMemorization = value;
           await this.plugin.saveSettings();
         }));
         if (this.plugin.settings.enableMemorization) {
           const memSettings = this.plugin.settings.memorizationSettings;
-          new import_obsidian2.Setting(content).setName("New cards per day").setDesc("Maximum new verses to introduce each day").addSlider((slider) => slider.setLimits(1, 10, 1).setValue(memSettings.newCardsPerDay).setDynamicTooltip().onChange(async (value) => {
+          new import_obsidian.Setting(content).setName("New cards per day").setDesc("Maximum new verses to introduce each day").addSlider((slider) => slider.setLimits(1, 10, 1).setValue(memSettings.newCardsPerDay).setDynamicTooltip().onChange(async (value) => {
             this.plugin.settings.memorizationSettings.newCardsPerDay = value;
             await this.plugin.saveSettings();
           }));
-          new import_obsidian2.Setting(content).setName("Show hints").setDesc("Show first letter hints when practicing").addToggle((toggle) => toggle.setValue(memSettings.showHints).onChange(async (value) => {
+          new import_obsidian.Setting(content).setName("Show hints").setDesc("Show first letter hints when practicing").addToggle((toggle) => toggle.setValue(memSettings.showHints).onChange(async (value) => {
             this.plugin.settings.memorizationSettings.showHints = value;
             await this.plugin.saveSettings();
           }));
@@ -14913,7 +14457,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
       badge: this.plugin.settings.enableAchievements ? `${achievementProgress.unlocked}/${achievementProgress.total}` : void 0,
       purpose: "Earn achievements for consistent Bible study. Track chapters read, notes created, highlights added, and study streaks.",
       content: (content) => {
-        new import_obsidian2.Setting(content).setName("Enable achievements").setDesc("Unlock achievements for reading, notes, highlights, and streaks").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableAchievements).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Enable achievements").setDesc("Unlock achievements for reading, notes, highlights, and streaks").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableAchievements).onChange(async (value) => {
           this.plugin.settings.enableAchievements = value;
           await this.plugin.saveSettings();
           this.plugin.refreshView();
@@ -14945,7 +14489,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
               this.plugin.settings.unlockedAchievements = [];
               this.plugin.settings.achievementStats = { ...DEFAULT_ACHIEVEMENT_STATS };
               await this.plugin.saveSettings();
-              new import_obsidian2.Notice("Achievements reset");
+              new import_obsidian.Notice("Achievements reset");
               this.display();
             }
           });
@@ -14959,7 +14503,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
       badge: this.plugin.settings.studyStreak > 0 ? `${this.plugin.settings.studyStreak}\u{1F525}` : void 0,
       purpose: "Track your study sessions to see patterns in your Bible reading. Build streaks by studying consistently.",
       content: (content) => {
-        new import_obsidian2.Setting(content).setName("Track study sessions").setDesc("Monitor chapters visited, notes created, and highlights during each session").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableSessionTracking).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Track study sessions").setDesc("Monitor chapters visited, notes created, and highlights during each session").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableSessionTracking).onChange(async (value) => {
           this.plugin.settings.enableSessionTracking = value;
           await this.plugin.saveSettings();
           if (value && !this.plugin.currentSession) {
@@ -14974,10 +14518,10 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
         const onboardingGroup = content.createDiv({ cls: "bp-settings-group" });
         onboardingGroup.createEl("div", { text: "Feature Discovery", cls: "bp-settings-group-title" });
-        new import_obsidian2.Setting(content).setName("Reset onboarding hints").setDesc("Show the feature discovery hints bar again").addButton((button) => button.setButtonText("Reset Hints").onClick(async () => {
+        new import_obsidian.Setting(content).setName("Reset onboarding hints").setDesc("Show the feature discovery hints bar again").addButton((button) => button.setButtonText("Reset Hints").onClick(async () => {
           this.plugin.settings.onboardingComplete = false;
           await this.plugin.saveSettings();
-          new import_obsidian2.Notice("Onboarding hints will show on next view");
+          new import_obsidian.Notice("Onboarding hints will show on next view");
         }));
       }
     });
@@ -14996,21 +14540,12 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
         downloadBtn.addEventListener("click", async () => {
           await this.plugin.downloadBibleTranslation((step, message, percent) => {
             if (step === "complete") {
-              new import_obsidian2.Notice("\u2705 Bible downloaded!");
+              new import_obsidian.Notice("\u2705 Bible downloaded!");
               this.display();
             } else if (step === "error") {
-              new import_obsidian2.Notice(`Error: ${message}`);
+              new import_obsidian.Notice(`Error: ${message}`);
             }
           });
-        });
-        const convertGroup = content.createDiv({ cls: "bp-settings-group" });
-        convertGroup.createEl("div", { text: "Convert Markdown", cls: "bp-settings-group-title" });
-        const convertPurpose = convertGroup.createDiv({ cls: "bp-settings-purpose" });
-        convertPurpose.textContent = "Convert existing Bible markdown files to JSON format for use in Bible Portal.";
-        const convertActions = content.createDiv({ cls: "bp-settings-actions" });
-        const convertBtn = convertActions.createEl("button", { text: "Convert Bible", cls: "action-secondary" });
-        convertBtn.addEventListener("click", async () => {
-          await this.plugin.convertBibleMarkdown();
         });
         const importExportGroup = content.createDiv({ cls: "bp-settings-group" });
         importExportGroup.createEl("div", { text: "Import & Export", cls: "bp-settings-group-title" });
@@ -15032,7 +14567,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
           a.download = `bible-highlight-colors-${new Date().toISOString().split("T")[0]}.json`;
           a.click();
           URL.revokeObjectURL(url);
-          new import_obsidian2.Notice(`Exported ${this.plugin.settings.highlightColors.length} colors`);
+          new import_obsidian.Notice(`Exported ${this.plugin.settings.highlightColors.length} colors`);
         });
         const importColorsBtn = importExportActions.createEl("button", { text: "Import Colors", cls: "action-secondary" });
         importColorsBtn.addEventListener("click", async () => {
@@ -15049,15 +14584,15 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
               const text = await file.text();
               const importData = JSON.parse(text);
               if (!importData.highlightColors || !Array.isArray(importData.highlightColors)) {
-                new import_obsidian2.Notice("Invalid file format");
+                new import_obsidian.Notice("Invalid file format");
                 return;
               }
               this.plugin.settings.highlightColors = importData.highlightColors;
               await this.plugin.saveSettings();
               this.display();
-              new import_obsidian2.Notice(`Imported ${importData.highlightColors.length} colors`);
+              new import_obsidian.Notice(`Imported ${importData.highlightColors.length} colors`);
             } catch (error) {
-              new import_obsidian2.Notice("Failed to import");
+              new import_obsidian.Notice("Failed to import");
             }
           };
           input.click();
@@ -15095,7 +14630,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
         const featuresGrid = about.createDiv({ cls: "bp-settings-features-grid" });
         features.forEach((feature) => {
           const item = featuresGrid.createDiv({ cls: "bp-settings-feature-item" });
-          (0, import_obsidian2.setIcon)(item.createSpan(), "check");
+          (0, import_obsidian.setIcon)(item.createSpan(), "check");
           item.createSpan({ text: feature });
         });
         const creditsGroup = content.createDiv({ cls: "bp-settings-group" });
@@ -15132,14 +14667,14 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
     }
     const header = section.createDiv({ cls: "bp-settings-section-header" });
     const iconDiv = header.createDiv({ cls: "section-icon" });
-    (0, import_obsidian2.setIcon)(iconDiv, options.icon);
+    (0, import_obsidian.setIcon)(iconDiv, options.icon);
     const titleGroup = header.createDiv({ cls: "section-title-group" });
     const titleEl = titleGroup.createEl("span", { text: options.title, cls: "section-title" });
     if (options.badge) {
       titleGroup.createEl("span", { text: options.badge, cls: "section-badge" });
     }
     const chevron = header.createDiv({ cls: "section-chevron" });
-    (0, import_obsidian2.setIcon)(chevron, "chevron-down");
+    (0, import_obsidian.setIcon)(chevron, "chevron-down");
     header.addEventListener("click", () => {
       if (this.collapsedSections.has(options.id)) {
         this.collapsedSections.delete(options.id);
@@ -15169,7 +14704,7 @@ var BiblePortalSettingTab = class extends import_obsidian2.PluginSettingTab {
     });
   }
 };
-var DownloadProgressModal = class extends import_obsidian2.Modal {
+var DownloadProgressModal = class extends import_obsidian.Modal {
   constructor(app, title) {
     super(app);
     this.titleText = title;
@@ -15210,7 +14745,7 @@ var DownloadProgressModal = class extends import_obsidian2.Modal {
     contentEl.empty();
   }
 };
-var TheographicDetailModal = class extends import_obsidian2.Modal {
+var TheographicDetailModal = class extends import_obsidian.Modal {
   constructor(app, type, data, plugin, view) {
     super(app);
     this.type = type;
@@ -15447,7 +14982,7 @@ var TheographicDetailModal = class extends import_obsidian2.Modal {
     contentEl.empty();
   }
 };
-var InputModal = class extends import_obsidian2.Modal {
+var InputModal = class extends import_obsidian.Modal {
   constructor(app, title, placeholder, defaultValue, onSubmit) {
     super(app);
     this.title = title;

@@ -1,6 +1,4 @@
 import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, ItemView, Menu, Notice, Modal, TFile, TFolder, requestUrl, MarkdownRenderer, setIcon } from 'obsidian';
-import { BibleConverter, ConversionResult } from './converter';
-import { normalizeBookName } from './book-name-converter';
 
 // Highlight color definition
 interface HighlightColor {
@@ -1506,15 +1504,6 @@ export default class BiblePortalPlugin extends Plugin {
 		// Load settings
 		await this.loadSettings();
 
-		// Register converter command
-		this.addCommand({
-			id: 'convert-bible-markdown',
-			name: 'Convert Bible Markdown to JSON',
-			callback: async () => {
-				await this.convertBibleMarkdown();
-			}
-		});
-
 		// Load highlights and notes
 		await this.loadHighlightsAndNotes();
 
@@ -2539,90 +2528,28 @@ export default class BiblePortalPlugin extends Plugin {
 	}
 
 	/**
-	 * Convert Bible markdown to JSON
-	 * Phase 1: Basic converter for current ESV format
+	 * Extract canonical book name from verbose API name
+	 * Normalizes various book name formats to canonical names
 	 */
-	async convertBibleMarkdown() {
-		// Prompt user for source path and version name
-		const sourcePathInput = await this.promptForInput(
-			'Enter source path',
-			'Enter the path to your Bible markdown files (e.g., Bible Stuff/Bibles/ESV)',
-			'Bible Stuff/Bibles/ESV'
-		);
-
-		if (!sourcePathInput) {
-			new Notice('Conversion cancelled');
-			return;
-		}
-
-		const versionInput = await this.promptForInput(
-			'Enter Bible version',
-			'Enter the Bible version name (e.g., ESV, NIV, KJV)',
-			'ESV'
-		);
-
-		if (!versionInput) {
-			new Notice('Conversion cancelled');
-			return;
-		}
-
-		const version = versionInput.toUpperCase();
-
-		// Create converter and run conversion
-		const converter = new BibleConverter(this.app);
-
-		new Notice(`Converting ${version} Bible from ${sourcePathInput}...`);
-
-		const result = await converter.convertBible(sourcePathInput, version);
-
-		// Display result
-		if (result.success) {
-			// Validate the converted data
-			const fileContent = JSON.parse(await this.app.vault.adapter.read(result.outputPath!));
-			const validation = converter.validateBible(
-				fileContent.books,  // Extract books object from wrapped format
-				version
-			);
-
-			// Generate and log report
-			const report = converter.generateReport(result);
-			console.log('\n' + report);
-
-			// Show validation warnings if any
-			if (validation.warnings.length > 0) {
-				console.warn('Validation warnings:', validation.warnings);
-			}
-
-			// Success notice with stats
-			new Notice(
-				`✓ ${version} converted successfully!\n` +
-				`${result.totalBooks} books, ${result.totalChapters} chapters, ${result.totalVerses} verses\n` +
-				`Saved to: ${result.outputPath}`,
-				8000
-			);
-
-			// Reload Bible data to include new version
-			await this.loadBibleData();
-
-		} else {
-			// Failure notice
-			new Notice(
-				`❌ ${version} conversion failed!\n` +
-				`${result.errors.length} errors found. Check console for details.`,
-				8000
-			);
-
-			// Log errors
-			console.error('Conversion errors:', result.errors);
-		}
+	extractBookName(apiName: string): string {
+		return this.normalizeBookName(apiName);
 	}
 
 	/**
-	 * Extract canonical book name from verbose API name
-	 * Uses the comprehensive conversion matrix from book-name-converter.ts
+	 * Normalize book name to canonical format
+	 * Handles abbreviations and various naming conventions
 	 */
-	extractBookName(apiName: string): string {
-		return normalizeBookName(apiName);
+	normalizeBookName(name: string): string {
+		if (!name) return name;
+
+		// Check if it's a 3-letter abbreviation
+		const upper = name.toUpperCase().trim();
+		if (BOOK_ABBREVIATIONS[upper]) {
+			return BOOK_ABBREVIATIONS[upper];
+		}
+
+		// Already a full name, return as-is
+		return name;
 	}
 
 	/**
@@ -3022,7 +2949,7 @@ export default class BiblePortalPlugin extends Plugin {
 		if (!this.crossReferences) return [];
 
 		// Normalize book name to match cross-reference data format
-		const normalizedBook = normalizeBookName(book);
+		const normalizedBook = this.normalizeBookName(book);
 		const verseRef = `${normalizedBook} ${chapter}:${verse}`;
 		return this.crossReferences[verseRef] || [];
 	}
@@ -18864,19 +18791,6 @@ class BiblePortalSettingTab extends PluginSettingTab {
 							new Notice(`Error: ${message}`);
 						}
 					});
-				});
-
-				// Bible Converter
-				const convertGroup = content.createDiv({ cls: 'bp-settings-group' });
-				convertGroup.createEl('div', { text: 'Convert Markdown', cls: 'bp-settings-group-title' });
-
-				const convertPurpose = convertGroup.createDiv({ cls: 'bp-settings-purpose' });
-				convertPurpose.textContent = 'Convert existing Bible markdown files to JSON format for use in Bible Portal.';
-
-				const convertActions = content.createDiv({ cls: 'bp-settings-actions' });
-				const convertBtn = convertActions.createEl('button', { text: 'Convert Bible', cls: 'action-secondary' });
-				convertBtn.addEventListener('click', async () => {
-					await this.plugin.convertBibleMarkdown();
 				});
 
 				// Import/Export
