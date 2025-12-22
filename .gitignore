@@ -49,3 +49,9 @@ audit.md
 
 # Level up ideas (development only)
 LEVEL-UP-IDEAS.md
+
+# Theming blueprint (development only)
+THEMING-BLUEPRINT.md
+
+# Plugin runtime data
+data.json
