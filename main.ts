@@ -9,8 +9,9 @@ interface HighlightColor {
 // Collection verse definition
 interface CollectionVerse {
 	reference: string; // e.g., "John 3:16" or "Romans 8:28-30"
-	completed: boolean;
-	notes?: string;
+	completed?: boolean; // Deprecated - kept for backwards compatibility
+	title?: string; // Optional custom title for the card
+	description?: string; // Optional description/notes for the card
 }
 
 // Smart collection definition
@@ -1299,9 +1300,10 @@ enum ViewMode {
 const VIEW_TYPE_BIBLE = "bible-portal-view";
 
 // Toast notification helper
-function showToast(message: string, duration: number = 3000) {
+function showToast(message: string, type: 'success' | 'error' | 'warning' = 'success', duration: number = 3000) {
 	const toast = document.createElement('div');
 	toast.addClass('bible-toast');
+	toast.addClass(`bible-toast-${type}`);
 	toast.textContent = message;
 	document.body.appendChild(toast);
 
@@ -5468,6 +5470,21 @@ class BibleView extends ItemView {
 		const sidebar = layout.createDiv({ cls: 'bible-portal-sidebar' });
 		this.renderSidebarModes(sidebar);
 
+		// Settings button at bottom of sidebar
+		const sidebarFooter = sidebar.createDiv({ cls: 'sidebar-footer' });
+		const settingsBtn = sidebarFooter.createEl('button', {
+			cls: 'sidebar-mode-btn sidebar-settings-btn',
+			attr: { 'aria-label': 'Settings', title: 'Open Bible Portal Settings' }
+		});
+		const settingsIcon = settingsBtn.createSpan({ cls: 'sidebar-mode-icon' });
+		setIcon(settingsIcon, 'settings');
+		settingsBtn.createSpan({ text: 'Settings', cls: 'sidebar-mode-title' });
+		settingsBtn.addEventListener('click', () => {
+			// Open Obsidian settings and navigate to Bible Portal plugin settings
+			(this.app as any).setting.open();
+			(this.app as any).setting.openTabById('bible-portal');
+		});
+
 		const mainArea = layout.createDiv({ cls: 'bible-portal-main' });
 		const mainDiv = mainArea.createDiv({ cls: 'bible-portal-container' });
 
@@ -7999,6 +8016,111 @@ class BibleView extends ItemView {
 			};
 		}
 		return null;
+	}
+
+	/**
+	 * Canonical list of Bible book names for validation and normalization
+	 */
+	getCanonicalBooks(): string[] {
+		return [
+			'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
+			'Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel',
+			'1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra',
+			'Nehemiah', 'Esther', 'Job', 'Psalms', 'Proverbs',
+			'Ecclesiastes', 'Song of Solomon', 'Isaiah', 'Jeremiah', 'Lamentations',
+			'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos',
+			'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk',
+			'Zephaniah', 'Haggai', 'Zechariah', 'Malachi',
+			'Matthew', 'Mark', 'Luke', 'John', 'Acts',
+			'Romans', '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians',
+			'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians', '1 Timothy',
+			'2 Timothy', 'Titus', 'Philemon', 'Hebrews', 'James',
+			'1 Peter', '2 Peter', '1 John', '2 John', '3 John',
+			'Jude', 'Revelation'
+		];
+	}
+
+	/**
+	 * Normalize a book name to its canonical form (proper case)
+	 * Returns null if book is not recognized
+	 */
+	normalizeBookName(book: string): string | null {
+		const canonical = this.getCanonicalBooks();
+		const lowerBook = book.toLowerCase().trim();
+
+		// Find matching canonical book (case-insensitive)
+		for (const canonicalBook of canonical) {
+			if (canonicalBook.toLowerCase() === lowerBook) {
+				return canonicalBook;
+			}
+		}
+
+		// Handle common abbreviations
+		const abbreviations: Record<string, string> = {
+			'gen': 'Genesis', 'ex': 'Exodus', 'lev': 'Leviticus', 'num': 'Numbers', 'deut': 'Deuteronomy',
+			'josh': 'Joshua', 'judg': 'Judges', '1 sam': '1 Samuel', '2 sam': '2 Samuel',
+			'1 kgs': '1 Kings', '2 kgs': '2 Kings', '1 chr': '1 Chronicles', '2 chr': '2 Chronicles',
+			'neh': 'Nehemiah', 'est': 'Esther', 'ps': 'Psalms', 'psa': 'Psalms', 'psalm': 'Psalms',
+			'prov': 'Proverbs', 'eccl': 'Ecclesiastes', 'song': 'Song of Solomon', 'sos': 'Song of Solomon',
+			'isa': 'Isaiah', 'jer': 'Jeremiah', 'lam': 'Lamentations', 'ezek': 'Ezekiel', 'dan': 'Daniel',
+			'hos': 'Hosea', 'ob': 'Obadiah', 'mic': 'Micah', 'nah': 'Nahum', 'hab': 'Habakkuk',
+			'zeph': 'Zephaniah', 'hag': 'Haggai', 'zech': 'Zechariah', 'mal': 'Malachi',
+			'matt': 'Matthew', 'mk': 'Mark', 'lk': 'Luke', 'jn': 'John',
+			'rom': 'Romans', '1 cor': '1 Corinthians', '2 cor': '2 Corinthians', 'gal': 'Galatians',
+			'eph': 'Ephesians', 'phil': 'Philippians', 'col': 'Colossians',
+			'1 thess': '1 Thessalonians', '2 thess': '2 Thessalonians',
+			'1 tim': '1 Timothy', '2 tim': '2 Timothy', 'phm': 'Philemon', 'heb': 'Hebrews',
+			'jas': 'James', '1 pet': '1 Peter', '2 pet': '2 Peter',
+			'1 jn': '1 John', '2 jn': '2 John', '3 jn': '3 John', 'rev': 'Revelation'
+		};
+
+		if (abbreviations[lowerBook]) {
+			return abbreviations[lowerBook];
+		}
+
+		return null;
+	}
+
+	/**
+	 * Validate and normalize a verse reference
+	 * Supports formats: "John 3:16", "John 3:16-21", "Genesis 1"
+	 * Returns { valid: true, normalized: "John 3:16" } or { valid: false, error: "message" }
+	 */
+	validateAndNormalizeReference(ref: string): { valid: boolean; normalized?: string; error?: string } {
+		const trimmed = ref.trim();
+		if (!trimmed) {
+			return { valid: false, error: 'Empty reference' };
+		}
+
+		// Try to match "Book Chapter:Verse" or "Book Chapter:Verse-Verse" format
+		const verseMatch = trimmed.match(/^(.+?)\s+(\d+):(\d+)(?:-(\d+))?$/);
+		if (verseMatch) {
+			const book = this.normalizeBookName(verseMatch[1]);
+			if (!book) {
+				return { valid: false, error: `Unknown book: "${verseMatch[1]}"` };
+			}
+			const chapter = verseMatch[2];
+			const startVerse = verseMatch[3];
+			const endVerse = verseMatch[4];
+
+			const normalized = endVerse
+				? `${book} ${chapter}:${startVerse}-${endVerse}`
+				: `${book} ${chapter}:${startVerse}`;
+			return { valid: true, normalized };
+		}
+
+		// Try to match "Book Chapter" format (chapter only)
+		const chapterMatch = trimmed.match(/^(.+?)\s+(\d+)$/);
+		if (chapterMatch) {
+			const book = this.normalizeBookName(chapterMatch[1]);
+			if (!book) {
+				return { valid: false, error: `Unknown book: "${chapterMatch[1]}"` };
+			}
+			const normalized = `${book} ${chapterMatch[2]}`;
+			return { valid: true, normalized };
+		}
+
+		return { valid: false, error: `Invalid format: "${trimmed}". Use "Book Chapter:Verse" (e.g., John 3:16)` };
 	}
 
 	performVerseLookup() {
@@ -16090,18 +16212,10 @@ class BibleView extends ItemView {
 			collectionsList.createEl('p', { text: 'No collections yet. Create one or use a template above.', cls: 'empty-state' });
 		} else {
 			collections.forEach(col => {
-				const completedCount = col.verses.filter(v => v.completed).length;
-				const progress = col.verses.length > 0 ? Math.round((completedCount / col.verses.length) * 100) : 0;
-
 				const isSelected = this.selectedCollectionId === col.id;
 				const colItem = collectionsList.createDiv({ cls: `collection-item ${isSelected ? 'selected' : ''}` });
 				colItem.createEl('strong', { text: col.name });
-				colItem.createEl('span', { text: `${col.verses.length} verses • ${progress}% complete`, cls: 'collection-meta' });
-
-				// Progress bar
-				const progressBar = colItem.createDiv({ cls: 'collection-progress-bar' });
-				const progressFill = progressBar.createDiv({ cls: 'collection-progress-fill' });
-				progressFill.style.width = `${progress}%`;
+				colItem.createEl('span', { text: `${col.verses.length} verse${col.verses.length !== 1 ? 's' : ''}`, cls: 'collection-meta' });
 
 				this.registerDomEvent(colItem, 'click', () => {
 					this.selectedCollectionId = col.id;
@@ -16193,15 +16307,9 @@ class BibleView extends ItemView {
 			await this.plugin.saveSettings();
 		});
 
-		// Progress summary
-		const completedCount = collection.verses.filter(v => v.completed).length;
-		const progress = collection.verses.length > 0 ? Math.round((completedCount / collection.verses.length) * 100) : 0;
-		const progressDiv = container.createDiv({ cls: 'collection-progress-summary' });
-		progressDiv.createEl('span', { text: `Progress: ${completedCount}/${collection.verses.length} verses (${progress}%)` });
-
-		const progressBar = progressDiv.createDiv({ cls: 'collection-progress-bar large' });
-		const progressFill = progressBar.createDiv({ cls: 'collection-progress-fill' });
-		progressFill.style.width = `${progress}%`;
+		// Verse count summary
+		const countDiv = container.createDiv({ cls: 'collection-count-summary' });
+		countDiv.createEl('span', { text: `${collection.verses.length} verse${collection.verses.length !== 1 ? 's' : ''} in this collection` });
 
 		// Add verse input
 		const addSection = container.createDiv({ cls: 'collection-add-section' });
@@ -16217,15 +16325,63 @@ class BibleView extends ItemView {
 		setIcon(addBtnIcon, 'plus');
 		addBtn.createSpan({ text: 'Add Verse' });
 
-		// Helper function to add verse
+		// Helper function to add verse(s) - supports comma-separated list
 		const addVerse = async () => {
-			const ref = addInput.value.trim();
-			if (ref) {
-				// Add verse to collection
-				collection.verses.push({ reference: ref, completed: false });
+			const input = addInput.value.trim();
+			if (!input) return;
+
+			// Split by comma for multi-verse support
+			const refs = input.split(',').map(r => r.trim()).filter(r => r);
+			const added: string[] = [];
+			const errors: string[] = [];
+			const duplicates: string[] = [];
+
+			for (const ref of refs) {
+				// Validate and normalize the reference
+				const result = this.validateAndNormalizeReference(ref);
+
+				if (!result.valid) {
+					errors.push(result.error || `Invalid: ${ref}`);
+					continue;
+				}
+
+				const normalized = result.normalized!;
+
+				// Check for duplicates in collection
+				if (collection.verses.some(v => v.reference.toLowerCase() === normalized.toLowerCase())) {
+					duplicates.push(normalized);
+					continue;
+				}
+
+				// Add valid verse to collection
+				collection.verses.push({ reference: normalized });
+				added.push(normalized);
+			}
+
+			// Save if any verses were added
+			if (added.length > 0) {
 				await this.plugin.saveSettings();
-				showToast(`Added ${ref} to collection`);
-				// Re-render entire view to update both list and detail panels
+			}
+
+			// Show appropriate feedback
+			if (added.length > 0 && errors.length === 0 && duplicates.length === 0) {
+				showToast(added.length === 1
+					? `Added ${added[0]} to collection`
+					: `Added ${added.length} verses to collection`);
+			} else if (added.length > 0) {
+				let msg = `Added ${added.length} verse${added.length > 1 ? 's' : ''}`;
+				if (errors.length > 0) msg += `, ${errors.length} invalid`;
+				if (duplicates.length > 0) msg += `, ${duplicates.length} duplicate${duplicates.length > 1 ? 's' : ''}`;
+				showToast(msg);
+			} else if (errors.length > 0) {
+				showToast(errors[0], 'error');
+			} else if (duplicates.length > 0) {
+				showToast(`Already in collection: ${duplicates[0]}`, 'warning');
+			}
+
+			// Clear input and re-render if any verses were added
+			if (added.length > 0) {
+				addInput.value = '';
 				this.render();
 			}
 		};
@@ -16241,28 +16397,22 @@ class BibleView extends ItemView {
 			}
 		});
 
-		// Verses list
+		// Verses list as cards
 		const versesList = container.createDiv({ cls: 'collection-verses-list' });
 		collection.verses.forEach((verse, idx) => {
-			const verseItem = versesList.createDiv({ cls: `collection-verse-item ${verse.completed ? 'completed' : ''}` });
+			const verseCard = versesList.createDiv({ cls: 'collection-verse-card' });
 
-			// Checkbox
-			const checkbox = verseItem.createEl('input', { type: 'checkbox', cls: 'collection-verse-checkbox' });
-			checkbox.checked = verse.completed;
-			this.registerDomEvent(checkbox, 'change', async () => {
-				verse.completed = checkbox.checked;
-				await this.plugin.saveSettings();
-				this.renderCollectionDetail(container, collection);
-			});
+			// Card header with reference and actions
+			const cardHeader = verseCard.createDiv({ cls: 'collection-card-header' });
 
 			// Reference (clickable)
-			const refSpan = verseItem.createEl('span', { text: verse.reference, cls: 'collection-verse-ref' });
+			const refSpan = cardHeader.createEl('span', { text: verse.reference, cls: 'collection-verse-ref' });
 			this.registerDomEvent(refSpan, 'click', () => {
 				this.navigateToReference(verse.reference);
 			});
 
 			// Remove button
-			const removeBtn = verseItem.createEl('button', { cls: 'collection-verse-remove' });
+			const removeBtn = cardHeader.createEl('button', { cls: 'collection-verse-remove' });
 			const removeIcon = removeBtn.createSpan();
 			setIcon(removeIcon, 'x');
 			this.registerDomEvent(removeBtn, 'click', async () => {
@@ -16270,16 +16420,143 @@ class BibleView extends ItemView {
 				await this.plugin.saveSettings();
 				this.renderCollectionDetail(container, collection);
 			});
+
+			// Title input (optional)
+			const titleInput = verseCard.createEl('input', {
+				type: 'text',
+				cls: 'collection-card-title',
+				placeholder: 'Add a title...',
+				value: verse.title || ''
+			});
+			this.registerDomEvent(titleInput, 'change', async () => {
+				verse.title = titleInput.value || undefined;
+				await this.plugin.saveSettings();
+			});
+
+			// Verse text display
+			const verseTextDiv = verseCard.createDiv({ cls: 'collection-verse-text' });
+			this.loadVerseTextForCard(verse.reference, verseTextDiv);
+
+			// Description textarea (optional)
+			const descInput = verseCard.createEl('textarea', {
+				cls: 'collection-card-desc',
+				placeholder: 'Add notes or description...'
+			});
+			descInput.value = verse.description || '';
+			descInput.rows = 2;
+			this.registerDomEvent(descInput, 'change', async () => {
+				verse.description = descInput.value || undefined;
+				await this.plugin.saveSettings();
+			});
 		});
 
 		// Export/Import buttons
 		const exportSection = container.createDiv({ cls: 'collection-export-section' });
-		const exportBtn = exportSection.createEl('button', { text: 'Export Collection', cls: 'collection-export-btn' });
+
+		const exportBtn = exportSection.createEl('button', { cls: 'collection-action-btn' });
+		const exportIcon = exportBtn.createSpan({ cls: 'btn-icon' });
+		setIcon(exportIcon, 'upload');
+		exportBtn.createSpan({ text: 'Export' });
 		this.registerDomEvent(exportBtn, 'click', async () => {
 			const json = JSON.stringify(collection, null, 2);
 			await navigator.clipboard.writeText(json);
 			showToast('Collection exported to clipboard as JSON');
 		});
+
+		const importBtn = exportSection.createEl('button', { cls: 'collection-action-btn' });
+		const importIcon = importBtn.createSpan({ cls: 'btn-icon' });
+		setIcon(importIcon, 'download');
+		importBtn.createSpan({ text: 'Import' });
+		this.registerDomEvent(importBtn, 'click', async () => {
+			try {
+				const clipboardText = await navigator.clipboard.readText();
+				const imported = JSON.parse(clipboardText);
+
+				// Validate it's an array of verses or a collection object
+				let versesToImport: CollectionVerse[] = [];
+				if (Array.isArray(imported)) {
+					versesToImport = imported.filter(v => v.reference);
+				} else if (imported.verses && Array.isArray(imported.verses)) {
+					versesToImport = imported.verses.filter((v: CollectionVerse) => v.reference);
+				} else {
+					showToast('Invalid collection format', 'error');
+					return;
+				}
+
+				if (versesToImport.length === 0) {
+					showToast('No verses found in clipboard', 'warning');
+					return;
+				}
+
+				// Add verses, skipping duplicates
+				let added = 0;
+				for (const v of versesToImport) {
+					const normalized = this.validateAndNormalizeReference(v.reference);
+					if (normalized.valid) {
+						const exists = collection.verses.some(
+							existing => existing.reference.toLowerCase() === normalized.normalized!.toLowerCase()
+						);
+						if (!exists) {
+							collection.verses.push({
+								reference: normalized.normalized!,
+								title: v.title,
+								description: v.description
+							});
+							added++;
+						}
+					}
+				}
+
+				if (added > 0) {
+					await this.plugin.saveSettings();
+					showToast(`Imported ${added} verse${added !== 1 ? 's' : ''}`);
+					this.renderCollectionDetail(container, collection);
+				} else {
+					showToast('All verses already in collection', 'warning');
+				}
+			} catch (e) {
+				showToast('Failed to import: invalid JSON in clipboard', 'error');
+			}
+		});
+	}
+
+	/**
+	 * Load verse text for a collection card
+	 */
+	async loadVerseTextForCard(reference: string, container: HTMLElement) {
+		const parsed = this.parseVerseReference(reference) || this.parsePassageReference(reference);
+		if (!parsed) {
+			container.createEl('em', { text: 'Could not load verse text', cls: 'verse-text-error' });
+			return;
+		}
+
+		const version = this.plugin.settings.bibleVersions[0] || 'ESV';
+		const chapter = this.plugin.getChapter(version, parsed.book, parsed.chapter);
+
+		if (!chapter || !chapter.verses) {
+			container.createEl('em', { text: 'Verse not found', cls: 'verse-text-error' });
+			return;
+		}
+
+		// Handle single verse or range
+		const startVerse = 'verse' in parsed ? parsed.verse : parsed.startVerse;
+		const endVerse = 'endVerse' in parsed ? parsed.endVerse : startVerse;
+
+		const texts: string[] = [];
+		for (let v = startVerse; v <= endVerse; v++) {
+			const verseData = chapter.verses[v.toString()];
+			if (verseData) {
+				// Handle both string (legacy) and object (StrongsVerse) formats
+				const text = typeof verseData === 'string' ? verseData : verseData.text;
+				texts.push(`${v} ${text}`);
+			}
+		}
+
+		if (texts.length > 0) {
+			container.createEl('p', { text: texts.join(' '), cls: 'verse-text-content' });
+		} else {
+			container.createEl('em', { text: 'Verse not found', cls: 'verse-text-error' });
+		}
 	}
 
 	// ========== MEMORIZATION MODE (15H) ==========

@@ -335,6 +335,21 @@
 	flex-shrink: 0;
 }
 
+/* Sidebar footer - pushes settings button to bottom */
+.sidebar-footer {
+	margin-top: auto;
+	padding-top: 10px;
+	border-top: 1px solid var(--bp-border);
+}
+
+.sidebar-settings-btn {
+	opacity: 0.7;
+}
+
+.sidebar-settings-btn:hover {
+	opacity: 1;
+}
+
 .bible-portal-main {
 	flex: 1;
 	overflow-y: auto;
@@ -3363,6 +3378,18 @@
 .bible-toast-show {
 	opacity: 1;
 	transform: translateX(-50%) translateY(0);
+}
+
+.bible-toast-success {
+	background: var(--interactive-accent);
+}
+
+.bible-toast-error {
+	background: #dc2626;
+}
+
+.bible-toast-warning {
+	background: #d97706;
 }
 
 /* Note preview popup */
@@ -10789,32 +10816,31 @@ input,
 	overflow-y: auto;
 }
 
-.collection-verse-item {
+/* Collection verse cards */
+.collection-verse-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bp-space-2);
+	padding: var(--bp-space-3);
+	background: var(--background-secondary);
+	border-radius: var(--bp-radius-md);
+	border: 1px solid var(--background-modifier-border);
+	transition: box-shadow 0.2s ease;
+}
+
+.collection-verse-card:hover {
+	box-shadow: var(--bp-shadow-sm);
+}
+
+.collection-card-header {
 	display: flex;
 	align-items: center;
-	gap: var(--bp-space-3);
-	padding: var(--bp-space-2) var(--bp-space-3);
-	background: var(--background-secondary);
-	border-radius: 4px;
-	transition: background 0.2s ease;
-}
-
-.collection-verse-item.completed {
-	opacity: 0.6;
-}
-
-.collection-verse-item.completed .collection-verse-ref {
-	text-decoration: line-through;
-}
-
-.collection-verse-checkbox {
-	width: 18px;
-	height: 18px;
-	accent-color: var(--interactive-accent);
+	justify-content: space-between;
+	gap: var(--bp-space-2);
 }
 
 .collection-verse-ref {
-	flex: 1;
+	font-weight: 600;
 	cursor: pointer;
 	color: var(--text-accent);
 }
@@ -10833,7 +10859,7 @@ input,
 	transition: opacity 0.2s ease;
 }
 
-.collection-verse-item:hover .collection-verse-remove {
+.collection-verse-card:hover .collection-verse-remove {
 	opacity: 1;
 }
 
@@ -10841,18 +10867,111 @@ input,
 	color: #e53935;
 }
 
+.collection-card-title {
+	font-size: var(--bp-text-sm);
+	font-weight: 500;
+	padding: var(--bp-space-1) var(--bp-space-2);
+	background: transparent;
+	border: 1px dashed transparent;
+	border-radius: 4px;
+	color: var(--text-normal);
+}
+
+.collection-card-title:hover,
+.collection-card-title:focus {
+	background: var(--background-primary);
+	border-color: var(--background-modifier-border);
+}
+
+.collection-card-title::placeholder {
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+.collection-verse-text {
+	padding: var(--bp-space-2) var(--bp-space-3);
+	background: var(--background-primary);
+	border-radius: 4px;
+	font-size: var(--bp-text-sm);
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+.collection-verse-text .verse-text-content {
+	margin: 0;
+}
+
+.collection-verse-text .verse-text-error {
+	color: var(--text-faint);
+}
+
+.collection-card-desc {
+	font-size: var(--bp-text-sm);
+	padding: var(--bp-space-2);
+	background: transparent;
+	border: 1px dashed transparent;
+	border-radius: 4px;
+	resize: vertical;
+	min-height: 40px;
+	color: var(--text-normal);
+}
+
+.collection-card-desc:hover,
+.collection-card-desc:focus {
+	background: var(--background-primary);
+	border-color: var(--background-modifier-border);
+}
+
+.collection-card-desc::placeholder {
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+/* Count summary */
+.collection-count-summary {
+	margin-bottom: var(--bp-space-4);
+	font-size: var(--bp-text-sm);
+	color: var(--text-muted);
+}
+
+/* Export/Import section */
 .collection-export-section {
 	margin-top: var(--bp-space-6);
 	padding-top: var(--bp-space-4);
 	border-top: 1px solid var(--background-modifier-border);
+	display: flex;
+	gap: var(--bp-space-2);
 }
 
-.collection-export-btn {
-	padding: var(--bp-space-2) var(--bp-space-4);
+.collection-action-btn {
+	display: flex;
+	align-items: center;
+	gap: var(--bp-space-2);
+	padding: var(--bp-space-2) var(--bp-space-3);
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 4px;
 	cursor: pointer;
+	font-size: var(--bp-text-sm);
+	color: var(--text-normal);
+	transition: background 0.2s ease;
+}
+
+.collection-action-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.collection-action-btn .btn-icon {
+	width: 16px;
+	height: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.collection-action-btn .btn-icon svg {
+	width: 14px;
+	height: 14px;
 }
 
 /* ========================================

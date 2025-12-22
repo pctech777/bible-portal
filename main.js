@@ -794,9 +794,10 @@ var BOOK_ABBREVIATIONS = {
   "REV": "Revelation"
 };
 var VIEW_TYPE_BIBLE = "bible-portal-view";
-function showToast(message, duration = 3e3) {
+function showToast(message, type = "success", duration = 3e3) {
   const toast = document.createElement("div");
   toast.addClass("bible-toast");
+  toast.addClass(`bible-toast-${type}`);
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => toast.addClass("bible-toast-show"), 10);
@@ -3990,6 +3991,18 @@ var BibleView = class extends import_obsidian.ItemView {
     }
     const sidebar = layout.createDiv({ cls: "bible-portal-sidebar" });
     this.renderSidebarModes(sidebar);
+    const sidebarFooter = sidebar.createDiv({ cls: "sidebar-footer" });
+    const settingsBtn = sidebarFooter.createEl("button", {
+      cls: "sidebar-mode-btn sidebar-settings-btn",
+      attr: { "aria-label": "Settings", title: "Open Bible Portal Settings" }
+    });
+    const settingsIcon = settingsBtn.createSpan({ cls: "sidebar-mode-icon" });
+    (0, import_obsidian.setIcon)(settingsIcon, "settings");
+    settingsBtn.createSpan({ text: "Settings", cls: "sidebar-mode-title" });
+    settingsBtn.addEventListener("click", () => {
+      this.app.setting.open();
+      this.app.setting.openTabById("bible-portal");
+    });
     const mainArea = layout.createDiv({ cls: "bible-portal-main" });
     const mainDiv = mainArea.createDiv({ cls: "bible-portal-container" });
     if (showContextSidebar) {
@@ -5943,6 +5956,191 @@ ${disputedInfo.manuscriptInfo}`);
       };
     }
     return null;
+  }
+  /**
+   * Canonical list of Bible book names for validation and normalization
+   */
+  getCanonicalBooks() {
+    return [
+      "Genesis",
+      "Exodus",
+      "Leviticus",
+      "Numbers",
+      "Deuteronomy",
+      "Joshua",
+      "Judges",
+      "Ruth",
+      "1 Samuel",
+      "2 Samuel",
+      "1 Kings",
+      "2 Kings",
+      "1 Chronicles",
+      "2 Chronicles",
+      "Ezra",
+      "Nehemiah",
+      "Esther",
+      "Job",
+      "Psalms",
+      "Proverbs",
+      "Ecclesiastes",
+      "Song of Solomon",
+      "Isaiah",
+      "Jeremiah",
+      "Lamentations",
+      "Ezekiel",
+      "Daniel",
+      "Hosea",
+      "Joel",
+      "Amos",
+      "Obadiah",
+      "Jonah",
+      "Micah",
+      "Nahum",
+      "Habakkuk",
+      "Zephaniah",
+      "Haggai",
+      "Zechariah",
+      "Malachi",
+      "Matthew",
+      "Mark",
+      "Luke",
+      "John",
+      "Acts",
+      "Romans",
+      "1 Corinthians",
+      "2 Corinthians",
+      "Galatians",
+      "Ephesians",
+      "Philippians",
+      "Colossians",
+      "1 Thessalonians",
+      "2 Thessalonians",
+      "1 Timothy",
+      "2 Timothy",
+      "Titus",
+      "Philemon",
+      "Hebrews",
+      "James",
+      "1 Peter",
+      "2 Peter",
+      "1 John",
+      "2 John",
+      "3 John",
+      "Jude",
+      "Revelation"
+    ];
+  }
+  /**
+   * Normalize a book name to its canonical form (proper case)
+   * Returns null if book is not recognized
+   */
+  normalizeBookName(book) {
+    const canonical = this.getCanonicalBooks();
+    const lowerBook = book.toLowerCase().trim();
+    for (const canonicalBook of canonical) {
+      if (canonicalBook.toLowerCase() === lowerBook) {
+        return canonicalBook;
+      }
+    }
+    const abbreviations = {
+      "gen": "Genesis",
+      "ex": "Exodus",
+      "lev": "Leviticus",
+      "num": "Numbers",
+      "deut": "Deuteronomy",
+      "josh": "Joshua",
+      "judg": "Judges",
+      "1 sam": "1 Samuel",
+      "2 sam": "2 Samuel",
+      "1 kgs": "1 Kings",
+      "2 kgs": "2 Kings",
+      "1 chr": "1 Chronicles",
+      "2 chr": "2 Chronicles",
+      "neh": "Nehemiah",
+      "est": "Esther",
+      "ps": "Psalms",
+      "psa": "Psalms",
+      "psalm": "Psalms",
+      "prov": "Proverbs",
+      "eccl": "Ecclesiastes",
+      "song": "Song of Solomon",
+      "sos": "Song of Solomon",
+      "isa": "Isaiah",
+      "jer": "Jeremiah",
+      "lam": "Lamentations",
+      "ezek": "Ezekiel",
+      "dan": "Daniel",
+      "hos": "Hosea",
+      "ob": "Obadiah",
+      "mic": "Micah",
+      "nah": "Nahum",
+      "hab": "Habakkuk",
+      "zeph": "Zephaniah",
+      "hag": "Haggai",
+      "zech": "Zechariah",
+      "mal": "Malachi",
+      "matt": "Matthew",
+      "mk": "Mark",
+      "lk": "Luke",
+      "jn": "John",
+      "rom": "Romans",
+      "1 cor": "1 Corinthians",
+      "2 cor": "2 Corinthians",
+      "gal": "Galatians",
+      "eph": "Ephesians",
+      "phil": "Philippians",
+      "col": "Colossians",
+      "1 thess": "1 Thessalonians",
+      "2 thess": "2 Thessalonians",
+      "1 tim": "1 Timothy",
+      "2 tim": "2 Timothy",
+      "phm": "Philemon",
+      "heb": "Hebrews",
+      "jas": "James",
+      "1 pet": "1 Peter",
+      "2 pet": "2 Peter",
+      "1 jn": "1 John",
+      "2 jn": "2 John",
+      "3 jn": "3 John",
+      "rev": "Revelation"
+    };
+    if (abbreviations[lowerBook]) {
+      return abbreviations[lowerBook];
+    }
+    return null;
+  }
+  /**
+   * Validate and normalize a verse reference
+   * Supports formats: "John 3:16", "John 3:16-21", "Genesis 1"
+   * Returns { valid: true, normalized: "John 3:16" } or { valid: false, error: "message" }
+   */
+  validateAndNormalizeReference(ref) {
+    const trimmed = ref.trim();
+    if (!trimmed) {
+      return { valid: false, error: "Empty reference" };
+    }
+    const verseMatch = trimmed.match(/^(.+?)\s+(\d+):(\d+)(?:-(\d+))?$/);
+    if (verseMatch) {
+      const book = this.normalizeBookName(verseMatch[1]);
+      if (!book) {
+        return { valid: false, error: `Unknown book: "${verseMatch[1]}"` };
+      }
+      const chapter = verseMatch[2];
+      const startVerse = verseMatch[3];
+      const endVerse = verseMatch[4];
+      const normalized = endVerse ? `${book} ${chapter}:${startVerse}-${endVerse}` : `${book} ${chapter}:${startVerse}`;
+      return { valid: true, normalized };
+    }
+    const chapterMatch = trimmed.match(/^(.+?)\s+(\d+)$/);
+    if (chapterMatch) {
+      const book = this.normalizeBookName(chapterMatch[1]);
+      if (!book) {
+        return { valid: false, error: `Unknown book: "${chapterMatch[1]}"` };
+      }
+      const normalized = `${book} ${chapterMatch[2]}`;
+      return { valid: true, normalized };
+    }
+    return { valid: false, error: `Invalid format: "${trimmed}". Use "Book Chapter:Verse" (e.g., John 3:16)` };
   }
   performVerseLookup() {
     this.render();
@@ -12500,15 +12698,10 @@ ${disputedInfo.manuscriptInfo}`);
       collectionsList.createEl("p", { text: "No collections yet. Create one or use a template above.", cls: "empty-state" });
     } else {
       collections.forEach((col) => {
-        const completedCount = col.verses.filter((v) => v.completed).length;
-        const progress = col.verses.length > 0 ? Math.round(completedCount / col.verses.length * 100) : 0;
         const isSelected = this.selectedCollectionId === col.id;
         const colItem = collectionsList.createDiv({ cls: `collection-item ${isSelected ? "selected" : ""}` });
         colItem.createEl("strong", { text: col.name });
-        colItem.createEl("span", { text: `${col.verses.length} verses \u2022 ${progress}% complete`, cls: "collection-meta" });
-        const progressBar = colItem.createDiv({ cls: "collection-progress-bar" });
-        const progressFill = progressBar.createDiv({ cls: "collection-progress-fill" });
-        progressFill.style.width = `${progress}%`;
+        colItem.createEl("span", { text: `${col.verses.length} verse${col.verses.length !== 1 ? "s" : ""}`, cls: "collection-meta" });
         this.registerDomEvent(colItem, "click", () => {
           this.selectedCollectionId = col.id;
           collectionsList.querySelectorAll(".collection-item").forEach((item) => item.removeClass("selected"));
@@ -12580,13 +12773,8 @@ ${disputedInfo.manuscriptInfo}`);
       collection.description = descInput.value;
       await this.plugin.saveSettings();
     });
-    const completedCount = collection.verses.filter((v) => v.completed).length;
-    const progress = collection.verses.length > 0 ? Math.round(completedCount / collection.verses.length * 100) : 0;
-    const progressDiv = container.createDiv({ cls: "collection-progress-summary" });
-    progressDiv.createEl("span", { text: `Progress: ${completedCount}/${collection.verses.length} verses (${progress}%)` });
-    const progressBar = progressDiv.createDiv({ cls: "collection-progress-bar large" });
-    const progressFill = progressBar.createDiv({ cls: "collection-progress-fill" });
-    progressFill.style.width = `${progress}%`;
+    const countDiv = container.createDiv({ cls: "collection-count-summary" });
+    countDiv.createEl("span", { text: `${collection.verses.length} verse${collection.verses.length !== 1 ? "s" : ""} in this collection` });
     const addSection = container.createDiv({ cls: "collection-add-section" });
     addSection.createEl("label", { text: "Add verses to this collection:", cls: "collection-add-label" });
     const addRow = addSection.createDiv({ cls: "collection-add-row" });
@@ -12600,11 +12788,46 @@ ${disputedInfo.manuscriptInfo}`);
     (0, import_obsidian.setIcon)(addBtnIcon, "plus");
     addBtn.createSpan({ text: "Add Verse" });
     const addVerse = async () => {
-      const ref = addInput.value.trim();
-      if (ref) {
-        collection.verses.push({ reference: ref, completed: false });
+      const input = addInput.value.trim();
+      if (!input)
+        return;
+      const refs = input.split(",").map((r) => r.trim()).filter((r) => r);
+      const added = [];
+      const errors = [];
+      const duplicates = [];
+      for (const ref of refs) {
+        const result = this.validateAndNormalizeReference(ref);
+        if (!result.valid) {
+          errors.push(result.error || `Invalid: ${ref}`);
+          continue;
+        }
+        const normalized = result.normalized;
+        if (collection.verses.some((v) => v.reference.toLowerCase() === normalized.toLowerCase())) {
+          duplicates.push(normalized);
+          continue;
+        }
+        collection.verses.push({ reference: normalized });
+        added.push(normalized);
+      }
+      if (added.length > 0) {
         await this.plugin.saveSettings();
-        showToast(`Added ${ref} to collection`);
+      }
+      if (added.length > 0 && errors.length === 0 && duplicates.length === 0) {
+        showToast(added.length === 1 ? `Added ${added[0]} to collection` : `Added ${added.length} verses to collection`);
+      } else if (added.length > 0) {
+        let msg = `Added ${added.length} verse${added.length > 1 ? "s" : ""}`;
+        if (errors.length > 0)
+          msg += `, ${errors.length} invalid`;
+        if (duplicates.length > 0)
+          msg += `, ${duplicates.length} duplicate${duplicates.length > 1 ? "s" : ""}`;
+        showToast(msg);
+      } else if (errors.length > 0) {
+        showToast(errors[0], "error");
+      } else if (duplicates.length > 0) {
+        showToast(`Already in collection: ${duplicates[0]}`, "warning");
+      }
+      if (added.length > 0) {
+        addInput.value = "";
         this.render();
       }
     };
@@ -12617,19 +12840,13 @@ ${disputedInfo.manuscriptInfo}`);
     });
     const versesList = container.createDiv({ cls: "collection-verses-list" });
     collection.verses.forEach((verse, idx) => {
-      const verseItem = versesList.createDiv({ cls: `collection-verse-item ${verse.completed ? "completed" : ""}` });
-      const checkbox = verseItem.createEl("input", { type: "checkbox", cls: "collection-verse-checkbox" });
-      checkbox.checked = verse.completed;
-      this.registerDomEvent(checkbox, "change", async () => {
-        verse.completed = checkbox.checked;
-        await this.plugin.saveSettings();
-        this.renderCollectionDetail(container, collection);
-      });
-      const refSpan = verseItem.createEl("span", { text: verse.reference, cls: "collection-verse-ref" });
+      const verseCard = versesList.createDiv({ cls: "collection-verse-card" });
+      const cardHeader = verseCard.createDiv({ cls: "collection-card-header" });
+      const refSpan = cardHeader.createEl("span", { text: verse.reference, cls: "collection-verse-ref" });
       this.registerDomEvent(refSpan, "click", () => {
         this.navigateToReference(verse.reference);
       });
-      const removeBtn = verseItem.createEl("button", { cls: "collection-verse-remove" });
+      const removeBtn = cardHeader.createEl("button", { cls: "collection-verse-remove" });
       const removeIcon = removeBtn.createSpan();
       (0, import_obsidian.setIcon)(removeIcon, "x");
       this.registerDomEvent(removeBtn, "click", async () => {
@@ -12637,14 +12854,119 @@ ${disputedInfo.manuscriptInfo}`);
         await this.plugin.saveSettings();
         this.renderCollectionDetail(container, collection);
       });
+      const titleInput = verseCard.createEl("input", {
+        type: "text",
+        cls: "collection-card-title",
+        placeholder: "Add a title...",
+        value: verse.title || ""
+      });
+      this.registerDomEvent(titleInput, "change", async () => {
+        verse.title = titleInput.value || void 0;
+        await this.plugin.saveSettings();
+      });
+      const verseTextDiv = verseCard.createDiv({ cls: "collection-verse-text" });
+      this.loadVerseTextForCard(verse.reference, verseTextDiv);
+      const descInput2 = verseCard.createEl("textarea", {
+        cls: "collection-card-desc",
+        placeholder: "Add notes or description..."
+      });
+      descInput2.value = verse.description || "";
+      descInput2.rows = 2;
+      this.registerDomEvent(descInput2, "change", async () => {
+        verse.description = descInput2.value || void 0;
+        await this.plugin.saveSettings();
+      });
     });
     const exportSection = container.createDiv({ cls: "collection-export-section" });
-    const exportBtn = exportSection.createEl("button", { text: "Export Collection", cls: "collection-export-btn" });
+    const exportBtn = exportSection.createEl("button", { cls: "collection-action-btn" });
+    const exportIcon = exportBtn.createSpan({ cls: "btn-icon" });
+    (0, import_obsidian.setIcon)(exportIcon, "upload");
+    exportBtn.createSpan({ text: "Export" });
     this.registerDomEvent(exportBtn, "click", async () => {
       const json = JSON.stringify(collection, null, 2);
       await navigator.clipboard.writeText(json);
       showToast("Collection exported to clipboard as JSON");
     });
+    const importBtn = exportSection.createEl("button", { cls: "collection-action-btn" });
+    const importIcon = importBtn.createSpan({ cls: "btn-icon" });
+    (0, import_obsidian.setIcon)(importIcon, "download");
+    importBtn.createSpan({ text: "Import" });
+    this.registerDomEvent(importBtn, "click", async () => {
+      try {
+        const clipboardText = await navigator.clipboard.readText();
+        const imported = JSON.parse(clipboardText);
+        let versesToImport = [];
+        if (Array.isArray(imported)) {
+          versesToImport = imported.filter((v) => v.reference);
+        } else if (imported.verses && Array.isArray(imported.verses)) {
+          versesToImport = imported.verses.filter((v) => v.reference);
+        } else {
+          showToast("Invalid collection format", "error");
+          return;
+        }
+        if (versesToImport.length === 0) {
+          showToast("No verses found in clipboard", "warning");
+          return;
+        }
+        let added = 0;
+        for (const v of versesToImport) {
+          const normalized = this.validateAndNormalizeReference(v.reference);
+          if (normalized.valid) {
+            const exists = collection.verses.some(
+              (existing) => existing.reference.toLowerCase() === normalized.normalized.toLowerCase()
+            );
+            if (!exists) {
+              collection.verses.push({
+                reference: normalized.normalized,
+                title: v.title,
+                description: v.description
+              });
+              added++;
+            }
+          }
+        }
+        if (added > 0) {
+          await this.plugin.saveSettings();
+          showToast(`Imported ${added} verse${added !== 1 ? "s" : ""}`);
+          this.renderCollectionDetail(container, collection);
+        } else {
+          showToast("All verses already in collection", "warning");
+        }
+      } catch (e) {
+        showToast("Failed to import: invalid JSON in clipboard", "error");
+      }
+    });
+  }
+  /**
+   * Load verse text for a collection card
+   */
+  async loadVerseTextForCard(reference, container) {
+    const parsed = this.parseVerseReference(reference) || this.parsePassageReference(reference);
+    if (!parsed) {
+      container.createEl("em", { text: "Could not load verse text", cls: "verse-text-error" });
+      return;
+    }
+    const version = this.plugin.settings.bibleVersions[0] || "ESV";
+    const chapter = this.plugin.getChapter(version, parsed.book, parsed.chapter);
+    if (!chapter || !chapter.verses) {
+      container.createEl("em", { text: "Verse not found", cls: "verse-text-error" });
+      return;
+    }
+    const startVerse = "verse" in parsed ? parsed.verse : parsed.startVerse;
+    const endVerse = "endVerse" in parsed ? parsed.endVerse : startVerse;
+    const texts = [];
+    for (let v = startVerse; v <= endVerse; v++) {
+      const verseData = chapter.verses[v.toString()];
+      if (verseData) {
+        const text = typeof verseData === "string" ? verseData : verseData.text;
+        texts.push(`${v} ${text}`);
+      }
+    }
+    if (texts.length > 0) {
+      container.createEl("p", { text: texts.join(" "), cls: "verse-text-content" });
+    } else {
+      container.createEl("em", { text: "Verse not found", cls: "verse-text-error" });
+    }
   }
   // ========== MEMORIZATION MODE (15H) ==========
   renderMemorizationMode(container) {
