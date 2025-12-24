@@ -10923,8 +10923,9 @@ input,
 }
 
 .collection-card-desc::placeholder {
-	color: var(--text-faint);
+	color: var(--text-muted);
 	font-style: italic;
+	opacity: 0.7;
 }
 
 /* Count summary */

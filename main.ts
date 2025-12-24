@@ -16440,10 +16440,9 @@ class BibleView extends ItemView {
 			// Description textarea (optional)
 			const descInput = verseCard.createEl('textarea', {
 				cls: 'collection-card-desc',
-				placeholder: 'Add notes or description...'
+				attr: { placeholder: 'Add notes here...', rows: '2' }
 			});
 			descInput.value = verse.description || '';
-			descInput.rows = 2;
 			this.registerDomEvent(descInput, 'change', async () => {
 				verse.description = descInput.value || undefined;
 				await this.plugin.saveSettings();
@@ -16453,14 +16452,76 @@ class BibleView extends ItemView {
 		// Export/Import buttons
 		const exportSection = container.createDiv({ cls: 'collection-export-section' });
 
-		const exportBtn = exportSection.createEl('button', { cls: 'collection-action-btn' });
-		const exportIcon = exportBtn.createSpan({ cls: 'btn-icon' });
-		setIcon(exportIcon, 'upload');
-		exportBtn.createSpan({ text: 'Export' });
-		this.registerDomEvent(exportBtn, 'click', async () => {
+		const exportJsonBtn = exportSection.createEl('button', { cls: 'collection-action-btn' });
+		const exportJsonIcon = exportJsonBtn.createSpan({ cls: 'btn-icon' });
+		setIcon(exportJsonIcon, 'braces');
+		exportJsonBtn.createSpan({ text: 'Export JSON' });
+		this.registerDomEvent(exportJsonBtn, 'click', async () => {
 			const json = JSON.stringify(collection, null, 2);
 			await navigator.clipboard.writeText(json);
 			showToast('Collection exported to clipboard as JSON');
+		});
+
+		const exportMdBtn = exportSection.createEl('button', { cls: 'collection-action-btn' });
+		const exportMdIcon = exportMdBtn.createSpan({ cls: 'btn-icon' });
+		setIcon(exportMdIcon, 'file-text');
+		exportMdBtn.createSpan({ text: 'Export Markdown' });
+		this.registerDomEvent(exportMdBtn, 'click', async () => {
+			const calloutTitle = this.plugin.settings.calloutTitle || 'bible';
+			const version = this.plugin.settings.bibleVersions[0] || 'ESV';
+			const lines: string[] = [];
+
+			// Add collection name as header
+			lines.push(`# ${collection.name}`);
+			if (collection.description) {
+				lines.push(`\n${collection.description}`);
+			}
+			lines.push('');
+
+			for (const verse of collection.verses) {
+				// Title above callout (if exists)
+				if (verse.title) {
+					lines.push(`## ${verse.title}`);
+					lines.push('');
+				}
+
+				// Get verse text for callout
+				const parsed = this.parseVerseReference(verse.reference) || this.parsePassageReference(verse.reference);
+				let verseText = '';
+				if (parsed) {
+					const chapter = this.plugin.getChapter(version, parsed.book, parsed.chapter);
+					if (chapter?.verses) {
+						const startVerse = 'verse' in parsed ? parsed.verse : parsed.startVerse;
+						const endVerse = 'endVerse' in parsed ? parsed.endVerse : startVerse;
+						const texts: string[] = [];
+						for (let v = startVerse; v <= endVerse; v++) {
+							const vData = chapter.verses[v.toString()];
+							if (vData) {
+								const text = typeof vData === 'string' ? vData : vData.text;
+								texts.push(`**${v}** ${text}`);
+							}
+						}
+						verseText = texts.join(' ');
+					}
+				}
+
+				// Callout block
+				lines.push(`> [!${calloutTitle}] ${verse.reference}`);
+				lines.push(`> ${verseText || 'Verse text not available'}`);
+				lines.push('');
+
+				// Description below callout (if exists)
+				if (verse.description) {
+					lines.push(verse.description);
+					lines.push('');
+				}
+
+				lines.push('---');
+				lines.push('');
+			}
+
+			await navigator.clipboard.writeText(lines.join('\n'));
+			showToast('Collection exported to clipboard as Markdown');
 		});
 
 		const importBtn = exportSection.createEl('button', { cls: 'collection-action-btn' });
