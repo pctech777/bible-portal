@@ -3868,7 +3868,6 @@ var BibleView = class extends import_obsidian.ItemView {
       modes.push({ icon: "brain", mode: "memorization" /* MEMORIZATION */, title: "Memorization" });
     }
     if (this.plugin.settings.enableSessionTracking) {
-      modes.push({ icon: "book-text", mode: "study-journal" /* STUDY_JOURNAL */, title: "Study Journal" });
       modes.push({ icon: "bar-chart-2", mode: "study-insights" /* STUDY_INSIGHTS */, title: "Study Insights" });
     }
     modes.push({ icon: "columns", mode: "comparison-matrix" /* COMPARISON_MATRIX */, title: "Compare Versions" });
@@ -4175,8 +4174,6 @@ var BibleView = class extends import_obsidian.ItemView {
       this.renderAchievementsMode(mainDiv);
     } else if (this.viewMode === "reading-plan" /* READING_PLAN */) {
       this.renderReadingPlanMode(mainDiv);
-    } else if (this.viewMode === "study-journal" /* STUDY_JOURNAL */) {
-      this.renderStudyJournalMode(mainDiv);
     } else if (this.viewMode === "study-insights" /* STUDY_INSIGHTS */) {
       this.renderStudyInsightsMode(mainDiv);
     } else if (this.viewMode === "comparison-matrix" /* COMPARISON_MATRIX */) {
@@ -12462,169 +12459,6 @@ ${disputedInfo.manuscriptInfo}`);
       });
     }
   }
-  renderStudyJournalMode(container) {
-    const header = container.createDiv({ cls: "journal-header" });
-    const h2 = header.createEl("h2");
-    const journalIcon = h2.createSpan({ cls: "title-icon" });
-    (0, import_obsidian.setIcon)(journalIcon, "book-text");
-    h2.createSpan({ text: "Study Journal" });
-    const entrySection = container.createDiv({ cls: "journal-entry-section" });
-    entrySection.createEl("h3", { text: "Add Reflection" });
-    const textarea = entrySection.createEl("textarea", {
-      cls: "journal-textarea",
-      placeholder: "Write your reflections, prayers, or questions here...",
-      attr: { rows: "6" }
-    });
-    const saveBtn = entrySection.createEl("button", {
-      text: "Save Entry",
-      cls: "journal-save-btn"
-    });
-    saveBtn.addEventListener("click", async () => {
-      const content = textarea.value.trim();
-      if (!content) {
-        showToast("Entry cannot be empty");
-        return;
-      }
-      const entry = {
-        id: `manual-${Date.now()}`,
-        date: new Date().toISOString(),
-        type: "manual",
-        content
-      };
-      this.plugin.settings.journalEntries.push(entry);
-      await this.plugin.saveSettings();
-      textarea.value = "";
-      showToast("Entry saved to journal");
-      this.render();
-    });
-    const timelineSection = container.createDiv({ cls: "journal-timeline-section" });
-    timelineSection.createEl("h3", { text: "Journal Timeline" });
-    const entries = [...this.plugin.settings.journalEntries].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    if (entries.length === 0) {
-      timelineSection.createEl("p", {
-        text: "No journal entries yet. Start studying to create your first session entry, or write a manual reflection above.",
-        cls: "journal-empty-state"
-      });
-    } else {
-      const timeline = timelineSection.createDiv({ cls: "journal-timeline" });
-      entries.forEach((entry) => {
-        const entryCard = timeline.createDiv({ cls: `journal-entry ${entry.type}-entry` });
-        const entryHeader = entryCard.createDiv({ cls: "journal-entry-header" });
-        const dateStr = new Date(entry.date).toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-        entryHeader.createSpan({ text: dateStr, cls: "journal-entry-date" });
-        const typeBadge = entryHeader.createSpan({
-          text: entry.type === "session" ? "Study Session" : "Manual Entry",
-          cls: `journal-entry-type ${entry.type}`
-        });
-        const entryContent = entryCard.createDiv({ cls: "journal-entry-content" });
-        if (entry.type === "session") {
-          const statsGrid = entryContent.createDiv({ cls: "journal-session-stats" });
-          if (entry.duration) {
-            const statItem = statsGrid.createDiv({ cls: "stat-item" });
-            const iconSpan = statItem.createSpan({ cls: "stat-icon" });
-            (0, import_obsidian.setIcon)(iconSpan, "clock");
-            statItem.createSpan({ text: `${entry.duration} min`, cls: "stat-value" });
-          }
-          if (entry.versesRead) {
-            const statItem = statsGrid.createDiv({ cls: "stat-item" });
-            const iconSpan = statItem.createSpan({ cls: "stat-icon" });
-            (0, import_obsidian.setIcon)(iconSpan, "book-open");
-            statItem.createSpan({ text: `${entry.versesRead} verses`, cls: "stat-value" });
-          }
-          if (entry.notesCreated && entry.notesCreated > 0) {
-            const statItem = statsGrid.createDiv({ cls: "stat-item" });
-            const iconSpan = statItem.createSpan({ cls: "stat-icon" });
-            (0, import_obsidian.setIcon)(iconSpan, "sticky-note");
-            statItem.createSpan({ text: `${entry.notesCreated} notes`, cls: "stat-value" });
-          }
-          if (entry.highlightsAdded && entry.highlightsAdded > 0) {
-            const statItem = statsGrid.createDiv({ cls: "stat-item" });
-            const iconSpan = statItem.createSpan({ cls: "stat-icon" });
-            (0, import_obsidian.setIcon)(iconSpan, "highlighter");
-            statItem.createSpan({ text: `${entry.highlightsAdded} highlights`, cls: "stat-value" });
-          }
-          if (entry.chaptersVisited && entry.chaptersVisited.length > 0) {
-            const chaptersDiv = entryContent.createDiv({ cls: "journal-chapters-visited" });
-            chaptersDiv.createEl("h4", { text: "Chapters Read:" });
-            const chaptersList = chaptersDiv.createDiv({ cls: "chapters-list" });
-            entry.chaptersVisited.forEach((ch) => {
-              chaptersList.createSpan({ text: ch, cls: "chapter-tag" });
-            });
-          }
-        } else {
-          const contentP = entryContent.createEl("p", { cls: "journal-manual-content" });
-          contentP.textContent = entry.content || "";
-        }
-        const deleteBtn = entryCard.createEl("button", {
-          cls: "journal-delete-btn",
-          attr: { "aria-label": "Delete entry", title: "Delete entry" }
-        });
-        const deleteIcon = deleteBtn.createSpan();
-        (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
-        deleteBtn.addEventListener("click", async () => {
-          if (confirm("Are you sure you want to delete this journal entry?")) {
-            const index = this.plugin.settings.journalEntries.findIndex((e) => e.id === entry.id);
-            if (index !== -1) {
-              this.plugin.settings.journalEntries.splice(index, 1);
-              await this.plugin.saveSettings();
-              showToast("Entry deleted");
-              this.render();
-            }
-          }
-        });
-      });
-      const exportSection = timelineSection.createDiv({ cls: "journal-export-section" });
-      const exportBtn = exportSection.createEl("button", {
-        text: "Export Journal as Markdown",
-        cls: "journal-export-btn"
-      });
-      exportBtn.addEventListener("click", async () => {
-        let markdown = "# Study Journal\n\n";
-        markdown += `Generated: ${new Date().toLocaleDateString()}
-
----
-
-`;
-        entries.forEach((entry) => {
-          const dateStr = new Date(entry.date).toLocaleString();
-          markdown += `## ${dateStr}
-`;
-          markdown += `**Type:** ${entry.type === "session" ? "Study Session" : "Manual Entry"}
-
-`;
-          if (entry.type === "session") {
-            markdown += `- **Duration:** ${entry.duration} minutes
-`;
-            markdown += `- **Verses Read:** ${entry.versesRead}
-`;
-            if (entry.notesCreated)
-              markdown += `- **Notes Created:** ${entry.notesCreated}
-`;
-            if (entry.highlightsAdded)
-              markdown += `- **Highlights Added:** ${entry.highlightsAdded}
-`;
-            if (entry.chaptersVisited && entry.chaptersVisited.length > 0) {
-              markdown += `- **Chapters:** ${entry.chaptersVisited.join(", ")}
-`;
-            }
-          } else {
-            markdown += entry.content + "\n";
-          }
-          markdown += "\n---\n\n";
-        });
-        await navigator.clipboard.writeText(markdown);
-        showToast("Journal exported to clipboard as Markdown");
-      });
-    }
-  }
   // ========== COLLECTIONS MODE (15B) ==========
   renderCollectionsMode(container) {
     if (!this.plugin.settings.collections) {
@@ -14098,6 +13932,91 @@ ${collection.description}`);
         this.render();
       });
     });
+    const historySection = container.createDiv({ cls: "insights-history-section" });
+    historySection.createEl("h3", { text: "Session History" });
+    const entries = [...this.plugin.settings.journalEntries].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    if (entries.length === 0) {
+      historySection.createEl("p", {
+        text: "No study sessions recorded yet. Start reading to track your sessions.",
+        cls: "history-empty-state"
+      });
+    } else {
+      const timeline = historySection.createDiv({ cls: "journal-timeline" });
+      entries.forEach((entry) => {
+        const entryCard = timeline.createDiv({ cls: `journal-entry ${entry.type}-entry` });
+        const entryHeader = entryCard.createDiv({ cls: "journal-entry-header" });
+        const dateStr = new Date(entry.date).toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+        entryHeader.createSpan({ text: dateStr, cls: "journal-entry-date" });
+        const typeBadge = entryHeader.createSpan({
+          text: entry.type === "session" ? "Study Session" : "Reflection",
+          cls: `journal-entry-type ${entry.type}`
+        });
+        const entryContent = entryCard.createDiv({ cls: "journal-entry-content" });
+        if (entry.type === "session") {
+          const statsGrid2 = entryContent.createDiv({ cls: "journal-session-stats" });
+          if (entry.duration) {
+            const statItem = statsGrid2.createDiv({ cls: "stat-item" });
+            const iconSpan = statItem.createSpan({ cls: "stat-icon" });
+            (0, import_obsidian.setIcon)(iconSpan, "clock");
+            statItem.createSpan({ text: `${entry.duration} min`, cls: "stat-value" });
+          }
+          if (entry.versesRead) {
+            const statItem = statsGrid2.createDiv({ cls: "stat-item" });
+            const iconSpan = statItem.createSpan({ cls: "stat-icon" });
+            (0, import_obsidian.setIcon)(iconSpan, "book-open");
+            statItem.createSpan({ text: `${entry.versesRead} verses`, cls: "stat-value" });
+          }
+          if (entry.notesCreated && entry.notesCreated > 0) {
+            const statItem = statsGrid2.createDiv({ cls: "stat-item" });
+            const iconSpan = statItem.createSpan({ cls: "stat-icon" });
+            (0, import_obsidian.setIcon)(iconSpan, "sticky-note");
+            statItem.createSpan({ text: `${entry.notesCreated} notes`, cls: "stat-value" });
+          }
+          if (entry.highlightsAdded && entry.highlightsAdded > 0) {
+            const statItem = statsGrid2.createDiv({ cls: "stat-item" });
+            const iconSpan = statItem.createSpan({ cls: "stat-icon" });
+            (0, import_obsidian.setIcon)(iconSpan, "highlighter");
+            statItem.createSpan({ text: `${entry.highlightsAdded} highlights`, cls: "stat-value" });
+          }
+          if (entry.chaptersVisited && entry.chaptersVisited.length > 0) {
+            const chaptersDiv = entryContent.createDiv({ cls: "journal-chapters-visited" });
+            chaptersDiv.createEl("h4", { text: "Chapters Read:" });
+            const chaptersList = chaptersDiv.createDiv({ cls: "chapters-list" });
+            entry.chaptersVisited.forEach((ch) => {
+              chaptersList.createSpan({ text: ch, cls: "chapter-tag" });
+            });
+          }
+        } else {
+          const contentP = entryContent.createEl("p", { cls: "journal-manual-content" });
+          contentP.textContent = entry.content || "";
+        }
+        const deleteBtn = entryCard.createEl("button", {
+          cls: "journal-delete-btn",
+          attr: { "aria-label": "Delete entry", title: "Delete entry" }
+        });
+        const deleteIcon = deleteBtn.createSpan();
+        (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
+        deleteBtn.addEventListener("click", async () => {
+          if (confirm("Are you sure you want to delete this entry?")) {
+            const index = this.plugin.settings.journalEntries.findIndex((e) => e.id === entry.id);
+            if (index !== -1) {
+              this.plugin.settings.journalEntries.splice(index, 1);
+              await this.plugin.saveSettings();
+              showToast("Entry deleted");
+              this.render();
+            }
+          }
+        });
+      });
+    }
     const exportSection = container.createDiv({ cls: "insights-export-section" });
     const exportBtn = exportSection.createEl("button", { text: "Export Study Report", cls: "insights-export-btn" });
     exportBtn.addEventListener("click", async () => {
