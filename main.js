@@ -667,7 +667,7 @@ var DEFAULT_SETTINGS = {
   // Annotation Layers (15G)
   annotationLayers: [
     { id: "personal", name: "Personal", color: "#3b82f6", createdDate: new Date().toISOString(), isDefault: true },
-    { id: "word-study", name: "Word Study", color: "#8b5cf6", createdDate: new Date().toISOString(), isDefault: true }
+    { id: "word-study", name: "Word study", color: "#8b5cf6", createdDate: new Date().toISOString(), isDefault: true }
   ],
   activeAnnotationLayer: "personal",
   // Default to personal layer
@@ -973,7 +973,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     this.updateStatusBar("", 0);
     this.addCommand({
       id: "toggle-study-mode",
-      name: "Toggle Study Mode",
+      name: "Toggle study mode",
       callback: () => {
         this.toggleStudyMode();
       }
@@ -987,7 +987,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     });
     this.addCommand({
       id: "show-performance-stats",
-      name: "Strong's: Show Performance Statistics",
+      name: "Strong's: Show performance statistics",
       callback: () => {
         const stats = this.getPerformanceStats();
         const cacheHitRate = stats.interlinearLookups > 0 ? (stats.cacheHits / stats.interlinearLookups * 100).toFixed(1) : "0";
@@ -1008,13 +1008,13 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
           "",
           stats.p95ResponseTime < 50 ? "\u2713 Performance target met (<50ms p95)" : "\u26A0\uFE0F Performance target not met (>50ms p95)"
         ].join("\n");
-        console.log(message);
+        console.debug(message);
         new import_obsidian.Notice(message, 1e4);
       }
     });
     this.addCommand({
       id: "clear-strongs-cache",
-      name: "Strong's: Clear Caches and Reset Stats",
+      name: "Strong's: Clear caches and reset stats",
       callback: () => {
         this.clearCaches();
         new import_obsidian.Notice("\u2713 Strong's caches cleared and statistics reset", 4e3);
@@ -1043,18 +1043,18 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     }
   }
   onunload() {
-    console.log("Unloading Bible Portal plugin");
+    console.debug("Unloading Bible Portal plugin");
     if (this.currentSession && this.settings.enableSessionTracking) {
       this.saveSessionToJournal();
     }
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_BIBLE);
   }
   async activateBibleView() {
-    console.log("\u{1F680} activateBibleView() called");
+    console.debug("\u{1F680} activateBibleView() called");
     const { workspace } = this.app;
     let leaf = null;
     const leaves = workspace.getLeavesOfType(VIEW_TYPE_BIBLE);
-    console.log("\u{1F4C4} Existing Bible view leaves:", leaves.length);
+    console.debug("\u{1F4C4} Existing Bible view leaves:", leaves.length);
     if (leaves.length > 0) {
       leaf = leaves[0];
     } else {
@@ -1285,7 +1285,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     };
     this.settings.journalEntries.push(entry);
     this.saveSettings();
-    console.log("Study session saved to journal:", entry);
+    console.debug("Study session saved to journal:", entry);
   }
   /**
    * Get all active reading plans
@@ -1541,7 +1541,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     card.style.setProperty("--rarity-color", color);
     const header = card.createDiv({ cls: "achievement-celebration-header" });
     header.createSpan({ text: "\u{1F3C6}", cls: "achievement-trophy" });
-    header.createSpan({ text: "Achievement Unlocked!", cls: "achievement-title" });
+    header.createSpan({ text: "Achievement unlocked!", cls: "achievement-title" });
     const iconContainer = card.createDiv({ cls: "achievement-icon-container" });
     const iconEl = iconContainer.createDiv({ cls: "achievement-icon-large" });
     (0, import_obsidian.setIcon)(iconEl, achievement.icon);
@@ -1623,7 +1623,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
       const adapter = this.app.vault.adapter;
       const exists = await adapter.exists(filePath);
       if (!exists) {
-        console.log(`Plugin data file not found: ${filename}`);
+        console.debug(`Plugin data file not found: ${filename}`);
         return null;
       }
       const content = await adapter.read(filePath);
@@ -1662,7 +1662,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
       }
       const jsonContent = JSON.stringify(data, null, 2);
       await adapter.write(filePath, jsonContent);
-      console.log(`\u2713 Wrote plugin data file: ${filename}`);
+      console.debug(`\u2713 Wrote plugin data file: ${filename}`);
       return true;
     } catch (error) {
       console.error(`Error writing plugin data file ${filename}:`, error);
@@ -1700,7 +1700,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
         this.settings.bibleVersions = discoveredVersions;
         if (!this.settings.defaultVersion || !discoveredVersions.includes(this.settings.defaultVersion)) {
           this.settings.defaultVersion = discoveredVersions[0];
-          console.log(`\u{1F4CC} Default version set to: ${this.settings.defaultVersion}`);
+          console.debug(`\u{1F4CC} Default version set to: ${this.settings.defaultVersion}`);
         }
         await this.saveSettings();
       } else {
@@ -1936,7 +1936,7 @@ Saved to: ${outputPath}`, 8e3);
    * Download cross-reference data from GitHub
    */
   async downloadCrossReferences() {
-    const modal = new DownloadProgressModal(this.app, "Downloading Cross-References");
+    const modal = new DownloadProgressModal(this.app, "Downloading cross-references");
     modal.open();
     try {
       modal.setStatus("Downloading cross-reference data (~12 MB)...");
@@ -1951,7 +1951,7 @@ Saved to: ${outputPath}`, 8e3);
       if (!crossRefs || !Array.isArray(crossRefs)) {
         throw new Error("Invalid cross-reference data format");
       }
-      console.log(`Downloaded ${crossRefs.length} cross-reference entries`);
+      console.debug(`Downloaded ${crossRefs.length} cross-reference entries`);
       modal.setStatus("Saving cross-references...");
       modal.setProgress(70);
       const success = await this.writePluginDataFile("cross-references.json", crossRefs);
@@ -1975,7 +1975,7 @@ Saved to: ${outputPath}`, 8e3);
     try {
       const fileData = await this.readPluginDataFile("cross-references.json");
       if (!fileData || !Array.isArray(fileData)) {
-        console.log("\u2139\uFE0F Cross-references not downloaded yet");
+        console.debug("\u2139\uFE0F Cross-references not downloaded yet");
         this.crossReferences = null;
         return;
       }
@@ -2011,7 +2011,7 @@ Saved to: ${outputPath}`, 8e3);
       }
       this.crossReferences = mergedData;
       const verseCount = Object.keys(mergedData).length;
-      console.log(`\u2713 Cross-references loaded: ${verseCount.toLocaleString()} verses`);
+      console.debug(`\u2713 Cross-references loaded: ${verseCount.toLocaleString()} verses`);
     } catch (error) {
       console.error("Error loading cross-references:", error);
       this.crossReferences = null;
@@ -2036,12 +2036,12 @@ Saved to: ${outputPath}`, 8e3);
       const filename = `concordance-${version}.json`;
       const data = await this.readPluginDataFile(filename);
       if (!data || !data.words) {
-        console.log("\u2139\uFE0F No concordance data found");
+        console.debug("\u2139\uFE0F No concordance data found");
         this.concordanceData = null;
         return;
       }
       this.concordanceData = data;
-      console.log(`\u2713 Concordance loaded: ${this.concordanceData.stats.uniqueWords.toLocaleString()} words`);
+      console.debug(`\u2713 Concordance loaded: ${this.concordanceData.stats.uniqueWords.toLocaleString()} words`);
     } catch (error) {
       console.error("Error loading concordance:", error);
       this.concordanceData = null;
@@ -2141,7 +2141,7 @@ Saved to: ${outputPath}`, 8e3);
     try {
       const data = await this.readPluginDataFile("commentaries/mhc/matthew_henry_concise.json");
       if (!data) {
-        console.log("\u2139\uFE0F No commentary data found - can be downloaded from settings or Commentary tab");
+        console.debug("\u2139\uFE0F No commentary data found - can be downloaded from settings or Commentary tab");
         this.commentaryData = null;
         this.commentaryMetadata = null;
         return;
@@ -2156,7 +2156,7 @@ Saved to: ${outputPath}`, 8e3);
       for (const book of Object.values(data)) {
         chapterCount += Object.keys(book).length;
       }
-      console.log(`\u2713 Commentary loaded: ${bookCount} books, ${chapterCount} chapters`);
+      console.debug(`\u2713 Commentary loaded: ${bookCount} books, ${chapterCount} chapters`);
     } catch (error) {
       console.error("Error loading commentary data:", error);
       this.commentaryData = null;
@@ -2167,7 +2167,7 @@ Saved to: ${outputPath}`, 8e3);
    * Download Matthew Henry's Concise Commentary from GitHub
    */
   async downloadCommentaryData() {
-    const modal = new DownloadProgressModal(this.app, "Downloading Commentary");
+    const modal = new DownloadProgressModal(this.app, "Downloading commentary");
     modal.open();
     try {
       modal.setStatus("Downloading Matthew Henry's Commentary (~3.6 MB)...");
@@ -2183,7 +2183,7 @@ Saved to: ${outputPath}`, 8e3);
         throw new Error("Invalid commentary data format");
       }
       const bookCount = Object.keys(commentaryData).length;
-      console.log(`Downloaded commentary with ${bookCount} books`);
+      console.debug(`Downloaded commentary with ${bookCount} books`);
       modal.setStatus("Saving commentary data...");
       modal.setProgress(70);
       const success = await this.writePluginDataFile("commentaries/mhc/matthew_henry_concise.json", commentaryData);
@@ -2236,7 +2236,7 @@ Saved to: ${outputPath}`, 8e3);
       const greekData = await this.readPluginDataFile("strongs-greek.json");
       const hebrewData = await this.readPluginDataFile("strongs-hebrew.json");
       if (!greekData && !hebrewData) {
-        console.log("\u2139\uFE0F No Strong's dictionaries found");
+        console.debug("\u2139\uFE0F No Strong's dictionaries found");
         this.strongsDictionary = null;
         return;
       }
@@ -2246,7 +2246,7 @@ Saved to: ${outputPath}`, 8e3);
       };
       const greekCount = greekData ? Object.keys(greekData).length : 0;
       const hebrewCount = hebrewData ? Object.keys(hebrewData).length : 0;
-      console.log(`\u2713 Strong's dictionaries loaded: ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew entries`);
+      console.debug(`\u2713 Strong's dictionaries loaded: ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew entries`);
     } catch (error) {
       console.error("Error loading Strong's dictionaries:", error);
       this.strongsDictionary = null;
@@ -2351,7 +2351,7 @@ Saved to: ${outputPath}`, 8e3);
           const success = await this.writePluginDataFile(file.path, data);
           if (success) {
             successCount++;
-            console.log(`\u2713 Downloaded ${file.path}`);
+            console.debug(`\u2713 Downloaded ${file.path}`);
           }
         } catch (error) {
           console.error(`Error downloading ${file.path}:`, error);
@@ -2380,18 +2380,18 @@ Saved to: ${outputPath}`, 8e3);
    */
   async loadTheographicData() {
     if (!this.settings.enableTheographic) {
-      console.log("\u2139\uFE0F Theographic features disabled in settings");
+      console.debug("\u2139\uFE0F Theographic features disabled in settings");
       return;
     }
     try {
-      console.log("Loading Theographic Bible metadata...");
+      console.debug("Loading Theographic Bible metadata...");
       const people = await this.readPluginDataFile("theographic/people.json");
       const places = await this.readPluginDataFile("theographic/places.json");
       const events = await this.readPluginDataFile("theographic/events.json");
       const periods = await this.readPluginDataFile("theographic/periods.json");
       const verses = await this.readPluginDataFile("theographic/verses.json");
       if (!people && !places && !events && !periods && !verses) {
-        console.log("\u2139\uFE0F No Theographic data found");
+        console.debug("\u2139\uFE0F No Theographic data found");
         return;
       }
       this.theographicData.people = people;
@@ -2405,7 +2405,7 @@ Saved to: ${outputPath}`, 8e3);
       const eventsCount = events ? events.length : 0;
       const periodsCount = periods ? periods.length : 0;
       const versesCount = verses ? verses.length : 0;
-      console.log(`\u2713 Theographic data loaded: ${peopleCount.toLocaleString()} people, ${placesCount.toLocaleString()} places, ${eventsCount.toLocaleString()} events, ${periodsCount.toLocaleString()} periods, ${versesCount.toLocaleString()} verses`);
+      console.debug(`\u2713 Theographic data loaded: ${peopleCount.toLocaleString()} people, ${placesCount.toLocaleString()} places, ${eventsCount.toLocaleString()} events, ${periodsCount.toLocaleString()} periods, ${versesCount.toLocaleString()} verses`);
       this.theographicData.loaded = true;
     } catch (error) {
       console.error("Error loading Theographic data:", error);
@@ -2483,7 +2483,7 @@ Saved to: ${outputPath}`, 8e3);
       }
     }
     const verseIndexSize = this.theographicData.peopleByVerse.size + this.theographicData.placesByVerse.size + this.theographicData.eventsByVerse.size;
-    console.log(`\u2713 Theographic indexes built: ${verseIndexSize.toLocaleString()} verse mappings`);
+    console.debug(`\u2713 Theographic indexes built: ${verseIndexSize.toLocaleString()} verse mappings`);
   }
   /**
    * Convert OSIS reference to our verse key format
@@ -2811,7 +2811,7 @@ Saved to: ${outputPath}`, 8e3);
         return null;
       }
       this.interlinearData[bookName] = bookData;
-      console.log(`\u2713 Loaded interlinear data for ${bookName} (${bookData.length} verses)`);
+      console.debug(`\u2713 Loaded interlinear data for ${bookName} (${bookData.length} verses)`);
       return this.interlinearData[bookName];
     } catch (error) {
       console.error(`Error loading interlinear data for ${bookName}:`, error);
@@ -2932,7 +2932,7 @@ Saved to: ${outputPath}`, 8e3);
       p95ResponseTime: 0,
       responseTimes: []
     };
-    console.log("\u2713 Caches cleared and statistics reset");
+    console.debug("\u2713 Caches cleared and statistics reset");
   }
   /**
    * Get Strong's number for a specific word in a verse
@@ -3005,7 +3005,7 @@ Saved to: ${outputPath}`, 8e3);
         const votdJson = await adapter.read(votdPath);
         this.votdMapping = JSON.parse(votdJson);
       } else {
-        console.log("\u2139\uFE0F No Verse of the Day mapping file found - using fallback verses");
+        console.debug("\u2139\uFE0F No Verse of the Day mapping file found - using fallback verses");
         this.votdMapping = null;
       }
     } catch (error) {
@@ -3016,19 +3016,19 @@ Saved to: ${outputPath}`, 8e3);
   async loadJesusWords() {
     var _a, _b, _c, _d, _e;
     if (!this.settings.enableJesusWords) {
-      console.log("\u2139\uFE0F Jesus Words disabled in settings");
+      console.debug("\u2139\uFE0F Jesus Words disabled in settings");
       return;
     }
     try {
       const adapter = this.app.vault.adapter;
       const jesusWordsPath = ".obsidian/plugins/bible-portal/src/data/jesus-words-complete.json";
-      console.log("\u{1F4C2} Looking for Jesus Words at:", jesusWordsPath);
+      console.debug("\u{1F4C2} Looking for Jesus Words at:", jesusWordsPath);
       const startTime = performance.now();
       if (await adapter.exists(jesusWordsPath)) {
-        console.log("\u2713 File exists, loading...");
+        console.debug("\u2713 File exists, loading...");
         const jesusWordsJson = await adapter.read(jesusWordsPath);
         this.jesusWordsData = JSON.parse(jesusWordsJson);
-        console.log("\u{1F4D6} Jesus Words data loaded:", {
+        console.debug("\u{1F4D6} Jesus Words data loaded:", {
           hasData: !!this.jesusWordsData,
           hasVerses: !!((_a = this.jesusWordsData) == null ? void 0 : _a.verses),
           versesLength: (_c = (_b = this.jesusWordsData) == null ? void 0 : _b.verses) == null ? void 0 : _c.length,
@@ -3042,12 +3042,12 @@ Saved to: ${outputPath}`, 8e3);
         }
         const endTime = performance.now();
         const loadTime = (endTime - startTime).toFixed(2);
-        console.log(`\u2713 Jesus Words loaded: ${this.jesusWordsLookup.size} verses in ${loadTime}ms`);
+        console.debug(`\u2713 Jesus Words loaded: ${this.jesusWordsLookup.size} verses in ${loadTime}ms`);
         const gospelsText = (((_e = this.jesusWordsData) == null ? void 0 : _e.gospels) || []).join(", ") || "Gospels";
         new import_obsidian.Notice(`\u2713 Jesus Words loaded: ${this.jesusWordsLookup.size} red-letter verses across ${gospelsText}`);
       } else {
-        console.log("\u2139\uFE0F Jesus Words file not found - red-letter features disabled");
-        console.log(`   Expected location: ${jesusWordsPath}`);
+        console.debug("\u2139\uFE0F Jesus Words file not found - red-letter features disabled");
+        console.debug(`   Expected location: ${jesusWordsPath}`);
         this.jesusWordsData = null;
       }
     } catch (error) {
@@ -3093,7 +3093,7 @@ Saved to: ${outputPath}`, 8e3);
       const votdPath = ".obsidian/plugins/bible-portal/data/verse-of-the-day.json";
       const fileExists = await adapter.exists(votdPath);
       if (fileExists) {
-        new import_obsidian.Notice("Regenerating Verse of the Day mapping...");
+        new import_obsidian.Notice("Regenerating verse of the day mapping...");
       }
       const version = this.settings.defaultVersion;
       const bible = this.getBibleData(version);
@@ -3313,7 +3313,7 @@ Saved to: ${outputPath}`, 8e3);
   async promptBookmarkName(defaultName) {
     return new Promise((resolve) => {
       const modal = new import_obsidian.Modal(this.app);
-      modal.titleEl.setText("Name Your Bookmark");
+      modal.titleEl.setText("Name your bookmark");
       const contentEl = modal.contentEl;
       contentEl.empty();
       contentEl.addClass("bookmark-name-modal");
@@ -3433,7 +3433,7 @@ Saved to: ${outputPath}`, 8e3);
         return [];
       const tagLines = tagsSection.split("\n").filter((line) => line.trim().startsWith("-"));
       const tags = tagLines.map((line) => line.trim().replace(/^- /, "").trim()).filter((tag) => tag.length > 0);
-      console.log("\u{1F3F7}\uFE0F Extracted tags from", notePath, ":", tags);
+      console.debug("\u{1F3F7}\uFE0F Extracted tags from", notePath, ":", tags);
       return tags;
     } catch (error) {
       console.error(`Error reading tags from ${notePath}:`, error);
@@ -3443,16 +3443,16 @@ Saved to: ${outputPath}`, 8e3);
   // Get all unique tags across all notes
   async getAllTags() {
     const tagCounts = /* @__PURE__ */ new Map();
-    console.log("\u{1F3F7}\uFE0F Getting all tags from", this.noteReferences.length, "notes");
+    console.debug("\u{1F3F7}\uFE0F Getting all tags from", this.noteReferences.length, "notes");
     for (const noteRef of this.noteReferences) {
       const tags = await this.getNoteTags(noteRef.notePath);
-      console.log("\u{1F4C4}", noteRef.notePath, "\u2192 tags:", tags);
+      console.debug("\u{1F4C4}", noteRef.notePath, "\u2192 tags:", tags);
       for (const tag of tags) {
         tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
       }
     }
-    console.log("\u{1F3F7}\uFE0F Total unique tags found:", tagCounts.size);
-    console.log("\u{1F3F7}\uFE0F Tags:", Array.from(tagCounts.keys()));
+    console.debug("\u{1F3F7}\uFE0F Total unique tags found:", tagCounts.size);
+    console.debug("\u{1F3F7}\uFE0F Tags:", Array.from(tagCounts.keys()));
     return Array.from(tagCounts.entries()).map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count);
   }
   // Add tag to a note
@@ -3851,7 +3851,7 @@ var BibleView = class extends import_obsidian.ItemView {
     }
     if (this.plugin.settings.enableTheographic && this.plugin.theographicData.loaded) {
       modes.push(
-        { icon: "users", mode: "people-index" /* PEOPLE_INDEX */, title: "People Index" },
+        { icon: "users", mode: "people-index" /* PEOPLE_INDEX */, title: "People index" },
         { icon: "map", mode: "map-view" /* MAP_VIEW */, title: "Map" },
         { icon: "calendar", mode: "timeline-view" /* TIMELINE_VIEW */, title: "Timeline" }
       );
@@ -3861,16 +3861,16 @@ var BibleView = class extends import_obsidian.ItemView {
       modes.push({ icon: "trophy", mode: "achievements" /* ACHIEVEMENTS */, title: "Achievements" });
     }
     if (this.plugin.settings.enableReadingPlan) {
-      modes.push({ icon: "book-open-check", mode: "reading-plan" /* READING_PLAN */, title: "Reading Plan" });
+      modes.push({ icon: "book-open-check", mode: "reading-plan" /* READING_PLAN */, title: "Reading plan" });
     }
     if (this.plugin.settings.enableMemorization) {
       modes.push({ icon: "brain", mode: "memorization" /* MEMORIZATION */, title: "Memorization" });
     }
     if (this.plugin.settings.enableSessionTracking) {
-      modes.push({ icon: "book-text", mode: "study-journal" /* STUDY_JOURNAL */, title: "Study Journal" });
-      modes.push({ icon: "bar-chart-2", mode: "study-insights" /* STUDY_INSIGHTS */, title: "Study Insights" });
+      modes.push({ icon: "book-text", mode: "study-journal" /* STUDY_JOURNAL */, title: "Study journal" });
+      modes.push({ icon: "bar-chart-2", mode: "study-insights" /* STUDY_INSIGHTS */, title: "Study insights" });
     }
-    modes.push({ icon: "columns", mode: "comparison-matrix" /* COMPARISON_MATRIX */, title: "Compare Versions" });
+    modes.push({ icon: "columns", mode: "comparison-matrix" /* COMPARISON_MATRIX */, title: "Compare versions" });
     modes.forEach((m) => {
       const btn = sidebar.createEl("button", {
         cls: this.viewMode === m.mode ? "sidebar-mode-btn active" : "sidebar-mode-btn",
@@ -4189,9 +4189,9 @@ var BibleView = class extends import_obsidian.ItemView {
     (0, import_obsidian.setIcon)(searchIconSpan, "search");
     searchBtn.createSpan({ text: "Search" });
     const scopeSelect = searchBar.createEl("select", { cls: "bible-search-scope" });
-    scopeSelect.createEl("option", { value: "all", text: "All Books" });
-    scopeSelect.createEl("option", { value: "current-book", text: "Current Book" });
-    scopeSelect.createEl("option", { value: "current-chapter", text: "Current Chapter" });
+    scopeSelect.createEl("option", { value: "all", text: "All books" });
+    scopeSelect.createEl("option", { value: "current-book", text: "Current book" });
+    scopeSelect.createEl("option", { value: "current-chapter", text: "Current chapter" });
     const defaultScope = this.plugin.settings.defaultSearchScope === "book" ? "current-book" : this.plugin.settings.defaultSearchScope === "chapter" ? "current-chapter" : "all";
     scopeSelect.value = defaultScope;
     const jumpInput = searchBar.createEl("input", {
@@ -4219,8 +4219,8 @@ var BibleView = class extends import_obsidian.ItemView {
     const studyModeBtn = primaryNav.createEl("button", {
       cls: `bible-study-mode-btn ${this.plugin.isStudyModeActive ? "active" : ""}`,
       attr: {
-        "aria-label": this.plugin.isStudyModeActive ? "End Study Session" : "Start Study Session",
-        "title": this.plugin.isStudyModeActive ? "End Study Session" : "Start Study Session"
+        "aria-label": this.plugin.isStudyModeActive ? "End study session" : "Start study session",
+        "title": this.plugin.isStudyModeActive ? "End study session" : "Start study session"
       }
     });
     (0, import_obsidian.setIcon)(studyModeBtn, this.plugin.isStudyModeActive ? "pause-circle" : "play-circle");
@@ -4234,8 +4234,8 @@ var BibleView = class extends import_obsidian.ItemView {
     const contextBtn = primaryNav.createEl("button", {
       cls: `bible-context-btn ${this.plugin.settings.showContextSidebar ? "active" : ""}`,
       attr: {
-        "aria-label": this.plugin.settings.showContextSidebar ? "Hide Study Context" : "Show Study Context",
-        "title": this.plugin.settings.showContextSidebar ? "Hide Study Context" : "Show Study Context"
+        "aria-label": this.plugin.settings.showContextSidebar ? "Hide study context" : "Show study context",
+        "title": this.plugin.settings.showContextSidebar ? "Hide study context" : "Show study context"
       }
     });
     (0, import_obsidian.setIcon)(contextBtn, "panel-right");
@@ -4247,8 +4247,8 @@ var BibleView = class extends import_obsidian.ItemView {
     const chapterActionsBtn = primaryNav.createEl("button", {
       cls: "bible-chapter-actions-btn",
       attr: {
-        "aria-label": "Chapter Actions",
-        "title": "Chapter Actions (bulk move highlights)"
+        "aria-label": "Chapter actions",
+        "title": "Chapter actions (bulk move highlights)"
       }
     });
     (0, import_obsidian.setIcon)(chapterActionsBtn, "more-vertical");
@@ -4406,7 +4406,7 @@ var BibleView = class extends import_obsidian.ItemView {
       parallelCheckbox.style.display = "none";
     }
     const parallelInput = parallelCheckbox.createEl("input", { type: "checkbox", attr: { id: "parallel-check" } });
-    parallelCheckbox.createEl("label", { text: "Parallel View", attr: { for: "parallel-check" } });
+    parallelCheckbox.createEl("label", { text: "Parallel view", attr: { for: "parallel-check" } });
     parallelInput.checked = !!this.secondVersion;
     parallelInput.addEventListener("change", () => {
       if (parallelInput.checked) {
@@ -4681,7 +4681,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     const parallelCheckbox = navControls.createDiv({ cls: "nav-checkbox" });
     const parallelInput = parallelCheckbox.createEl("input", { type: "checkbox", attr: { id: "parallel-check-verse" } });
-    parallelCheckbox.createEl("label", { text: "Parallel View", attr: { for: "parallel-check-verse" } });
+    parallelCheckbox.createEl("label", { text: "Parallel view", attr: { for: "parallel-check-verse" } });
     parallelInput.checked = !!this.secondVersion;
     parallelInput.addEventListener("change", () => {
       if (parallelInput.checked) {
@@ -4898,7 +4898,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     const parallelCheckbox = navControls.createDiv({ cls: "nav-checkbox" });
     const parallelInput = parallelCheckbox.createEl("input", { type: "checkbox", attr: { id: "parallel-check-passage" } });
-    parallelCheckbox.createEl("label", { text: "Parallel View", attr: { for: "parallel-check-passage" } });
+    parallelCheckbox.createEl("label", { text: "Parallel view", attr: { for: "parallel-check-passage" } });
     parallelInput.checked = !!this.secondVersion;
     parallelInput.addEventListener("change", () => {
       if (parallelInput.checked) {
@@ -5238,9 +5238,9 @@ var BibleView = class extends import_obsidian.ItemView {
         });
         const bookNoteIcon = createBookNoteBtn.createSpan({ cls: "btn-icon" });
         (0, import_obsidian.setIcon)(bookNoteIcon, "book-marked");
-        createBookNoteBtn.createSpan({ text: "Create Book Note" });
+        createBookNoteBtn.createSpan({ text: "Create book note" });
         createBookNoteBtn.addEventListener("click", async (e) => {
-          console.log("\u{1F4DA} Create book note button clicked!");
+          console.debug("\u{1F4DA} Create book note button clicked!");
           e.stopPropagation();
           await this.createBookNote(this.currentBook);
         });
@@ -5302,7 +5302,7 @@ var BibleView = class extends import_obsidian.ItemView {
         });
         const chapterNoteIcon = createChapterNoteBtn.createSpan({ cls: "btn-icon" });
         (0, import_obsidian.setIcon)(chapterNoteIcon, "book-open");
-        createChapterNoteBtn.createSpan({ text: "Create Chapter Note" });
+        createChapterNoteBtn.createSpan({ text: "Create chapter note" });
         createChapterNoteBtn.addEventListener("click", async (e) => {
           e.stopPropagation();
           await this.createChapterNote(this.currentBook, this.currentChapter);
@@ -5519,7 +5519,7 @@ ${disputedInfo.manuscriptInfo}`);
           }
         }
         verseDiv.addEventListener("contextmenu", (e) => {
-          console.log("\u{1F5B1}\uFE0F RIGHT-CLICK on verse:", this.currentBook, this.currentChapter, verseNumInt);
+          console.debug("\u{1F5B1}\uFE0F RIGHT-CLICK on verse:", this.currentBook, this.currentChapter, verseNumInt);
           e.preventDefault();
           e.stopPropagation();
           let clickedVersion = version;
@@ -6035,7 +6035,7 @@ ${disputedInfo.manuscriptInfo}`);
     document.addEventListener("keydown", handleEscape);
   }
   showVerseContextMenu(event, book, chapter, verse, version) {
-    console.log("showVerseContextMenu called for:", book, chapter, verse, "version:", version);
+    console.debug("showVerseContextMenu called for:", book, chapter, verse, "version:", version);
     const menu = document.createElement("div");
     menu.addClass("bible-verse-menu");
     menu.style.position = "absolute";
@@ -6704,7 +6704,7 @@ ${disputedInfo.manuscriptInfo}`);
         }
       }
       const endTime = performance.now();
-      console.log(`\u26A1 Indexed search completed in ${(endTime - startTime).toFixed(2)}ms (${results.length} results)`);
+      console.debug(`\u26A1 Indexed search completed in ${(endTime - startTime).toFixed(2)}ms (${results.length} results)`);
     } else {
       const booksToSearch = scope === "current-book" ? [this.currentBook] : scope === "current-chapter" ? [this.currentBook] : this.plugin.getBooksArray(this.currentVersion);
       for (const book of booksToSearch) {
@@ -7856,7 +7856,7 @@ ${disputedInfo.manuscriptInfo}`);
     const h2 = header.createEl("h2", { cls: "theographic-view-title" });
     const peopleIcon = h2.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(peopleIcon, "users");
-    h2.createSpan({ text: "People Index" });
+    h2.createSpan({ text: "People index" });
     header.createEl("p", {
       text: `Browse all ${((_a = this.plugin.theographicData.people) == null ? void 0 : _a.length.toLocaleString()) || 0} people mentioned in the Bible`,
       cls: "theographic-view-description"
@@ -7978,7 +7978,7 @@ ${disputedInfo.manuscriptInfo}`);
     const bookDiv = filtersDiv.createDiv({ cls: "people-filter-group" });
     bookDiv.createEl("label", { text: "Book:", cls: "people-filter-label" });
     const bookSelect = bookDiv.createEl("select", { cls: "people-filter-select" });
-    bookSelect.createEl("option", { value: "all", text: "All Books" });
+    bookSelect.createEl("option", { value: "all", text: "All books" });
     const canonicalOrder = [
       "Genesis",
       "Exodus",
@@ -8056,8 +8056,8 @@ ${disputedInfo.manuscriptInfo}`);
     sortDiv.createEl("label", { text: "Sort:", cls: "people-filter-label" });
     const sortSelect = sortDiv.createEl("select", { cls: "people-filter-select" });
     sortSelect.createEl("option", { value: "alpha", text: "Alphabetical" });
-    sortSelect.createEl("option", { value: "verses-desc", text: "Most Verses" });
-    sortSelect.createEl("option", { value: "verses-asc", text: "Fewest Verses" });
+    sortSelect.createEl("option", { value: "verses-desc", text: "Most verses" });
+    sortSelect.createEl("option", { value: "verses-asc", text: "Fewest verses" });
     sortSelect.createEl("option", { value: "time", text: "Chronological" });
     const contentDiv = container.createDiv({ cls: "theographic-view-content" });
     const renderPeople = () => {
@@ -8204,7 +8204,7 @@ ${disputedInfo.manuscriptInfo}`);
     const h2 = header.createEl("h2", { cls: "theographic-view-title" });
     const mapIcon = h2.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(mapIcon, "map");
-    h2.createSpan({ text: "Biblical Places" });
+    h2.createSpan({ text: "Biblical places" });
     header.createEl("p", {
       text: `Browse ${((_a = this.plugin.theographicData.places) == null ? void 0 : _a.length.toLocaleString()) || 0} biblical locations`,
       cls: "theographic-view-description"
@@ -8277,7 +8277,7 @@ ${disputedInfo.manuscriptInfo}`);
     const h2 = header.createEl("h2", { cls: "theographic-view-title" });
     const timelineIcon = h2.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(timelineIcon, "calendar");
-    h2.createSpan({ text: "Biblical Timeline" });
+    h2.createSpan({ text: "Biblical timeline" });
     header.createEl("p", {
       text: `Explore ${((_a = this.plugin.theographicData.events) == null ? void 0 : _a.length.toLocaleString()) || 0} biblical events in chronological order`,
       cls: "theographic-view-description"
@@ -8289,7 +8289,7 @@ ${disputedInfo.manuscriptInfo}`);
       cls: "theographic-search-input"
     });
     const periodSelect = filterDiv.createEl("select", { cls: "timeline-period-select" });
-    periodSelect.createEl("option", { value: "all", text: "All Periods" });
+    periodSelect.createEl("option", { value: "all", text: "All periods" });
     periodSelect.createEl("option", { value: "creation", text: "Creation & Early History" });
     periodSelect.createEl("option", { value: "patriarchs", text: "Patriarchs (2000-1500 BC)" });
     periodSelect.createEl("option", { value: "exodus", text: "Exodus & Conquest (1500-1000 BC)" });
@@ -8637,10 +8637,10 @@ ${disputedInfo.manuscriptInfo}`);
         card.createEl("div", { text: String(value), cls: "stat-value" });
         card.createEl("div", { text: label, cls: "stat-label" });
       };
-      statCard("\u{1F4DD}", analytics.totalNotes, "Total Notes");
-      statCard("\u{1F4D6}", analytics.totalWordCount.toLocaleString(), "Total Words");
-      statCard("\u{1F525}", analytics.currentStreak, "Day Streak");
-      statCard("\u{1F4DA}", analytics.notesByBook.size, "Books Covered");
+      statCard("\u{1F4DD}", analytics.totalNotes, "Total notes");
+      statCard("\u{1F4D6}", analytics.totalWordCount.toLocaleString(), "Total words");
+      statCard("\u{1F525}", analytics.currentStreak, "Day streak");
+      statCard("\u{1F4DA}", analytics.notesByBook.size, "Books covered");
       const chartsRow = analyticsContent.createDiv({ cls: "analytics-charts-row" });
       const bookChartSection = chartsRow.createDiv({ cls: "analytics-chart-section" });
       bookChartSection.createEl("h4", { text: "Notes by Book" });
@@ -8659,7 +8659,7 @@ ${disputedInfo.manuscriptInfo}`);
         bookChart.createEl("div", { text: "No notes yet", cls: "no-data" });
       }
       const rightSection = chartsRow.createDiv({ cls: "analytics-chart-section" });
-      rightSection.createEl("h4", { text: "Hot Spots (Top Chapters)" });
+      rightSection.createEl("h4", { text: "Hot spots (top chapters)" });
       const topChaptersList = rightSection.createDiv({ cls: "analytics-top-list" });
       analytics.topChapters.forEach((ch, i) => {
         const item = topChaptersList.createDiv({ cls: "top-list-item" });
@@ -8670,7 +8670,7 @@ ${disputedInfo.manuscriptInfo}`);
       if (analytics.topChapters.length === 0) {
         topChaptersList.createEl("div", { text: "No notes yet", cls: "no-data" });
       }
-      rightSection.createEl("h4", { text: "Recent Activity", cls: "activity-header" });
+      rightSection.createEl("h4", { text: "Recent activity", cls: "activity-header" });
       const activityChart = rightSection.createDiv({ cls: "analytics-activity-chart" });
       const maxActivity = Math.max(...analytics.recentActivity.map((a) => a.count), 1);
       analytics.recentActivity.forEach((day) => {
@@ -8698,7 +8698,7 @@ ${disputedInfo.manuscriptInfo}`);
     contentSearchLabel.appendText(" Search content");
     const noteContentCache = /* @__PURE__ */ new Map();
     const bookFilter = controlsBar.createEl("select", { cls: "notes-filter-select" });
-    bookFilter.createEl("option", { value: "all", text: "All Books" });
+    bookFilter.createEl("option", { value: "all", text: "All books" });
     const booksWithNotes = new Set(this.plugin.noteReferences.map((n) => n.book));
     const allBooks = this.plugin.getBooksArray(this.currentVersion);
     allBooks.filter((b) => booksWithNotes.has(b)).forEach((book) => {
@@ -8759,10 +8759,10 @@ ${disputedInfo.manuscriptInfo}`);
     const viewToggle = controlsBar.createDiv({ cls: "notes-view-toggle" });
     let currentView = "list";
     const viewButtons = [
-      { id: "list", icon: "\u2261", title: "List View" },
-      { id: "cards", icon: "\u25A6", title: "Card View" },
-      { id: "timeline", icon: "\u23F1", title: "Timeline View" },
-      { id: "heatmap", icon: "\u25A5", title: "Heatmap View" }
+      { id: "list", icon: "\u2261", title: "List view" },
+      { id: "cards", icon: "\u25A6", title: "Card view" },
+      { id: "timeline", icon: "\u23F1", title: "Timeline view" },
+      { id: "heatmap", icon: "\u25A5", title: "Heatmap view" }
     ];
     const viewBtnElements = [];
     viewButtons.forEach((view) => {
@@ -9302,23 +9302,23 @@ ${disputedInfo.manuscriptInfo}`);
     const totalCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     totalCard.createDiv({ cls: "stat-icon", text: "\u{1F58D}\uFE0F" });
     totalCard.createDiv({ cls: "stat-value", text: analytics.totalHighlights.toString() });
-    totalCard.createDiv({ cls: "stat-label", text: "Total Highlights" });
+    totalCard.createDiv({ cls: "stat-label", text: "Total highlights" });
     const wordsCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     wordsCard.createDiv({ cls: "stat-icon", text: "\u{1F4DD}" });
     wordsCard.createDiv({ cls: "stat-value", text: analytics.totalWordCount.toLocaleString() });
-    wordsCard.createDiv({ cls: "stat-label", text: "Words Highlighted" });
+    wordsCard.createDiv({ cls: "stat-label", text: "Words highlighted" });
     const booksCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     booksCard.createDiv({ cls: "stat-icon", text: "\u{1F4DA}" });
     booksCard.createDiv({ cls: "stat-value", text: analytics.highlightsByBook.size.toString() });
-    booksCard.createDiv({ cls: "stat-label", text: "Books Covered" });
+    booksCard.createDiv({ cls: "stat-label", text: "Books covered" });
     const colorsCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     colorsCard.createDiv({ cls: "stat-icon", text: "\u{1F3A8}" });
     colorsCard.createDiv({ cls: "stat-value", text: analytics.colorCounts.size.toString() });
-    colorsCard.createDiv({ cls: "stat-label", text: "Colors Used" });
+    colorsCard.createDiv({ cls: "stat-label", text: "Colors used" });
     if (analytics.colorCounts.size > 0) {
       const colorSection = analyticsContent.createDiv({ cls: "analytics-section" });
       const colorHeader = colorSection.createDiv({ cls: "analytics-section-header" });
-      colorHeader.createEl("h4", { text: "Color Distribution" });
+      colorHeader.createEl("h4", { text: "Color distribution" });
       colorHeader.createSpan({ text: "Click to filter", cls: "analytics-section-hint" });
       const colorCardsContainer = colorSection.createDiv({ cls: "color-distribution-cards" });
       this.plugin.settings.highlightColors.forEach((colorDef) => {
@@ -9466,7 +9466,7 @@ ${disputedInfo.manuscriptInfo}`);
           renderHighlightsList();
         });
       }
-      const clearAllBtn2 = container2.createEl("button", { text: "Clear All", cls: "filter-chip-clear-all" });
+      const clearAllBtn2 = container2.createEl("button", { text: "Clear all", cls: "filter-chip-clear-all" });
       clearAllBtn2.addEventListener("click", () => {
         activeFilters = { search: "", color: "all", layer: "all", book: "all" };
         searchInput.value = "";
@@ -9490,9 +9490,9 @@ ${disputedInfo.manuscriptInfo}`);
     });
     const viewToggle = primaryControlsBar.createDiv({ cls: "highlights-view-toggle" });
     const viewButtons = [
-      { id: "list", icon: "\u2261", label: "List", title: "List View" },
-      { id: "cards", icon: "\u25A6", label: "Cards", title: "Card View" },
-      { id: "heatmap", icon: "\u25A5", label: "Heatmap", title: "Heatmap View" },
+      { id: "list", icon: "\u2261", label: "List", title: "List view" },
+      { id: "cards", icon: "\u25A6", label: "Cards", title: "Card view" },
+      { id: "heatmap", icon: "\u25A5", label: "Heatmap", title: "Heatmap view" },
       { id: "layers", icon: "\u{1F4C1}", label: "Layers", title: "Group by Layer" }
     ];
     viewButtons.forEach((btn) => {
@@ -9513,7 +9513,7 @@ ${disputedInfo.manuscriptInfo}`);
     activeFiltersBar.style.display = "none";
     const secondaryControlsBar = highlightsBrowser.createDiv({ cls: "highlights-secondary-controls" });
     const colorSelect = secondaryControlsBar.createEl("select", { cls: "highlights-color-select" });
-    colorSelect.createEl("option", { value: "all", text: "All Colors" });
+    colorSelect.createEl("option", { value: "all", text: "All colors" });
     this.plugin.settings.highlightColors.forEach((color) => {
       const option = colorSelect.createEl("option", { value: color.color, text: color.name });
       option.style.color = color.color;
@@ -9524,7 +9524,7 @@ ${disputedInfo.manuscriptInfo}`);
       renderHighlightsList();
     });
     const layerSelect = secondaryControlsBar.createEl("select", { cls: "highlights-layer-select" });
-    layerSelect.createEl("option", { value: "all", text: "All Layers" });
+    layerSelect.createEl("option", { value: "all", text: "All layers" });
     this.plugin.settings.annotationLayers.forEach((layer) => {
       const option = layerSelect.createEl("option", { value: layer.id, text: layer.name });
       option.style.color = layer.color;
@@ -9535,7 +9535,7 @@ ${disputedInfo.manuscriptInfo}`);
       renderHighlightsList();
     });
     const bookSelect = secondaryControlsBar.createEl("select", { cls: "highlights-book-select" });
-    bookSelect.createEl("option", { value: "all", text: "All Books" });
+    bookSelect.createEl("option", { value: "all", text: "All books" });
     const visibleLayers = this.plugin.settings.visibleAnnotationLayers;
     const visibleHighlights = this.plugin.highlights.filter((h) => {
       const highlightLayer = h.layer || "personal";
@@ -9584,7 +9584,7 @@ ${disputedInfo.manuscriptInfo}`);
     const bulkActionsDiv = secondaryControlsBar.createDiv({ cls: "highlights-bulk-actions" });
     bulkActionsDiv.style.display = "none";
     const selectionCount = bulkActionsDiv.createSpan({ cls: "bulk-selection-count", text: "0 selected" });
-    const selectAllBtn = bulkActionsDiv.createEl("button", { text: "Select All", cls: "bulk-action-btn" });
+    const selectAllBtn = bulkActionsDiv.createEl("button", { text: "Select all", cls: "bulk-action-btn" });
     selectAllBtn.addEventListener("click", () => {
       const visibleLayers2 = this.plugin.settings.visibleAnnotationLayers;
       const visibleHighlights2 = this.plugin.highlights.filter((h) => {
@@ -9596,7 +9596,7 @@ ${disputedInfo.manuscriptInfo}`);
       selectionCount.textContent = `${selectedHighlightIds.size} selected`;
       showToast(`Selected ${selectedHighlightIds.size} highlights`);
     });
-    const deselectAllBtn = bulkActionsDiv.createEl("button", { text: "Deselect All", cls: "bulk-action-btn" });
+    const deselectAllBtn = bulkActionsDiv.createEl("button", { text: "Deselect all", cls: "bulk-action-btn" });
     deselectAllBtn.addEventListener("click", () => {
       selectedHighlightIds.clear();
       renderHighlightsList();
@@ -9730,7 +9730,7 @@ ${disputedInfo.manuscriptInfo}`);
       highlightedTextDiv.style.backgroundColor = highlight.color;
       highlightedTextDiv.textContent = highlight.text;
       const contextDiv = previewPanel.createDiv({ cls: "preview-context" });
-      contextDiv.createEl("h4", { text: "Full Verse" });
+      contextDiv.createEl("h4", { text: "Full verse" });
       const verseText = this.plugin.getVerseText(this.currentVersion, highlight.book, highlight.chapter, highlight.verse);
       if (verseText) {
         contextDiv.createDiv({ cls: "preview-verse-text", text: verseText });
@@ -9741,7 +9741,7 @@ ${disputedInfo.manuscriptInfo}`);
       if (relatedHighlights.length > 0) {
         const relatedSection = previewPanel.createDiv({ cls: "preview-related-section" });
         const relatedHeader = relatedSection.createDiv({ cls: "preview-related-header" });
-        relatedHeader.createEl("h4", { text: "Related Highlights" });
+        relatedHeader.createEl("h4", { text: "Related highlights" });
         relatedHeader.createSpan({ text: `${relatedHighlights.length} in this chapter`, cls: "preview-related-count" });
         const relatedList = relatedSection.createDiv({ cls: "preview-related-list" });
         relatedHighlights.slice(0, 5).forEach((related) => {
@@ -10132,7 +10132,7 @@ ${disputedInfo.manuscriptInfo}`);
         resolve(false);
       });
       const confirmBtn = buttonContainer.createEl("button", {
-        text: "Delete Highlight",
+        text: "Delete highlight",
         cls: "mod-warning"
       });
       confirmBtn.addEventListener("click", () => {
@@ -10208,7 +10208,7 @@ ${disputedInfo.manuscriptInfo}`);
         resolve(false);
       });
       const confirmBtn = buttonContainer.createEl("button", {
-        text: "Delete All Highlights",
+        text: "Delete all highlights",
         cls: "mod-warning"
       });
       confirmBtn.addEventListener("click", () => {
@@ -10260,11 +10260,11 @@ ${disputedInfo.manuscriptInfo}`);
     const totalCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     totalCard.createDiv({ cls: "stat-icon", text: "\u{1F516}" });
     totalCard.createDiv({ cls: "stat-value", text: analytics.totalBookmarks.toString() });
-    totalCard.createDiv({ cls: "stat-label", text: "Total Bookmarks" });
+    totalCard.createDiv({ cls: "stat-label", text: "Total bookmarks" });
     const booksCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     booksCard.createDiv({ cls: "stat-icon", text: "\u{1F4DA}" });
     booksCard.createDiv({ cls: "stat-value", text: analytics.bookmarksByBook.size.toString() });
-    booksCard.createDiv({ cls: "stat-label", text: "Books Marked" });
+    booksCard.createDiv({ cls: "stat-label", text: "Books marked" });
     const coverageCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     coverageCard.createDiv({ cls: "stat-icon", text: "\u{1F4CA}" });
     coverageCard.createDiv({ cls: "stat-value", text: `${analytics.coveragePercent}%` });
@@ -10275,7 +10275,7 @@ ${disputedInfo.manuscriptInfo}`);
     recentCard.createDiv({ cls: "stat-label", text: "Last 7 Days" });
     if (analytics.totalBookmarks > 0) {
       const levelSection = analyticsContent.createDiv({ cls: "analytics-section" });
-      levelSection.createEl("h4", { text: "Bookmark Levels" });
+      levelSection.createEl("h4", { text: "Bookmark levels" });
       const levelBar = levelSection.createDiv({ cls: "level-distribution-bar" });
       const maxLevelCount = Math.max(...Object.values(analytics.levelCounts), 1);
       const levelLabels = { book: "\u{1F4DA} Books", chapter: "\u{1F4D6} Chapters", verse: "\u{1F4DD} Verses" };
@@ -10317,12 +10317,12 @@ ${disputedInfo.manuscriptInfo}`);
       cls: "bookmarks-search-input"
     });
     const levelSelect = controlsBar.createEl("select", { cls: "bookmarks-level-select" });
-    levelSelect.createEl("option", { value: "all", text: "All Levels" });
+    levelSelect.createEl("option", { value: "all", text: "All levels" });
     levelSelect.createEl("option", { value: "book", text: "Books" });
     levelSelect.createEl("option", { value: "chapter", text: "Chapters" });
     levelSelect.createEl("option", { value: "verse", text: "Verses" });
     const bookSelect = controlsBar.createEl("select", { cls: "bookmarks-book-select" });
-    bookSelect.createEl("option", { value: "all", text: "All Books" });
+    bookSelect.createEl("option", { value: "all", text: "All books" });
     const booksWithBookmarks = [...new Set(this.plugin.bookmarks.map((b) => b.book))];
     booksWithBookmarks.sort((a, b) => books.indexOf(a) - books.indexOf(b));
     booksWithBookmarks.forEach((book) => {
@@ -10330,9 +10330,9 @@ ${disputedInfo.manuscriptInfo}`);
     });
     const viewToggle = controlsBar.createDiv({ cls: "bookmarks-view-toggle" });
     const viewButtons = [
-      { id: "list", icon: "\u2261", title: "List View" },
-      { id: "timeline", icon: "\u23F1", title: "Timeline View" },
-      { id: "heatmap", icon: "\u25A5", title: "Heatmap View" }
+      { id: "list", icon: "\u2261", title: "List view" },
+      { id: "timeline", icon: "\u23F1", title: "Timeline view" },
+      { id: "heatmap", icon: "\u25A5", title: "Heatmap view" }
     ];
     viewButtons.forEach((btn) => {
       const viewBtn = viewToggle.createEl("button", {
@@ -10409,7 +10409,7 @@ ${disputedInfo.manuscriptInfo}`);
         const verseText = this.plugin.getVerseText(this.currentVersion, bookmark.book, bookmark.chapter, bookmark.verse);
         if (verseText) {
           const verseDiv = previewPanel.createDiv({ cls: "preview-verse" });
-          verseDiv.createEl("h4", { text: "Verse Text" });
+          verseDiv.createEl("h4", { text: "Verse text" });
           verseDiv.createDiv({ cls: "preview-verse-text", text: verseText });
         }
       }
@@ -10774,7 +10774,7 @@ ${disputedInfo.manuscriptInfo}`);
       const progressBarOuter = progressContainer.createDiv({ cls: "concordance-progress-bar-outer" });
       const progressBarInner = progressBarOuter.createDiv({ cls: "concordance-progress-bar-inner" });
       const buildBtn = noConcordanceDiv.createEl("button", {
-        text: "Build Concordance",
+        text: "Build concordance",
         cls: "mod-cta"
       });
       buildBtn.addEventListener("click", async () => {
@@ -10997,23 +10997,23 @@ ${disputedInfo.manuscriptInfo}`);
     const totalCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     totalCard.createDiv({ cls: "stat-icon", text: "\u{1F3F7}\uFE0F" });
     totalCard.createDiv({ cls: "stat-value", text: analytics.totalTags.toString() });
-    totalCard.createDiv({ cls: "stat-label", text: "Total Tags" });
+    totalCard.createDiv({ cls: "stat-label", text: "Total tags" });
     const associationsCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     associationsCard.createDiv({ cls: "stat-icon", text: "\u{1F517}" });
     associationsCard.createDiv({ cls: "stat-value", text: analytics.totalAssociations.toLocaleString() });
-    associationsCard.createDiv({ cls: "stat-label", text: "Tag Associations" });
+    associationsCard.createDiv({ cls: "stat-label", text: "Tag associations" });
     const booksCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     booksCard.createDiv({ cls: "stat-icon", text: "\u{1F4DA}" });
     booksCard.createDiv({ cls: "stat-value", text: analytics.tagsByBook.size.toString() });
-    booksCard.createDiv({ cls: "stat-label", text: "Books Tagged" });
+    booksCard.createDiv({ cls: "stat-label", text: "Books tagged" });
     const avgCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     avgCard.createDiv({ cls: "stat-icon", text: "\u{1F4C8}" });
     const avgPerTag = analytics.totalTags > 0 ? (analytics.totalAssociations / analytics.totalTags).toFixed(1) : "0";
     avgCard.createDiv({ cls: "stat-value", text: avgPerTag });
-    avgCard.createDiv({ cls: "stat-label", text: "Avg Verses/Tag" });
+    avgCard.createDiv({ cls: "stat-label", text: "Avg verses/tag" });
     if (analytics.totalTags > 0) {
       const cloudSection = analyticsContent.createDiv({ cls: "analytics-section" });
-      cloudSection.createEl("h4", { text: "Tag Cloud" });
+      cloudSection.createEl("h4", { text: "Tag cloud" });
       const miniCloud = cloudSection.createDiv({ cls: "tag-cloud-mini" });
       const maxFreq = Math.max(...analytics.tagFrequency.values());
       const topTagsForCloud = Array.from(analytics.tagFrequency.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
@@ -11039,7 +11039,7 @@ ${disputedInfo.manuscriptInfo}`);
     }
     if (analytics.tagsByBook.size > 0) {
       const bookDistSection = analyticsContent.createDiv({ cls: "analytics-section" });
-      bookDistSection.createEl("h4", { text: "Tag Distribution by Book" });
+      bookDistSection.createEl("h4", { text: "Tag distribution by book" });
       const barChart = bookDistSection.createDiv({ cls: "tag-book-bars" });
       const sortedBooks = Array.from(analytics.tagsByBook.entries()).sort((a, b) => b[1].size - a[1].size).slice(0, 10);
       const maxBookTags = ((_a = sortedBooks[0]) == null ? void 0 : _a[1].size) || 1;
@@ -11059,9 +11059,9 @@ ${disputedInfo.manuscriptInfo}`);
     });
     const viewToggle = controlsBar.createDiv({ cls: "tags-view-toggle" });
     const viewButtons = [
-      { id: "list", icon: "\u2261", title: "List View" },
-      { id: "cloud", icon: "\u2601", title: "Cloud View" },
-      { id: "heatmap", icon: "\u25A5", title: "Heatmap View" }
+      { id: "list", icon: "\u2261", title: "List view" },
+      { id: "cloud", icon: "\u2601", title: "Cloud view" },
+      { id: "heatmap", icon: "\u25A5", title: "Heatmap view" }
     ];
     viewButtons.forEach((btn) => {
       const viewBtn = viewToggle.createEl("button", {
@@ -11175,7 +11175,7 @@ ${disputedInfo.manuscriptInfo}`);
       const relatedTags = findRelatedTags(tagName);
       if (relatedTags.length > 0) {
         const relatedSection = previewPanel.createDiv({ cls: "preview-related-tags" });
-        relatedSection.createEl("h4", { text: "Related Tags" });
+        relatedSection.createEl("h4", { text: "Related tags" });
         const relatedTagsContainer = relatedSection.createDiv({ cls: "related-tags-container" });
         relatedTags.slice(0, 10).forEach(([relTag, sharedCount]) => {
           const tagChip = relatedTagsContainer.createEl("span", {
@@ -11191,7 +11191,7 @@ ${disputedInfo.manuscriptInfo}`);
         });
       }
       const versesSection = previewPanel.createDiv({ cls: "preview-verses-section" });
-      versesSection.createEl("h4", { text: "Tagged Verses" });
+      versesSection.createEl("h4", { text: "Tagged verses" });
       if (verses.length === 0) {
         versesSection.createEl("p", { text: "No verses with this tag" });
         return;
@@ -11234,7 +11234,7 @@ ${disputedInfo.manuscriptInfo}`);
             e.preventDefault();
             const menu = new import_obsidian.Menu();
             menu.addItem((item) => {
-              item.setTitle("Remove Tag").setIcon("x").onClick(() => {
+              item.setTitle("Remove tag").setIcon("x").onClick(() => {
                 this.plugin.removeVerseTag(vt.id);
                 showToast(`Removed "${tagName}" from ${vt.book} ${vt.chapter}:${vt.verse}`);
                 renderPreview(tagName);
@@ -11317,12 +11317,12 @@ ${disputedInfo.manuscriptInfo}`);
           e.preventDefault();
           const menu = new import_obsidian.Menu();
           menu.addItem((item) => {
-            item.setTitle("Rename Tag").setIcon("pencil").onClick(() => {
+            item.setTitle("Rename tag").setIcon("pencil").onClick(() => {
               this.showRenameTagDialog(tag);
             });
           });
           menu.addItem((item) => {
-            item.setTitle("Delete Tag").setIcon("trash").onClick(() => {
+            item.setTitle("Delete tag").setIcon("trash").onClick(() => {
               this.showDeleteTagConfirmation(tag);
             });
           });
@@ -11353,7 +11353,7 @@ ${disputedInfo.manuscriptInfo}`);
     };
     const renderHeatmapView = (tags) => {
       const heatmapContainer = listPanel.createDiv({ cls: "tags-heatmap-container" });
-      heatmapContainer.createEl("h3", { text: "Tag Density by Book" });
+      heatmapContainer.createEl("h3", { text: "Tag density by book" });
       const tagsByBook = /* @__PURE__ */ new Map();
       this.plugin.verseTags.forEach((vt) => {
         if (tags.includes(vt.tag)) {
@@ -11481,7 +11481,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   showCreateTagDialog() {
     const modal = new import_obsidian.Modal(this.app);
-    modal.titleEl.setText("Create New Tag");
+    modal.titleEl.setText("Create new tag");
     const content = modal.contentEl;
     content.createEl("p", {
       text: "Enter a tag name. You can apply it to verses from the chapter view context menu."
@@ -11526,7 +11526,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   showAddTagToVerseDialog(book, chapter, verse) {
     const modal = new import_obsidian.Modal(this.app);
-    modal.titleEl.setText("Add Tag to Verse");
+    modal.titleEl.setText("Add tag to verse");
     const content = modal.contentEl;
     content.createEl("p", {
       text: `Add a tag to ${book} ${chapter}:${verse}`
@@ -11561,7 +11561,7 @@ ${disputedInfo.manuscriptInfo}`);
     const cancelBtn = btnContainer.createEl("button", { text: "Cancel" });
     cancelBtn.addEventListener("click", () => modal.close());
     const addBtn = btnContainer.createEl("button", {
-      text: "Add Tag",
+      text: "Add tag",
       cls: "mod-cta"
     });
     addBtn.addEventListener("click", () => {
@@ -11599,7 +11599,7 @@ ${disputedInfo.manuscriptInfo}`);
    */
   showRenameTagDialog(oldName) {
     const modal = new import_obsidian.Modal(this.app);
-    modal.titleEl.setText("Rename Tag");
+    modal.titleEl.setText("Rename tag");
     const content = modal.contentEl;
     content.createEl("p", {
       text: `Rename tag "${oldName}" to:`
@@ -11637,7 +11637,7 @@ ${disputedInfo.manuscriptInfo}`);
   showDeleteTagConfirmation(tagName) {
     const verseCount = this.plugin.getVersesWithTag(tagName).length;
     const modal = new import_obsidian.Modal(this.app);
-    modal.titleEl.setText("Delete Tag");
+    modal.titleEl.setText("Delete tag");
     const content = modal.contentEl;
     content.createEl("p", {
       text: `Are you sure you want to delete the tag "${tagName}"?`
@@ -11760,7 +11760,7 @@ ${disputedInfo.manuscriptInfo}`);
   async showBookmarkImportModeDialog(importCount) {
     return new Promise((resolve) => {
       const modal = new import_obsidian.Modal(this.app);
-      modal.titleEl.setText("Import Bookmarks");
+      modal.titleEl.setText("Import bookmarks");
       const content = modal.contentEl;
       content.createEl("p", {
         text: `You are about to import ${importCount} bookmarks.`
@@ -11792,7 +11792,7 @@ ${disputedInfo.manuscriptInfo}`);
         cls: "warning-text"
       });
       const replaceBtn = replaceDiv.createEl("button", {
-        text: "Replace All",
+        text: "Replace all",
         cls: "mod-warning"
       });
       replaceBtn.addEventListener("click", () => {
@@ -11837,7 +11837,7 @@ ${disputedInfo.manuscriptInfo}`);
         resolve(false);
       });
       const confirmBtn = buttonContainer.createEl("button", {
-        text: "Delete Bookmark",
+        text: "Delete bookmark",
         cls: "mod-warning"
       });
       confirmBtn.addEventListener("click", () => {
@@ -11877,7 +11877,7 @@ ${disputedInfo.manuscriptInfo}`);
         resolve(false);
       });
       const confirmBtn = buttonContainer.createEl("button", {
-        text: "Delete All Bookmarks",
+        text: "Delete all bookmarks",
         cls: "mod-warning"
       });
       confirmBtn.addEventListener("click", () => {
@@ -11986,7 +11986,7 @@ ${disputedInfo.manuscriptInfo}`);
   async showImportModeDialog(importCount) {
     return new Promise((resolve) => {
       const modal = new import_obsidian.Modal(this.app);
-      modal.titleEl.setText("Import Highlights");
+      modal.titleEl.setText("Import highlights");
       const content = modal.contentEl;
       content.createEl("p", {
         text: `You are about to import ${importCount} highlights.`
@@ -12040,14 +12040,14 @@ ${disputedInfo.manuscriptInfo}`);
     progressBar.setAttribute("title", `${progress.percentage}% complete`);
     const stats = this.plugin.settings.achievementStats || DEFAULT_ACHIEVEMENT_STATS;
     const statsDiv = container.createDiv({ cls: "achievements-stats" });
-    statsDiv.createEl("h3", { text: "Your Stats" });
+    statsDiv.createEl("h3", { text: "Your stats" });
     const statsGrid = statsDiv.createDiv({ cls: "stats-grid" });
     const statItems = [
-      { icon: "book-open", label: "Chapters Read", value: stats.totalChaptersRead },
-      { icon: "sticky-note", label: "Notes Created", value: stats.totalNotesCreated },
+      { icon: "book-open", label: "Chapters read", value: stats.totalChaptersRead },
+      { icon: "sticky-note", label: "Notes created", value: stats.totalNotesCreated },
       { icon: "highlighter", label: "Highlights", value: stats.totalHighlightsAdded },
-      { icon: "flame", label: "Longest Streak", value: `${stats.longestStreak} days` },
-      { icon: "book-marked", label: "Books Completed", value: stats.booksCompleted.length }
+      { icon: "flame", label: "Longest streak", value: `${stats.longestStreak} days` },
+      { icon: "book-marked", label: "Books completed", value: stats.booksCompleted.length }
     ];
     statItems.forEach((item) => {
       const statEl = statsGrid.createDiv({ cls: "stat-item" });
@@ -12109,7 +12109,7 @@ ${disputedInfo.manuscriptInfo}`);
     const h2 = header.createEl("h2");
     const readingIcon = h2.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(readingIcon, "book-open-check");
-    h2.createSpan({ text: "Reading Plans" });
+    h2.createSpan({ text: "Reading plans" });
     if (activePlans.length > 0) {
       header.createEl("p", {
         text: `${activePlans.length} active plan${activePlans.length > 1 ? "s" : ""}`,
@@ -12117,7 +12117,7 @@ ${disputedInfo.manuscriptInfo}`);
       });
     }
     const planSelectorDiv = container.createDiv({ cls: "reading-plan-selector-section" });
-    planSelectorDiv.createEl("h3", { text: "Available Reading Plans" });
+    planSelectorDiv.createEl("h3", { text: "Available reading plans" });
     planSelectorDiv.createEl("p", {
       text: "Toggle plans on/off to track multiple reading plans simultaneously.",
       cls: "reading-plan-intro"
@@ -12157,8 +12157,8 @@ ${disputedInfo.manuscriptInfo}`);
       const modeSelector = adaptiveSection.createDiv({ cls: "adaptive-mode-selector" });
       const modes = [
         { id: "normal", label: "Normal", desc: "Follow the planned schedule", icon: "calendar" },
-        { id: "catch-up", label: "Catch Up", desc: "Double readings to get back on track", icon: "fast-forward" },
-        { id: "skip-ahead", label: "Skip Ahead", desc: "Jump to today's date in the plan", icon: "skip-forward" }
+        { id: "catch-up", label: "Catch up", desc: "Double readings to get back on track", icon: "fast-forward" },
+        { id: "skip-ahead", label: "Skip ahead", desc: "Jump to today's date in the plan", icon: "skip-forward" }
       ];
       modes.forEach((mode) => {
         const modeCard = modeSelector.createDiv({
@@ -12269,16 +12269,16 @@ ${disputedInfo.manuscriptInfo}`);
     const h2 = header.createEl("h2");
     const journalIcon = h2.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(journalIcon, "book-text");
-    h2.createSpan({ text: "Study Journal" });
+    h2.createSpan({ text: "Study journal" });
     const entrySection = container.createDiv({ cls: "journal-entry-section" });
-    entrySection.createEl("h3", { text: "Add Reflection" });
+    entrySection.createEl("h3", { text: "Add reflection" });
     const textarea = entrySection.createEl("textarea", {
       cls: "journal-textarea",
       placeholder: "Write your reflections, prayers, or questions here...",
       attr: { rows: "6" }
     });
     const saveBtn = entrySection.createEl("button", {
-      text: "Save Entry",
+      text: "Save entry",
       cls: "journal-save-btn"
     });
     saveBtn.addEventListener("click", async () => {
@@ -12300,7 +12300,7 @@ ${disputedInfo.manuscriptInfo}`);
       this.render();
     });
     const timelineSection = container.createDiv({ cls: "journal-timeline-section" });
-    timelineSection.createEl("h3", { text: "Journal Timeline" });
+    timelineSection.createEl("h3", { text: "Session history" });
     const entries = [...this.plugin.settings.journalEntries].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
@@ -12323,7 +12323,7 @@ ${disputedInfo.manuscriptInfo}`);
         });
         entryHeader.createSpan({ text: dateStr, cls: "journal-entry-date" });
         const typeBadge = entryHeader.createSpan({
-          text: entry.type === "session" ? "Study Session" : "Manual Entry",
+          text: entry.type === "session" ? "Study session" : "Manual entry",
           cls: `journal-entry-type ${entry.type}`
         });
         const entryContent = entryCard.createDiv({ cls: "journal-entry-content" });
@@ -12355,7 +12355,7 @@ ${disputedInfo.manuscriptInfo}`);
           }
           if (entry.chaptersVisited && entry.chaptersVisited.length > 0) {
             const chaptersDiv = entryContent.createDiv({ cls: "journal-chapters-visited" });
-            chaptersDiv.createEl("h4", { text: "Chapters Read:" });
+            chaptersDiv.createEl("h4", { text: "Chapters read:" });
             const chaptersList = chaptersDiv.createDiv({ cls: "chapters-list" });
             entry.chaptersVisited.forEach((ch) => {
               chaptersList.createSpan({ text: ch, cls: "chapter-tag" });
@@ -12399,7 +12399,7 @@ ${disputedInfo.manuscriptInfo}`);
           const dateStr = new Date(entry.date).toLocaleString();
           markdown += `## ${dateStr}
 `;
-          markdown += `**Type:** ${entry.type === "session" ? "Study Session" : "Manual Entry"}
+          markdown += `**Type:** ${entry.type === "session" ? "Study session" : "Manual entry"}
 
 `;
           if (entry.type === "session") {
@@ -12436,21 +12436,21 @@ ${disputedInfo.manuscriptInfo}`);
     const h2 = header.createEl("h2");
     const titleIcon = h2.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(titleIcon, "folder-open");
-    h2.createSpan({ text: "Study Collections" });
+    h2.createSpan({ text: "Study collections" });
     const layout = container.createDiv({ cls: "collections-layout" });
     const listPanel = layout.createDiv({ cls: "collections-list-panel" });
     const detailPanel = layout.createDiv({ cls: "collections-detail-panel" });
     const newBtn = listPanel.createEl("button", { cls: "collections-new-btn" });
     const plusIcon = newBtn.createSpan({ cls: "btn-icon" });
     (0, import_obsidian.setIcon)(plusIcon, "plus");
-    newBtn.createSpan({ text: "New Collection" });
+    newBtn.createSpan({ text: "New collection" });
     this.registerDomEvent(newBtn, "click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
       const newId = `col-${Date.now()}`;
       const collection = {
         id: newId,
-        name: "New Collection",
+        name: "New collection",
         description: "",
         createdAt: Date.now(),
         verses: []
@@ -12465,7 +12465,7 @@ ${disputedInfo.manuscriptInfo}`);
       showToast("Created new collection - click the name to rename it");
     });
     const templates = listPanel.createDiv({ cls: "collections-templates" });
-    templates.createEl("h4", { text: "Quick Start Templates" });
+    templates.createEl("h4", { text: "Quick start templates" });
     const templateData = [
       { name: "Armor of God", verses: ["Ephesians 6:10", "Ephesians 6:11", "Ephesians 6:12", "Ephesians 6:13", "Ephesians 6:14", "Ephesians 6:15", "Ephesians 6:16", "Ephesians 6:17", "Ephesians 6:18"] },
       { name: "Fruit of the Spirit", verses: ["Galatians 5:22", "Galatians 5:23"] },
@@ -12546,11 +12546,11 @@ ${disputedInfo.manuscriptInfo}`);
     const editHint = nameWrapper.createSpan({ cls: "collection-name-edit-hint" });
     (0, import_obsidian.setIcon)(editHint, "pencil");
     this.registerDomEvent(nameInput, "change", async () => {
-      collection.name = nameInput.value || "Untitled Collection";
+      collection.name = nameInput.value || "Untitled collection";
       await this.plugin.saveSettings();
       this.render();
     });
-    if (collection.name === "New Collection") {
+    if (collection.name === "New collection") {
       setTimeout(() => {
         nameInput.focus();
         nameInput.select();
@@ -12598,7 +12598,7 @@ ${disputedInfo.manuscriptInfo}`);
     const addBtn = addRow.createEl("button", { cls: "collection-add-btn" });
     const addBtnIcon = addBtn.createSpan({ cls: "btn-icon" });
     (0, import_obsidian.setIcon)(addBtnIcon, "plus");
-    addBtn.createSpan({ text: "Add Verse" });
+    addBtn.createSpan({ text: "Add verse" });
     const addVerse = async () => {
       const ref = addInput.value.trim();
       if (ref) {
@@ -12639,7 +12639,7 @@ ${disputedInfo.manuscriptInfo}`);
       });
     });
     const exportSection = container.createDiv({ cls: "collection-export-section" });
-    const exportBtn = exportSection.createEl("button", { text: "Export Collection", cls: "collection-export-btn" });
+    const exportBtn = exportSection.createEl("button", { text: "Export collection", cls: "collection-export-btn" });
     this.registerDomEvent(exportBtn, "click", async () => {
       const json = JSON.stringify(collection, null, 2);
       await navigator.clipboard.writeText(json);
@@ -12667,7 +12667,7 @@ ${disputedInfo.manuscriptInfo}`);
       { label: "Learning", value: learningCount, icon: "loader", cls: "stat-learning" },
       { label: "Reviewing", value: reviewingCount, icon: "refresh-cw", cls: "stat-reviewing" },
       { label: "Mastered", value: masteredCount, icon: "check-circle", cls: "stat-mastered" },
-      { label: "Due Today", value: dueCount, icon: "clock", cls: "stat-due" }
+      { label: "Due today", value: dueCount, icon: "clock", cls: "stat-due" }
     ].forEach((stat) => {
       const card = statsGrid.createDiv({ cls: `memorization-stat-card ${stat.cls}` });
       const iconEl = card.createDiv({ cls: "stat-icon" });
@@ -12688,12 +12688,12 @@ ${disputedInfo.manuscriptInfo}`);
     const addBtn = actionsSection.createEl("button", { cls: "memorization-add-btn" });
     const addIcon = addBtn.createSpan({ cls: "btn-icon" });
     (0, import_obsidian.setIcon)(addIcon, "plus");
-    addBtn.createSpan({ text: "Add Verse" });
+    addBtn.createSpan({ text: "Add verse" });
     this.registerDomEvent(addBtn, "click", () => {
       this.showAddMemorizationVerseModal();
     });
     const versesSection = container.createDiv({ cls: "memorization-verses-section" });
-    versesSection.createEl("h3", { text: "Your Verses" });
+    versesSection.createEl("h3", { text: "Your verses" });
     if (verses.length === 0) {
       const emptyState = versesSection.createDiv({ cls: "memorization-empty" });
       const emptyIcon = emptyState.createDiv({ cls: "empty-icon" });
@@ -12969,7 +12969,7 @@ ${disputedInfo.manuscriptInfo}`);
     const titleDiv = header.createDiv({ cls: "context-sidebar-title" });
     const titleIcon = titleDiv.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(titleIcon, "book-marked");
-    titleDiv.createSpan({ text: "Study Context" });
+    titleDiv.createSpan({ text: "Study context" });
     const closeBtn = header.createEl("button", { cls: "context-sidebar-close" });
     (0, import_obsidian.setIcon)(closeBtn, "x");
     this.registerDomEvent(closeBtn, "click", async () => {
@@ -13032,7 +13032,7 @@ ${disputedInfo.manuscriptInfo}`);
         cls: "text-muted"
       });
       const downloadBtn = placeholder.createEl("button", {
-        text: "Download Commentary",
+        text: "Download commentary",
         cls: "mod-cta"
       });
       downloadBtn.addEventListener("click", async () => {
@@ -13044,7 +13044,7 @@ ${disputedInfo.manuscriptInfo}`);
           this.renderContextSidebar(container);
         } else {
           downloadBtn.disabled = false;
-          downloadBtn.textContent = "Download Commentary";
+          downloadBtn.textContent = "Download commentary";
         }
       });
       return;
@@ -13106,7 +13106,7 @@ ${disputedInfo.manuscriptInfo}`);
       const placeholder = container.createDiv({ cls: "context-placeholder" });
       const icon = placeholder.createSpan({ cls: "placeholder-icon" });
       (0, import_obsidian.setIcon)(icon, "languages");
-      placeholder.createEl("h3", { text: "Word Studies" });
+      placeholder.createEl("h3", { text: "Word studies" });
       placeholder.createEl("p", { text: "Strong's data not downloaded." });
       placeholder.createEl("p", { text: "Download to enable Greek & Hebrew word studies with clickable words.", cls: "text-muted" });
       const downloadBtn = placeholder.createEl("button", {
@@ -13131,7 +13131,7 @@ ${disputedInfo.manuscriptInfo}`);
       const sectionHeader = selectedSection.createDiv({ cls: "section-header" });
       const headerIcon = sectionHeader.createSpan({ cls: "section-icon" });
       (0, import_obsidian.setIcon)(headerIcon, "target");
-      sectionHeader.createSpan({ text: "Selected Word" });
+      sectionHeader.createSpan({ text: "Selected word" });
       const clearBtn = sectionHeader.createEl("button", { cls: "clear-selection-btn", text: "\u2715" });
       this.registerDomEvent(clearBtn, "click", () => {
         this.selectedStrongsWord = null;
@@ -13273,7 +13273,7 @@ ${disputedInfo.manuscriptInfo}`);
       const placeholder = container.createDiv({ cls: "context-placeholder" });
       const icon = placeholder.createSpan({ cls: "placeholder-icon" });
       (0, import_obsidian.setIcon)(icon, "map-pin");
-      placeholder.createEl("h3", { text: "Historical Context" });
+      placeholder.createEl("h3", { text: "Historical context" });
       placeholder.createEl("p", { text: "Theographic metadata not downloaded." });
       placeholder.createEl("p", { text: "Download to see people, places, and events mentioned in Scripture.", cls: "text-muted" });
       const downloadBtn = placeholder.createEl("button", {
@@ -13387,7 +13387,7 @@ ${disputedInfo.manuscriptInfo}`);
           var _a2, _b2, _c2;
           const eventItem = eventsList.createDiv({ cls: "context-event-item clickable" });
           const eventTitle = eventItem.createDiv({ cls: "event-title" });
-          eventTitle.createSpan({ text: ((_a2 = event.fields) == null ? void 0 : _a2.title) || "Unknown Event" });
+          eventTitle.createSpan({ text: ((_a2 = event.fields) == null ? void 0 : _a2.title) || "Unknown event" });
           if ((_b2 = event.fields) == null ? void 0 : _b2.startDate) {
             const year = parseInt(event.fields.startDate);
             const dateStr = year < 0 ? `${Math.abs(year)} BCE` : `${year} CE`;
@@ -13410,11 +13410,11 @@ ${disputedInfo.manuscriptInfo}`);
       const placeholder = container.createDiv({ cls: "context-placeholder" });
       const icon = placeholder.createSpan({ cls: "placeholder-icon" });
       (0, import_obsidian.setIcon)(icon, "git-compare");
-      placeholder.createEl("h3", { text: "Parallel Passages" });
+      placeholder.createEl("h3", { text: "Parallel passages" });
       placeholder.createEl("p", { text: "Cross-references not downloaded." });
       placeholder.createEl("p", { text: "Download to see related Scripture passages.", cls: "text-muted" });
       const downloadBtn = placeholder.createEl("button", {
-        text: "Download Cross-References",
+        text: "Download cross-references",
         cls: "sidebar-download-btn"
       });
       this.registerDomEvent(downloadBtn, "click", async () => {
@@ -13510,7 +13510,7 @@ ${disputedInfo.manuscriptInfo}`);
     const createBtn = summary.createEl("button", { cls: "notes-tab-create-btn" });
     const createIcon = createBtn.createSpan({ cls: "btn-icon" });
     (0, import_obsidian.setIcon)(createIcon, "plus");
-    createBtn.createSpan({ text: "New Note" });
+    createBtn.createSpan({ text: "New note" });
     this.registerDomEvent(createBtn, "click", () => {
       const targetVerse = this.selectedVerseStart || 1;
       this.createNoteForVerse(this.currentBook, this.currentChapter, targetVerse);
@@ -13592,7 +13592,7 @@ ${disputedInfo.manuscriptInfo}`);
     const h2 = header.createEl("h2");
     const titleIcon = h2.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(titleIcon, "bar-chart-2");
-    h2.createSpan({ text: "Study Insights" });
+    h2.createSpan({ text: "Study insights" });
     const studyHistory = this.plugin.settings.studyHistory || {
       totalStudyMinutes: 0,
       bookVisits: {},
@@ -13608,24 +13608,24 @@ ${disputedInfo.manuscriptInfo}`);
     const timeIcon = timeCard.createSpan({ cls: "stat-icon" });
     (0, import_obsidian.setIcon)(timeIcon, "clock");
     timeCard.createEl("div", { text: `${studyHistory.totalStudyMinutes} min`, cls: "stat-value" });
-    timeCard.createEl("div", { text: "Total Study Time", cls: "stat-label" });
+    timeCard.createEl("div", { text: "Total study time", cls: "stat-label" });
     const bookCount = Object.keys(studyHistory.bookVisits).length;
     const bookCard = statsGrid.createDiv({ cls: "stat-card" });
     const bookIcon = bookCard.createSpan({ cls: "stat-icon" });
     (0, import_obsidian.setIcon)(bookIcon, "book");
     bookCard.createEl("div", { text: `${bookCount}`, cls: "stat-value" });
-    bookCard.createEl("div", { text: "Books Studied", cls: "stat-label" });
+    bookCard.createEl("div", { text: "Books studied", cls: "stat-label" });
     const chapterCount = Object.keys(studyHistory.chapterVisits).length;
     const chapterCard = statsGrid.createDiv({ cls: "stat-card" });
     const chapterIcon = chapterCard.createSpan({ cls: "stat-icon" });
     (0, import_obsidian.setIcon)(chapterIcon, "file-text");
     chapterCard.createEl("div", { text: `${chapterCount}`, cls: "stat-value" });
-    chapterCard.createEl("div", { text: "Chapters Visited", cls: "stat-label" });
+    chapterCard.createEl("div", { text: "Chapters visited", cls: "stat-label" });
     const streakCard = statsGrid.createDiv({ cls: "stat-card" });
     const streakIcon = streakCard.createSpan({ cls: "stat-icon" });
     (0, import_obsidian.setIcon)(streakIcon, "flame");
     streakCard.createEl("div", { text: `${this.plugin.settings.studyStreak}`, cls: "stat-value" });
-    streakCard.createEl("div", { text: "Day Streak", cls: "stat-label" });
+    streakCard.createEl("div", { text: "Day streak", cls: "stat-label" });
     const insightsSection = container.createDiv({ cls: "insights-section" });
     insightsSection.createEl("h3", { text: "Insights" });
     const bookEntries = Object.entries(studyHistory.bookVisits).sort((a, b) => b[1] - a[1]);
@@ -13639,7 +13639,7 @@ ${disputedInfo.manuscriptInfo}`);
       insightsSection.createEl("p", { text: `\u{1F4C4} Most studied chapter: ${topChapter} (${topChapterCount} visits)` });
     }
     const heatmapSection = container.createDiv({ cls: "insights-heatmap-section" });
-    heatmapSection.createEl("h3", { text: "Study Heatmap" });
+    heatmapSection.createEl("h3", { text: "Study heatmap" });
     heatmapSection.createEl("p", { text: "Darker = more visits", cls: "heatmap-hint" });
     const allBooks = [
       "Genesis",
@@ -13728,7 +13728,7 @@ ${disputedInfo.manuscriptInfo}`);
       });
     });
     const exportSection = container.createDiv({ cls: "insights-export-section" });
-    const exportBtn = exportSection.createEl("button", { text: "Export Study Report", cls: "insights-export-btn" });
+    const exportBtn = exportSection.createEl("button", { text: "Export study report", cls: "insights-export-btn" });
     exportBtn.addEventListener("click", async () => {
       let report = "# Study Insights Report\n\n";
       report += `Generated: ${new Date().toLocaleDateString()}
@@ -13763,9 +13763,9 @@ ${disputedInfo.manuscriptInfo}`);
     const h2 = header.createEl("h2");
     const titleIcon = h2.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(titleIcon, "columns");
-    h2.createSpan({ text: "Version Comparison" });
+    h2.createSpan({ text: "Version comparison" });
     const selectorSection = container.createDiv({ cls: "comparison-selector" });
-    selectorSection.createEl("h4", { text: "Select Versions to Compare (2-6):" });
+    selectorSection.createEl("h4", { text: "Select versions to compare (2-6):" });
     const versionsGrid = selectorSection.createDiv({ cls: "versions-checkbox-grid" });
     const availableVersions = this.plugin.settings.bibleVersions;
     const selectedVersions = new Set(availableVersions.slice(0, Math.min(3, availableVersions.length)));
@@ -13888,7 +13888,6 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
     } catch (error) {
       console.error("Bible Portal: Error rendering settings:", error);
       containerEl.empty();
-      containerEl.createEl("h2", { text: "\u{1F4D6} Bible Portal Settings" });
       containerEl.createEl("p", { text: "Error loading settings. Please try reloading Obsidian." });
       containerEl.createEl("pre", { text: String(error), cls: "bp-settings-error" });
     }
@@ -13896,7 +13895,6 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
   renderSettings(containerEl) {
     var _a, _b;
     const header = containerEl.createDiv({ cls: "bp-settings-header" });
-    header.createEl("h2", { text: "\u{1F4D6} Bible Portal Settings" });
     header.createEl("p", {
       text: "Configure your Bible study experience",
       cls: "settings-subtitle"
@@ -13952,11 +13950,11 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
       purpose: "Customize how Bible text looks - fonts, sizes, colors, and themes. Make it comfortable for long reading sessions.",
       content: (content) => {
         const themeGroup = content.createDiv({ cls: "bp-settings-group" });
-        themeGroup.createEl("div", { text: "Banner Theme", cls: "bp-settings-group-title" });
+        themeGroup.createEl("div", { text: "Banner theme", cls: "bp-settings-group-title" });
         const themePreview = themeGroup.createDiv({ cls: "bp-settings-preview-row" });
         const themes = [
           { id: "parchment", name: "Parchment", desc: "Aged manuscript" },
-          { id: "holy-light", name: "Holy Light", desc: "Gold & white" },
+          { id: "holy-light", name: "Holy light", desc: "Gold & white" },
           { id: "royal", name: "Royal", desc: "Deep purple" },
           { id: "sacrifice", name: "Sacrifice", desc: "Crimson & gold" },
           { id: "ocean", name: "Ocean", desc: "Deep blue" },
@@ -14023,7 +14021,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           await this.plugin.saveSettings();
           this.plugin.refreshView();
         }));
-        new import_obsidian.Setting(content).setName("Font family").setDesc("Specific font to use for Bible text").addDropdown((dropdown) => dropdown.addOption('system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', "System Default").addOption("Georgia, serif", "Georgia").addOption('"Times New Roman", Times, serif', "Times New Roman").addOption("Arial, sans-serif", "Arial").setValue(this.plugin.settings.fontFamily).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Font family").setDesc("Specific font to use for Bible text").addDropdown((dropdown) => dropdown.addOption('system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', "System default").addOption("Georgia, serif", "Georgia").addOption('"Times New Roman", Times, serif', "Times New Roman").addOption("Arial, sans-serif", "Arial").setValue(this.plugin.settings.fontFamily).onChange(async (value) => {
           this.plugin.settings.fontFamily = value;
           fontPreview.style.fontFamily = value;
           await this.plugin.saveSettings();
@@ -14060,7 +14058,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           await this.plugin.saveSettings();
         }));
         const colorGroup = content.createDiv({ cls: "bp-settings-group" });
-        colorGroup.createEl("div", { text: "Highlight Colors", cls: "bp-settings-group-title" });
+        colorGroup.createEl("div", { text: "Highlight colors", cls: "bp-settings-group-title" });
         const colorCounts = {};
         (this.plugin.highlights || []).forEach((h) => {
           colorCounts[h.color] = (colorCounts[h.color] || 0) + 1;
@@ -14102,12 +14100,12 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         const colorActions = content.createDiv({ cls: "bp-settings-actions" });
         const addColorBtn = colorActions.createEl("button", { text: "+ Add Color", cls: "action-secondary" });
         addColorBtn.addEventListener("click", async () => {
-          this.plugin.settings.highlightColors.push({ name: "New Color", color: "#ffeb3b" });
+          this.plugin.settings.highlightColors.push({ name: "New color", color: "#ffeb3b" });
           await this.plugin.saveSettings();
           this.display();
         });
         const layerGroup = content.createDiv({ cls: "bp-settings-group" });
-        layerGroup.createEl("div", { text: "Annotation Layers", cls: "bp-settings-group-title" });
+        layerGroup.createEl("div", { text: "Annotation layers", cls: "bp-settings-group-title" });
         const layerPurpose = layerGroup.createDiv({ cls: "bp-settings-purpose" });
         layerPurpose.textContent = "Layers let you organize highlights by purpose. Toggle layers on/off to focus on specific study contexts.";
         new import_obsidian.Setting(content).setName("Active layer").setDesc("New highlights are added to this layer").addDropdown((dropdown) => {
@@ -14169,7 +14167,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         addLayerBtn.addEventListener("click", async () => {
           const newLayer = {
             id: `layer-${Date.now()}`,
-            name: "New Layer",
+            name: "New layer",
             color: "#10b981",
             createdDate: new Date().toISOString(),
             isDefault: false
@@ -14223,12 +14221,12 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
     this.createSection(containerEl, {
       id: "study-tools",
       icon: "book-marked",
-      title: "Study Tools",
+      title: "Study tools",
       purpose: "Configure advanced study features like cross-references, Strong's Concordance, and Jesus words highlighting.",
       content: (content) => {
         var _a2, _b2;
         const downloadGroup = content.createDiv({ cls: "bp-settings-group" });
-        downloadGroup.createEl("div", { text: "Study Data Downloads", cls: "bp-settings-group-title" });
+        downloadGroup.createEl("div", { text: "Study data downloads", cls: "bp-settings-group-title" });
         const downloadPurpose = downloadGroup.createDiv({ cls: "bp-settings-purpose" });
         downloadPurpose.textContent = "Download study resources to enable cross-references, word studies, and contextual information.";
         if (this.plugin.crossReferences) {
@@ -14326,7 +14324,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           });
         }
         const disputedGroup = content.createDiv({ cls: "bp-settings-group" });
-        disputedGroup.createEl("div", { text: "Textual Criticism", cls: "bp-settings-group-title" });
+        disputedGroup.createEl("div", { text: "Textual criticism", cls: "bp-settings-group-title" });
         const disputedPurpose = disputedGroup.createDiv({ cls: "bp-settings-purpose" });
         disputedPurpose.textContent = "Some passages have textual variants between ancient manuscripts. These settings control how disputed passages are indicated.";
         new import_obsidian.Setting(content).setName("Show disputed passage indicators").setDesc("Display markers for passages with significant textual variants").addToggle((toggle) => toggle.setValue(this.plugin.settings.showDisputedPassages).onChange(async (value) => {
@@ -14340,12 +14338,12 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         }));
         const votdGroup = content.createDiv({ cls: "bp-settings-group" });
         votdGroup.createEl("div", { text: "Verse of the Day", cls: "bp-settings-group-title" });
-        new import_obsidian.Setting(content).setName("Enable Verse of the Day").setDesc("Show a daily verse on the dashboard").addToggle((toggle) => toggle.setValue(this.plugin.settings.verseOfTheDayEnabled).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Enable verse of the day").setDesc("Show a daily verse on the dashboard").addToggle((toggle) => toggle.setValue(this.plugin.settings.verseOfTheDayEnabled).onChange(async (value) => {
           this.plugin.settings.verseOfTheDayEnabled = value;
           await this.plugin.saveSettings();
         }));
         const votdActions = content.createDiv({ cls: "bp-settings-actions" });
-        const regenerateBtn = votdActions.createEl("button", { text: "Regenerate Mapping", cls: "action-secondary" });
+        const regenerateBtn = votdActions.createEl("button", { text: "Regenerate mapping", cls: "action-secondary" });
         regenerateBtn.addEventListener("click", async () => {
           if (confirm("Generate a new random verse mapping? This overwrites the existing mapping.")) {
             const success = await this.plugin.generateVOTDMapping();
@@ -14374,7 +14372,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         });
         const searchGroup = content.createDiv({ cls: "bp-settings-group" });
         searchGroup.createEl("div", { text: "Search", cls: "bp-settings-group-title" });
-        new import_obsidian.Setting(content).setName("Default search scope").setDesc("Initial scope when opening search").addDropdown((dropdown) => dropdown.addOption("all", "All Books").addOption("book", "Current Book").addOption("chapter", "Current Chapter").setValue(this.plugin.settings.defaultSearchScope).onChange(async (value) => {
+        new import_obsidian.Setting(content).setName("Default search scope").setDesc("Initial scope when opening search").addDropdown((dropdown) => dropdown.addOption("all", "All books").addOption("book", "Current book").addOption("chapter", "Current chapter").setValue(this.plugin.settings.defaultSearchScope).onChange(async (value) => {
           this.plugin.settings.defaultSearchScope = value;
           await this.plugin.saveSettings();
         }));
@@ -14384,7 +14382,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
     this.createSection(containerEl, {
       id: "reading-plans",
       icon: "calendar",
-      title: "Reading Plans",
+      title: "Reading plans",
       badge: activePlans.length > 0 ? `${activePlans.length} active` : void 0,
       purpose: "Follow structured Bible reading plans. Activate multiple plans simultaneously and track your progress.",
       content: (content) => {
@@ -14399,7 +14397,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         }));
         if (this.plugin.settings.enableReadingPlan) {
           const plansGroup = content.createDiv({ cls: "bp-settings-group" });
-          plansGroup.createEl("div", { text: "Available Plans", cls: "bp-settings-group-title" });
+          plansGroup.createEl("div", { text: "Available plans", cls: "bp-settings-group-title" });
           READING_PLANS.forEach((plan) => {
             const isActive = this.plugin.settings.activeReadingPlans.includes(plan.id);
             const progress = this.plugin.getReadingPlanProgress(plan.id);
@@ -14505,7 +14503,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
             { label: "Chapters", value: stats.totalChaptersRead, icon: "\u{1F4D6}" },
             { label: "Notes", value: stats.totalNotesCreated, icon: "\u{1F4DD}" },
             { label: "Highlights", value: stats.totalHighlightsAdded, icon: "\u{1F3A8}" },
-            { label: "Best Streak", value: `${stats.longestStreak}d`, icon: "\u{1F525}" }
+            { label: "Best streak", value: `${stats.longestStreak}d`, icon: "\u{1F525}" }
           ];
           statItems.forEach((item) => {
             const card = statsGrid.createDiv({ cls: "bp-settings-stat-card" });
@@ -14513,7 +14511,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
             card.createDiv({ text: item.label, cls: "stat-label" });
           });
           const actions = content.createDiv({ cls: "bp-settings-actions" });
-          const resetBtn = actions.createEl("button", { text: "Reset Achievements", cls: "action-danger" });
+          const resetBtn = actions.createEl("button", { text: "Reset achievements", cls: "action-danger" });
           resetBtn.addEventListener("click", async () => {
             if (confirm("Reset ALL achievements and stats? This cannot be undone.")) {
               this.plugin.settings.unlockedAchievements = [];
@@ -14529,7 +14527,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
     this.createSection(containerEl, {
       id: "session-tracking",
       icon: "clock",
-      title: "Session Tracking",
+      title: "Session tracking",
       badge: this.plugin.settings.studyStreak > 0 ? `${this.plugin.settings.studyStreak}\u{1F525}` : void 0,
       purpose: "Track your study sessions to see patterns in your Bible reading. Build streaks by studying consistently.",
       content: (content) => {
@@ -14544,11 +14542,11 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           const streakDisplay = content.createDiv({ cls: "bp-settings-stats" });
           const streakCard = streakDisplay.createDiv({ cls: "bp-settings-stat-card" });
           streakCard.createDiv({ text: `${this.plugin.settings.studyStreak}`, cls: "stat-value" });
-          streakCard.createDiv({ text: "Day Streak \u{1F525}", cls: "stat-label" });
+          streakCard.createDiv({ text: "Day streak \u{1F525}", cls: "stat-label" });
         }
         const onboardingGroup = content.createDiv({ cls: "bp-settings-group" });
-        onboardingGroup.createEl("div", { text: "Feature Discovery", cls: "bp-settings-group-title" });
-        new import_obsidian.Setting(content).setName("Reset onboarding hints").setDesc("Show the feature discovery hints bar again").addButton((button) => button.setButtonText("Reset Hints").onClick(async () => {
+        onboardingGroup.createEl("div", { text: "Feature discovery", cls: "bp-settings-group-title" });
+        new import_obsidian.Setting(content).setName("Reset onboarding hints").setDesc("Show the feature discovery hints bar again").addButton((button) => button.setButtonText("Reset hints").onClick(async () => {
           this.plugin.settings.onboardingComplete = false;
           await this.plugin.saveSettings();
           new import_obsidian.Notice("Onboarding hints will show on next view");
@@ -14558,11 +14556,11 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
     this.createSection(containerEl, {
       id: "data-management",
       icon: "database",
-      title: "Data Management",
+      title: "Data management",
       purpose: "Download Bible translations, convert markdown files, and manage your study data.",
       content: (content) => {
         const downloadGroup = content.createDiv({ cls: "bp-settings-group" });
-        downloadGroup.createEl("div", { text: "Download Translations", cls: "bp-settings-group-title" });
+        downloadGroup.createEl("div", { text: "Download translations", cls: "bp-settings-group-title" });
         const downloadPurpose = downloadGroup.createDiv({ cls: "bp-settings-purpose" });
         downloadPurpose.textContent = "Download Bible translations from the Bolls Life API. Choose from 50+ translations in multiple languages.";
         const downloadActions = content.createDiv({ cls: "bp-settings-actions" });
@@ -14582,7 +14580,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         const importExportPurpose = importExportGroup.createDiv({ cls: "bp-settings-purpose" });
         importExportPurpose.textContent = "Backup your highlight colors or transfer them to another vault.";
         const importExportActions = content.createDiv({ cls: "bp-settings-actions" });
-        const exportColorsBtn = importExportActions.createEl("button", { text: "Export Colors", cls: "action-secondary" });
+        const exportColorsBtn = importExportActions.createEl("button", { text: "Export colors", cls: "action-secondary" });
         exportColorsBtn.addEventListener("click", async () => {
           const exportData = {
             exportDate: new Date().toISOString(),
@@ -14599,7 +14597,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           URL.revokeObjectURL(url);
           new import_obsidian.Notice(`Exported ${this.plugin.settings.highlightColors.length} colors`);
         });
-        const importColorsBtn = importExportActions.createEl("button", { text: "Import Colors", cls: "action-secondary" });
+        const importColorsBtn = importExportActions.createEl("button", { text: "Import colors", cls: "action-secondary" });
         importColorsBtn.addEventListener("click", async () => {
           const input = document.createElement("input");
           input.type = "file";
@@ -14664,7 +14662,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           item.createSpan({ text: feature });
         });
         const creditsGroup = content.createDiv({ cls: "bp-settings-group" });
-        creditsGroup.createEl("div", { text: "Data Sources & Licenses", cls: "bp-settings-group-title" });
+        creditsGroup.createEl("div", { text: "Data sources & licenses", cls: "bp-settings-group-title" });
         const creditsList = creditsGroup.createEl("ul");
         creditsList.style.fontSize = "13px";
         creditsList.style.color = "var(--text-muted)";
