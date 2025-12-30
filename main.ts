@@ -7464,11 +7464,10 @@ class BibleView extends ItemView {
 							const levelName = level.charAt(0).toUpperCase() + level.slice(1);
 							const typeName = noteTypeInfo?.label || 'Study';
 
-							// Create individual clickable icon for this note
+							// Create individual clickable icon for this note (no title - we have custom hover preview)
 							const noteIcon = actionsDiv.createEl('span', {
 								text: typeIcon,
-								cls: 'verse-indicator-icon',
-								attr: { title: `${levelName} note (${typeName})` }
+								cls: 'verse-indicator-icon'
 							});
 
 							noteIcon.style.cursor = 'pointer';
@@ -7492,11 +7491,24 @@ class BibleView extends ItemView {
 									const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
 									if (file) {
 										const content = await this.plugin.app.vault.read(file as any);
-										const preview = content.slice(0, 200).trim() + (content.length > 200 ? '...' : '');
+
+										// Extract just the Study Notes section
+										let preview = '';
+										const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+										if (studyNotesMatch && studyNotesMatch[1]) {
+											preview = studyNotesMatch[1].trim();
+										} else {
+											// Fallback: strip frontmatter and show beginning
+											preview = content.replace(/^---[\s\S]*?---\s*/, '').trim();
+										}
+
+										if (preview.length > 200) {
+											preview = preview.substring(0, 200) + '...';
+										}
 
 										previewEl = document.createElement('div');
 										previewEl.addClass('note-preview-popup');
-										previewEl.textContent = preview || '(Empty note)';
+										previewEl.textContent = preview || '(No study notes yet)';
 										document.body.appendChild(previewEl);
 
 										const rect = noteIcon.getBoundingClientRect();
@@ -7644,13 +7656,39 @@ class BibleView extends ItemView {
 				wordSpan.addEventListener('click', async (e) => {
 					e.stopPropagation();
 					this.selectedStrongsWord = strongsWord.number;
+
+					// Check if sidebar is already visible
+					const sidebarWasVisible = this.plugin.settings.showContextSidebar;
+
 					// Open sidebar if closed and switch to Word Study tab
 					if (!this.plugin.settings.showContextSidebar) {
 						this.plugin.settings.showContextSidebar = true;
 					}
 					this.plugin.settings.contextSidebarTab = 'word-study';
 					await this.plugin.saveSettings();
-					this.render(); // Re-render to show sidebar with selected word
+
+					// If sidebar was already visible, just update its content (no scroll reset)
+					if (sidebarWasVisible) {
+						const contextSidebarContent = this.containerEl.querySelector('.context-sidebar-content') as HTMLElement;
+						if (contextSidebarContent) {
+							contextSidebarContent.empty();
+							this.renderContextSidebarContent(contextSidebarContent);
+							return;
+						}
+					}
+
+					// Sidebar wasn't visible - need full render with scroll preservation
+					const viewContainer = this.containerEl.children[1] as HTMLElement;
+					const mainContainer = this.containerEl.querySelector('.bible-portal-main') as HTMLElement;
+					const viewScrollTop = viewContainer?.scrollTop || 0;
+					const mainScrollTop = mainContainer?.scrollTop || 0;
+					this.render();
+					setTimeout(() => {
+						const newViewContainer = this.containerEl.children[1] as HTMLElement;
+						const newMainContainer = this.containerEl.querySelector('.bible-portal-main') as HTMLElement;
+						if (newViewContainer) newViewContainer.scrollTop = viewScrollTop;
+						if (newMainContainer) newMainContainer.scrollTop = mainScrollTop;
+					}, 50);
 				});
 
 				// Add space after word (outside the span)
@@ -7740,13 +7778,39 @@ class BibleView extends ItemView {
 			wordSpan.addEventListener('click', async (e) => {
 				e.stopPropagation();
 				this.selectedStrongsWord = strongsNum;
+
+				// Check if sidebar is already visible
+				const sidebarWasVisible = this.plugin.settings.showContextSidebar;
+
 				// Open sidebar if closed and switch to Word Study tab
 				if (!this.plugin.settings.showContextSidebar) {
 					this.plugin.settings.showContextSidebar = true;
 				}
 				this.plugin.settings.contextSidebarTab = 'word-study';
 				await this.plugin.saveSettings();
-				this.render(); // Re-render to show sidebar with selected word
+
+				// If sidebar was already visible, just update its content (no scroll reset)
+				if (sidebarWasVisible) {
+					const contextSidebarContent = this.containerEl.querySelector('.context-sidebar-content') as HTMLElement;
+					if (contextSidebarContent) {
+						contextSidebarContent.empty();
+						this.renderContextSidebarContent(contextSidebarContent);
+						return;
+					}
+				}
+
+				// Sidebar wasn't visible - need full render with scroll preservation
+				const viewContainer = this.containerEl.children[1] as HTMLElement;
+				const mainContainer = this.containerEl.querySelector('.bible-portal-main') as HTMLElement;
+				const viewScrollTop = viewContainer?.scrollTop || 0;
+				const mainScrollTop = mainContainer?.scrollTop || 0;
+				this.render();
+				setTimeout(() => {
+					const newViewContainer = this.containerEl.children[1] as HTMLElement;
+					const newMainContainer = this.containerEl.querySelector('.bible-portal-main') as HTMLElement;
+					if (newViewContainer) newViewContainer.scrollTop = viewScrollTop;
+					if (newMainContainer) newMainContainer.scrollTop = mainScrollTop;
+				}, 50);
 			});
 
 			currentPos = mapping.end;
@@ -16205,54 +16269,64 @@ class BibleView extends ItemView {
 			}
 		});
 
-		// Verses list as cards
+		// Group contiguous verses into ranges for card display
+		const groupedVerses = this.groupContiguousVerses(collection.verses);
+
+		// Verses list as cards (grouped)
 		const versesList = container.createDiv({ cls: 'collection-verses-list' });
-		collection.verses.forEach((verse, idx) => {
+		groupedVerses.forEach((group) => {
 			const verseCard = versesList.createDiv({ cls: 'collection-verse-card' });
 
 			// Card header with reference and actions
 			const cardHeader = verseCard.createDiv({ cls: 'collection-card-header' });
 
-			// Reference (clickable)
-			const refSpan = cardHeader.createEl('span', { text: verse.reference, cls: 'collection-verse-ref' });
+			// Reference (clickable) - show combined reference for groups
+			const displayRef = group.length > 1
+				? `${group[0].parsed.book} ${group[0].parsed.chapter}:${group[0].parsed.startVerse}-${group[group.length - 1].parsed.endVerse}`
+				: group[0].verse.reference;
+
+			const refSpan = cardHeader.createEl('span', { text: displayRef, cls: 'collection-verse-ref' });
 			this.registerDomEvent(refSpan, 'click', () => {
-				this.navigateToReference(verse.reference);
+				this.navigateToReference(displayRef);
 			});
 
-			// Remove button
+			// Remove button - removes all verses in the group
 			const removeBtn = cardHeader.createEl('button', { cls: 'collection-verse-remove' });
 			const removeIcon = removeBtn.createSpan();
 			setIcon(removeIcon, 'x');
 			this.registerDomEvent(removeBtn, 'click', async () => {
-				collection.verses.splice(idx, 1);
+				// Remove all verses in this group from the collection
+				const refsToRemove = new Set(group.map(g => g.verse.reference));
+				collection.verses = collection.verses.filter(v => !refsToRemove.has(v.reference));
 				await this.plugin.saveSettings();
 				this.renderCollectionDetail(container, collection);
 			});
 
-			// Title input (optional)
+			// Title input (optional) - use first verse's title or combined
+			const firstVerse = group[0].verse;
 			const titleInput = verseCard.createEl('input', {
 				type: 'text',
 				cls: 'collection-card-title',
 				placeholder: 'Add a title...',
-				value: verse.title || ''
+				value: firstVerse.title || ''
 			});
 			this.registerDomEvent(titleInput, 'change', async () => {
-				verse.title = titleInput.value || undefined;
+				firstVerse.title = titleInput.value || undefined;
 				await this.plugin.saveSettings();
 			});
 
-			// Verse text display
+			// Verse text display - load all verses in the group
 			const verseTextDiv = verseCard.createDiv({ cls: 'collection-verse-text' });
-			this.loadVerseTextForCard(verse.reference, verseTextDiv);
+			this.loadVerseTextForCard(displayRef, verseTextDiv);
 
-			// Description textarea (optional)
+			// Description textarea (optional) - use first verse's description
 			const descInput = verseCard.createEl('textarea', {
 				cls: 'collection-card-desc',
 				attr: { placeholder: 'Add notes here...', rows: '2' }
 			});
-			descInput.value = verse.description || '';
+			descInput.value = firstVerse.description || '';
 			this.registerDomEvent(descInput, 'change', async () => {
-				verse.description = descInput.value || undefined;
+				firstVerse.description = descInput.value || undefined;
 				await this.plugin.saveSettings();
 			});
 		});
@@ -16390,6 +16464,84 @@ class BibleView extends ItemView {
 	}
 
 	/**
+	 * Group contiguous verses from a collection into ranges
+	 * E.g., ["John 3:16", "John 3:17", "John 3:18"] becomes one group
+	 */
+	groupContiguousVerses(verses: Array<{ reference: string; title?: string; description?: string }>): Array<Array<{
+		verse: { reference: string; title?: string; description?: string };
+		parsed: { book: string; chapter: number; startVerse: number; endVerse: number };
+	}>> {
+		if (verses.length === 0) return [];
+
+		// Parse all verse references with their start/end verses
+		const parsed: Array<{
+			verse: { reference: string; title?: string; description?: string };
+			parsed: { book: string; chapter: number; startVerse: number; endVerse: number };
+		}> = [];
+
+		for (const verse of verses) {
+			const singleParsed = this.parseVerseReference(verse.reference);
+			const rangeParsed = this.parsePassageReference(verse.reference);
+
+			if (singleParsed) {
+				parsed.push({
+					verse,
+					parsed: {
+						book: singleParsed.book,
+						chapter: singleParsed.chapter,
+						startVerse: singleParsed.verse,
+						endVerse: singleParsed.verse
+					}
+				});
+			} else if (rangeParsed) {
+				parsed.push({
+					verse,
+					parsed: {
+						book: rangeParsed.book,
+						chapter: rangeParsed.chapter,
+						startVerse: rangeParsed.startVerse,
+						endVerse: rangeParsed.endVerse
+					}
+				});
+			}
+		}
+
+		if (parsed.length === 0) return [];
+
+		// Sort by book, chapter, startVerse
+		parsed.sort((a, b) => {
+			if (a.parsed.book !== b.parsed.book) return a.parsed.book.localeCompare(b.parsed.book);
+			if (a.parsed.chapter !== b.parsed.chapter) return a.parsed.chapter - b.parsed.chapter;
+			return a.parsed.startVerse - b.parsed.startVerse;
+		});
+
+		// Group contiguous ranges
+		const groups: Array<Array<typeof parsed[0]>> = [];
+		let currentGroup: Array<typeof parsed[0]> = [parsed[0]];
+
+		for (let i = 1; i < parsed.length; i++) {
+			const prev = currentGroup[currentGroup.length - 1];
+			const curr = parsed[i];
+
+			// Check if contiguous (same book, same chapter, and verses connect)
+			const isContiguous =
+				prev.parsed.book === curr.parsed.book &&
+				prev.parsed.chapter === curr.parsed.chapter &&
+				curr.parsed.startVerse === prev.parsed.endVerse + 1;
+
+			if (isContiguous) {
+				currentGroup.push(curr);
+			} else {
+				groups.push(currentGroup);
+				currentGroup = [curr];
+			}
+		}
+		groups.push(currentGroup);
+
+		return groups;
+	}
+
+	/**
 	 * Load verse text for a collection card
 	 */
 	async loadVerseTextForCard(reference: string, container: HTMLElement) {
@@ -16411,19 +16563,21 @@ class BibleView extends ItemView {
 		const startVerse = 'verse' in parsed ? parsed.verse : parsed.startVerse;
 		const endVerse = 'endVerse' in parsed ? parsed.endVerse : startVerse;
 
-		const texts: string[] = [];
+		let foundAny = false;
 		for (let v = startVerse; v <= endVerse; v++) {
 			const verseData = chapter.verses[v.toString()];
 			if (verseData) {
+				foundAny = true;
 				// Handle both string (legacy) and object (StrongsVerse) formats
 				const text = typeof verseData === 'string' ? verseData : verseData.text;
-				texts.push(`${v} ${text}`);
+				// Create a line for each verse with bold verse number
+				const verseLine = container.createEl('p', { cls: 'verse-text-line' });
+				verseLine.createEl('strong', { text: `${v} ` });
+				verseLine.appendText(text);
 			}
 		}
 
-		if (texts.length > 0) {
-			container.createEl('p', { text: texts.join(' '), cls: 'verse-text-content' });
-		} else {
+		if (!foundAny) {
 			container.createEl('em', { text: 'Verse not found', cls: 'verse-text-error' });
 		}
 	}
@@ -16973,19 +17127,39 @@ class BibleView extends ItemView {
 
 			const section = sectionsContainer.createDiv({ cls: 'commentary-section' });
 
+			// Parse verse range from key and text
+			// Key format: "startVerse-section" (e.g., "5-1" means starting at verse 5)
+			// Text starts with end verse marker like "-20" or ",2"
+			let displayRange = verseRange;
+			if (verseRange !== 'intro') {
+				const keyMatch = verseRange.match(/^(\d+)/);
+				const startVerse = keyMatch ? keyMatch[1] : verseRange;
+
+				// Extract end verse from commentary text (patterns like "-5", ",2", "-20")
+				const endMatch = commentary.match(/^[,\-](\d+)\s/);
+				if (endMatch) {
+					displayRange = `${startVerse}-${endMatch[1]}`;
+				} else {
+					displayRange = startVerse; // Single verse or no end marker found
+				}
+			}
+
 			// Verse range header
 			const rangeHeader = section.createDiv({ cls: 'verse-range-header' });
 			if (verseRange !== 'intro') {
-				rangeHeader.createSpan({ text: `Verses ${verseRange}`, cls: 'verse-range' });
+				rangeHeader.createSpan({ text: `Verses ${displayRange}`, cls: 'verse-range' });
 			} else {
 				rangeHeader.createSpan({ text: 'Introduction', cls: 'verse-range' });
 			}
+
+			// Commentary text - strip the leading verse marker
+			let cleanedText = commentary.replace(/^[,\-]\d+\s+/, '');
 
 			// Commentary text
 			const textDiv = section.createDiv({ cls: 'commentary-text' });
 
 			// Split into paragraphs for readability
-			const paragraphs = commentary.split(/(?<=[.!?])\s+(?=[A-Z])/);
+			const paragraphs = cleanedText.split(/(?<=[.!?])\s+(?=[A-Z])/);
 			for (const para of paragraphs) {
 				if (para.trim()) {
 					textDiv.createEl('p', { text: para.trim() });
@@ -17557,16 +17731,24 @@ class BibleView extends ItemView {
 				await leaf.openFile(file as any);
 			});
 
-			// Preview content (rendered markdown)
+			// Preview content (rendered markdown) - show only Study Notes section
 			const previewContent = previewPanel.createDiv({ cls: 'preview-content' });
 			const content = await this.plugin.app.vault.read(file as any);
-			// Remove frontmatter
-			const withoutFm = content.replace(/^---[\s\S]*?---\s*/m, '');
+
+			// Extract just the Study Notes section
+			let previewText = '';
+			const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+			if (studyNotesMatch && studyNotesMatch[1]) {
+				previewText = studyNotesMatch[1].trim();
+			} else {
+				// Fallback: strip frontmatter and show beginning
+				previewText = content.replace(/^---[\s\S]*?---\s*/, '').trim();
+			}
 
 			// Render markdown
 			await MarkdownRenderer.render(
 				this.plugin.app,
-				withoutFm,
+				previewText || '*(No study notes yet)*',
 				previewContent,
 				notePath,
 				this

@@ -5552,8 +5552,7 @@ ${disputedInfo.manuscriptInfo}`);
               const typeName = (noteTypeInfo == null ? void 0 : noteTypeInfo.label) || "Study";
               const noteIcon = actionsDiv.createEl("span", {
                 text: typeIcon,
-                cls: "verse-indicator-icon",
-                attr: { title: `${levelName} note (${typeName})` }
+                cls: "verse-indicator-icon"
               });
               noteIcon.style.cursor = "pointer";
               noteIcon.addEventListener("click", async (e) => {
@@ -5571,10 +5570,19 @@ ${disputedInfo.manuscriptInfo}`);
                   const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
                   if (file) {
                     const content = await this.plugin.app.vault.read(file);
-                    const preview = content.slice(0, 200).trim() + (content.length > 200 ? "..." : "");
+                    let preview = "";
+                    const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+                    if (studyNotesMatch && studyNotesMatch[1]) {
+                      preview = studyNotesMatch[1].trim();
+                    } else {
+                      preview = content.replace(/^---[\s\S]*?---\s*/, "").trim();
+                    }
+                    if (preview.length > 200) {
+                      preview = preview.substring(0, 200) + "...";
+                    }
                     previewEl = document.createElement("div");
                     previewEl.addClass("note-preview-popup");
-                    previewEl.textContent = preview || "(Empty note)";
+                    previewEl.textContent = preview || "(No study notes yet)";
                     document.body.appendChild(previewEl);
                     const rect = noteIcon.getBoundingClientRect();
                     previewEl.style.position = "absolute";
@@ -5693,12 +5701,33 @@ ${disputedInfo.manuscriptInfo}`);
         wordSpan.addEventListener("click", async (e) => {
           e.stopPropagation();
           this.selectedStrongsWord = strongsWord.number;
+          const sidebarWasVisible = this.plugin.settings.showContextSidebar;
           if (!this.plugin.settings.showContextSidebar) {
             this.plugin.settings.showContextSidebar = true;
           }
           this.plugin.settings.contextSidebarTab = "word-study";
           await this.plugin.saveSettings();
+          if (sidebarWasVisible) {
+            const contextSidebarContent = this.containerEl.querySelector(".context-sidebar-content");
+            if (contextSidebarContent) {
+              contextSidebarContent.empty();
+              this.renderContextSidebarContent(contextSidebarContent);
+              return;
+            }
+          }
+          const viewContainer = this.containerEl.children[1];
+          const mainContainer = this.containerEl.querySelector(".bible-portal-main");
+          const viewScrollTop = (viewContainer == null ? void 0 : viewContainer.scrollTop) || 0;
+          const mainScrollTop = (mainContainer == null ? void 0 : mainContainer.scrollTop) || 0;
           this.render();
+          setTimeout(() => {
+            const newViewContainer = this.containerEl.children[1];
+            const newMainContainer = this.containerEl.querySelector(".bible-portal-main");
+            if (newViewContainer)
+              newViewContainer.scrollTop = viewScrollTop;
+            if (newMainContainer)
+              newMainContainer.scrollTop = mainScrollTop;
+          }, 50);
         });
         container.appendText(" ");
       } else {
@@ -5755,12 +5784,33 @@ ${disputedInfo.manuscriptInfo}`);
       wordSpan.addEventListener("click", async (e) => {
         e.stopPropagation();
         this.selectedStrongsWord = strongsNum;
+        const sidebarWasVisible = this.plugin.settings.showContextSidebar;
         if (!this.plugin.settings.showContextSidebar) {
           this.plugin.settings.showContextSidebar = true;
         }
         this.plugin.settings.contextSidebarTab = "word-study";
         await this.plugin.saveSettings();
+        if (sidebarWasVisible) {
+          const contextSidebarContent = this.containerEl.querySelector(".context-sidebar-content");
+          if (contextSidebarContent) {
+            contextSidebarContent.empty();
+            this.renderContextSidebarContent(contextSidebarContent);
+            return;
+          }
+        }
+        const viewContainer = this.containerEl.children[1];
+        const mainContainer = this.containerEl.querySelector(".bible-portal-main");
+        const viewScrollTop = (viewContainer == null ? void 0 : viewContainer.scrollTop) || 0;
+        const mainScrollTop = (mainContainer == null ? void 0 : mainContainer.scrollTop) || 0;
         this.render();
+        setTimeout(() => {
+          const newViewContainer = this.containerEl.children[1];
+          const newMainContainer = this.containerEl.querySelector(".bible-portal-main");
+          if (newViewContainer)
+            newViewContainer.scrollTop = viewScrollTop;
+          if (newMainContainer)
+            newMainContainer.scrollTop = mainScrollTop;
+        }, 50);
       });
       currentPos = mapping.end;
     }
@@ -12672,41 +12722,45 @@ ${disputedInfo.manuscriptInfo}`);
         await addVerse();
       }
     });
+    const groupedVerses = this.groupContiguousVerses(collection.verses);
     const versesList = container.createDiv({ cls: "collection-verses-list" });
-    collection.verses.forEach((verse, idx) => {
+    groupedVerses.forEach((group) => {
       const verseCard = versesList.createDiv({ cls: "collection-verse-card" });
       const cardHeader = verseCard.createDiv({ cls: "collection-card-header" });
-      const refSpan = cardHeader.createEl("span", { text: verse.reference, cls: "collection-verse-ref" });
+      const displayRef = group.length > 1 ? `${group[0].parsed.book} ${group[0].parsed.chapter}:${group[0].parsed.startVerse}-${group[group.length - 1].parsed.endVerse}` : group[0].verse.reference;
+      const refSpan = cardHeader.createEl("span", { text: displayRef, cls: "collection-verse-ref" });
       this.registerDomEvent(refSpan, "click", () => {
-        this.navigateToReference(verse.reference);
+        this.navigateToReference(displayRef);
       });
       const removeBtn = cardHeader.createEl("button", { cls: "collection-verse-remove" });
       const removeIcon = removeBtn.createSpan();
       (0, import_obsidian.setIcon)(removeIcon, "x");
       this.registerDomEvent(removeBtn, "click", async () => {
-        collection.verses.splice(idx, 1);
+        const refsToRemove = new Set(group.map((g) => g.verse.reference));
+        collection.verses = collection.verses.filter((v) => !refsToRemove.has(v.reference));
         await this.plugin.saveSettings();
         this.renderCollectionDetail(container, collection);
       });
+      const firstVerse = group[0].verse;
       const titleInput = verseCard.createEl("input", {
         type: "text",
         cls: "collection-card-title",
         placeholder: "Add a title...",
-        value: verse.title || ""
+        value: firstVerse.title || ""
       });
       this.registerDomEvent(titleInput, "change", async () => {
-        verse.title = titleInput.value || void 0;
+        firstVerse.title = titleInput.value || void 0;
         await this.plugin.saveSettings();
       });
       const verseTextDiv = verseCard.createDiv({ cls: "collection-verse-text" });
-      this.loadVerseTextForCard(verse.reference, verseTextDiv);
+      this.loadVerseTextForCard(displayRef, verseTextDiv);
       const descInput2 = verseCard.createEl("textarea", {
         cls: "collection-card-desc",
         attr: { placeholder: "Add notes here...", rows: "2" }
       });
-      descInput2.value = verse.description || "";
+      descInput2.value = firstVerse.description || "";
       this.registerDomEvent(descInput2, "change", async () => {
-        verse.description = descInput2.value || void 0;
+        firstVerse.description = descInput2.value || void 0;
         await this.plugin.saveSettings();
       });
     });
@@ -12821,6 +12875,64 @@ ${collection.description}`);
     });
   }
   /**
+   * Group contiguous verses from a collection into ranges
+   * E.g., ["John 3:16", "John 3:17", "John 3:18"] becomes one group
+   */
+  groupContiguousVerses(verses) {
+    if (verses.length === 0)
+      return [];
+    const parsed = [];
+    for (const verse of verses) {
+      const singleParsed = this.parseVerseReference(verse.reference);
+      const rangeParsed = this.parsePassageReference(verse.reference);
+      if (singleParsed) {
+        parsed.push({
+          verse,
+          parsed: {
+            book: singleParsed.book,
+            chapter: singleParsed.chapter,
+            startVerse: singleParsed.verse,
+            endVerse: singleParsed.verse
+          }
+        });
+      } else if (rangeParsed) {
+        parsed.push({
+          verse,
+          parsed: {
+            book: rangeParsed.book,
+            chapter: rangeParsed.chapter,
+            startVerse: rangeParsed.startVerse,
+            endVerse: rangeParsed.endVerse
+          }
+        });
+      }
+    }
+    if (parsed.length === 0)
+      return [];
+    parsed.sort((a, b) => {
+      if (a.parsed.book !== b.parsed.book)
+        return a.parsed.book.localeCompare(b.parsed.book);
+      if (a.parsed.chapter !== b.parsed.chapter)
+        return a.parsed.chapter - b.parsed.chapter;
+      return a.parsed.startVerse - b.parsed.startVerse;
+    });
+    const groups = [];
+    let currentGroup = [parsed[0]];
+    for (let i = 1; i < parsed.length; i++) {
+      const prev = currentGroup[currentGroup.length - 1];
+      const curr = parsed[i];
+      const isContiguous = prev.parsed.book === curr.parsed.book && prev.parsed.chapter === curr.parsed.chapter && curr.parsed.startVerse === prev.parsed.endVerse + 1;
+      if (isContiguous) {
+        currentGroup.push(curr);
+      } else {
+        groups.push(currentGroup);
+        currentGroup = [curr];
+      }
+    }
+    groups.push(currentGroup);
+    return groups;
+  }
+  /**
    * Load verse text for a collection card
    */
   async loadVerseTextForCard(reference, container) {
@@ -12837,17 +12949,18 @@ ${collection.description}`);
     }
     const startVerse = "verse" in parsed ? parsed.verse : parsed.startVerse;
     const endVerse = "endVerse" in parsed ? parsed.endVerse : startVerse;
-    const texts = [];
+    let foundAny = false;
     for (let v = startVerse; v <= endVerse; v++) {
       const verseData = chapter.verses[v.toString()];
       if (verseData) {
+        foundAny = true;
         const text = typeof verseData === "string" ? verseData : verseData.text;
-        texts.push(`${v} ${text}`);
+        const verseLine = container.createEl("p", { cls: "verse-text-line" });
+        verseLine.createEl("strong", { text: `${v} ` });
+        verseLine.appendText(text);
       }
     }
-    if (texts.length > 0) {
-      container.createEl("p", { text: texts.join(" "), cls: "verse-text-content" });
-    } else {
+    if (!foundAny) {
       container.createEl("em", { text: "Verse not found", cls: "verse-text-error" });
     }
   }
@@ -13284,14 +13397,26 @@ ${collection.description}`);
       if (!commentary)
         continue;
       const section = sectionsContainer.createDiv({ cls: "commentary-section" });
+      let displayRange = verseRange;
+      if (verseRange !== "intro") {
+        const keyMatch = verseRange.match(/^(\d+)/);
+        const startVerse = keyMatch ? keyMatch[1] : verseRange;
+        const endMatch = commentary.match(/^[,\-](\d+)\s/);
+        if (endMatch) {
+          displayRange = `${startVerse}-${endMatch[1]}`;
+        } else {
+          displayRange = startVerse;
+        }
+      }
       const rangeHeader = section.createDiv({ cls: "verse-range-header" });
       if (verseRange !== "intro") {
-        rangeHeader.createSpan({ text: `Verses ${verseRange}`, cls: "verse-range" });
+        rangeHeader.createSpan({ text: `Verses ${displayRange}`, cls: "verse-range" });
       } else {
         rangeHeader.createSpan({ text: "Introduction", cls: "verse-range" });
       }
+      let cleanedText = commentary.replace(/^[,\-]\d+\s+/, "");
       const textDiv = section.createDiv({ cls: "commentary-text" });
-      const paragraphs = commentary.split(/(?<=[.!?])\s+(?=[A-Z])/);
+      const paragraphs = cleanedText.split(/(?<=[.!?])\s+(?=[A-Z])/);
       for (const para of paragraphs) {
         if (para.trim()) {
           textDiv.createEl("p", { text: para.trim() });
@@ -13743,10 +13868,16 @@ ${collection.description}`);
       });
       const previewContent = previewPanel.createDiv({ cls: "preview-content" });
       const content = await this.plugin.app.vault.read(file);
-      const withoutFm = content.replace(/^---[\s\S]*?---\s*/m, "");
+      let previewText = "";
+      const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+      if (studyNotesMatch && studyNotesMatch[1]) {
+        previewText = studyNotesMatch[1].trim();
+      } else {
+        previewText = content.replace(/^---[\s\S]*?---\s*/, "").trim();
+      }
       await import_obsidian.MarkdownRenderer.render(
         this.plugin.app,
-        withoutFm,
+        previewText || "*(No study notes yet)*",
         previewContent,
         notePath,
         this
