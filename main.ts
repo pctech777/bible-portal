@@ -936,7 +936,7 @@ const DEFAULT_SETTINGS: BiblePortalSettings = {
 	// Annotation Layers (15G)
 	annotationLayers: [
 		{ id: 'personal', name: 'Personal', color: '#3b82f6', createdDate: new Date().toISOString(), isDefault: true },
-		{ id: 'word-study', name: 'Word Study', color: '#8b5cf6', createdDate: new Date().toISOString(), isDefault: true }
+		{ id: 'word-study', name: 'Word study', color: '#8b5cf6', createdDate: new Date().toISOString(), isDefault: true }
 	],
 	activeAnnotationLayer: 'personal', // Default to personal layer
 	visibleAnnotationLayers: ['personal', 'word-study'], // All visible by default
@@ -1545,7 +1545,7 @@ export default class BiblePortalPlugin extends Plugin {
 		// Add command to toggle study mode
 		this.addCommand({
 			id: 'toggle-study-mode',
-			name: 'Toggle Study Mode',
+			name: 'Toggle study mode',
 			callback: () => {
 				this.toggleStudyMode();
 			}
@@ -1563,7 +1563,7 @@ export default class BiblePortalPlugin extends Plugin {
 		// Add command to show performance statistics
 		this.addCommand({
 			id: 'show-performance-stats',
-			name: "Strong's: Show Performance Statistics",
+			name: "Strong's: Show performance statistics",
 			callback: () => {
 				const stats = this.getPerformanceStats();
 				const cacheHitRate = stats.interlinearLookups > 0
@@ -1593,7 +1593,7 @@ export default class BiblePortalPlugin extends Plugin {
 						: '⚠️ Performance target not met (>50ms p95)'
 				].join('\n');
 
-				console.log(message);
+				console.debug(message);
 				new Notice(message, 10000);
 			}
 		});
@@ -1601,7 +1601,7 @@ export default class BiblePortalPlugin extends Plugin {
 		// Add command to clear caches
 		this.addCommand({
 			id: 'clear-strongs-cache',
-			name: "Strong's: Clear Caches and Reset Stats",
+			name: "Strong's: Clear caches and reset stats",
 			callback: () => {
 				this.clearCaches();
 				new Notice('✓ Strong\'s caches cleared and statistics reset', 4000);
@@ -1682,7 +1682,7 @@ export default class BiblePortalPlugin extends Plugin {
 	}
 
 	onunload() {
-		console.log('Unloading Bible Portal plugin');
+		console.debug('Unloading Bible Portal plugin');
 
 		// Save current study session to journal before unloading
 		if (this.currentSession && this.settings.enableSessionTracking) {
@@ -1694,12 +1694,12 @@ export default class BiblePortalPlugin extends Plugin {
 	}
 
 	async activateBibleView() {
-		console.log('🚀 activateBibleView() called');
+		console.debug('🚀 activateBibleView() called');
 		const { workspace } = this.app;
 
 		let leaf: WorkspaceLeaf | null = null;
 		const leaves = workspace.getLeavesOfType(VIEW_TYPE_BIBLE);
-		console.log('📄 Existing Bible view leaves:', leaves.length);
+		console.debug('📄 Existing Bible view leaves:', leaves.length);
 
 		if (leaves.length > 0) {
 			// A Bible view already exists, use it
@@ -1989,7 +1989,7 @@ export default class BiblePortalPlugin extends Plugin {
 		this.settings.journalEntries.push(entry);
 		this.saveSettings();
 
-		console.log('Study session saved to journal:', entry);
+		console.debug('Study session saved to journal:', entry);
 	}
 
 	/**
@@ -2301,7 +2301,7 @@ export default class BiblePortalPlugin extends Plugin {
 		// Header with "Achievement Unlocked!"
 		const header = card.createDiv({ cls: 'achievement-celebration-header' });
 		header.createSpan({ text: '🏆', cls: 'achievement-trophy' });
-		header.createSpan({ text: 'Achievement Unlocked!', cls: 'achievement-title' });
+		header.createSpan({ text: 'Achievement unlocked!', cls: 'achievement-title' });
 
 		// Icon with glow
 		const iconContainer = card.createDiv({ cls: 'achievement-icon-container' });
@@ -2404,7 +2404,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 			const exists = await adapter.exists(filePath);
 			if (!exists) {
-				console.log(`Plugin data file not found: ${filename}`);
+				console.debug(`Plugin data file not found: ${filename}`);
 				return null;
 			}
 
@@ -2454,7 +2454,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const jsonContent = JSON.stringify(data, null, 2);
 			await adapter.write(filePath, jsonContent);
 
-			console.log(`✓ Wrote plugin data file: ${filename}`);
+			console.debug(`✓ Wrote plugin data file: ${filename}`);
 			return true;
 		} catch (error) {
 			console.error(`Error writing plugin data file ${filename}:`, error);
@@ -2509,7 +2509,7 @@ export default class BiblePortalPlugin extends Plugin {
 				// Set default version to first discovered if not set or invalid
 				if (!this.settings.defaultVersion || !discoveredVersions.includes(this.settings.defaultVersion)) {
 					this.settings.defaultVersion = discoveredVersions[0];
-					console.log(`📌 Default version set to: ${this.settings.defaultVersion}`);
+					console.debug(`📌 Default version set to: ${this.settings.defaultVersion}`);
 				}
 
 				await this.saveSettings();
@@ -2829,7 +2829,7 @@ export default class BiblePortalPlugin extends Plugin {
 	 * Download cross-reference data from GitHub
 	 */
 	async downloadCrossReferences() {
-		const modal = new DownloadProgressModal(this.app, 'Downloading Cross-References');
+		const modal = new DownloadProgressModal(this.app, 'Downloading cross-references');
 		modal.open();
 
 		try {
@@ -2851,7 +2851,7 @@ export default class BiblePortalPlugin extends Plugin {
 				throw new Error('Invalid cross-reference data format');
 			}
 
-			console.log(`Downloaded ${crossRefs.length} cross-reference entries`);
+			console.debug(`Downloaded ${crossRefs.length} cross-reference entries`);
 
 			modal.setStatus('Saving cross-references...');
 			modal.setProgress(70);
@@ -2886,7 +2886,7 @@ export default class BiblePortalPlugin extends Plugin {
 			// Load cross-references from plugin data folder
 			const fileData = await this.readPluginDataFile('cross-references.json');
 			if (!fileData || !Array.isArray(fileData)) {
-				console.log('ℹ️ Cross-references not downloaded yet');
+				console.debug('ℹ️ Cross-references not downloaded yet');
 				this.crossReferences = null;
 				return;
 			}
@@ -2935,7 +2935,7 @@ export default class BiblePortalPlugin extends Plugin {
 			this.crossReferences = mergedData;
 
 			const verseCount = Object.keys(mergedData).length;
-			console.log(`✓ Cross-references loaded: ${verseCount.toLocaleString()} verses`);
+			console.debug(`✓ Cross-references loaded: ${verseCount.toLocaleString()} verses`);
 
 		} catch (error) {
 			console.error('Error loading cross-references:', error);
@@ -2966,13 +2966,13 @@ export default class BiblePortalPlugin extends Plugin {
 			const data = await this.readPluginDataFile(filename);
 
 			if (!data || !data.words) {
-				console.log('ℹ️ No concordance data found');
+				console.debug('ℹ️ No concordance data found');
 				this.concordanceData = null;
 				return;
 			}
 
 			this.concordanceData = data as ConcordanceData;
-			console.log(`✓ Concordance loaded: ${this.concordanceData.stats.uniqueWords.toLocaleString()} words`);
+			console.debug(`✓ Concordance loaded: ${this.concordanceData.stats.uniqueWords.toLocaleString()} words`);
 
 		} catch (error) {
 			console.error('Error loading concordance:', error);
@@ -3100,7 +3100,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const data = await this.readPluginDataFile('commentaries/mhc/matthew_henry_concise.json');
 
 			if (!data) {
-				console.log('ℹ️ No commentary data found - can be downloaded from settings or Commentary tab');
+				console.debug('ℹ️ No commentary data found - can be downloaded from settings or Commentary tab');
 				this.commentaryData = null;
 				this.commentaryMetadata = null;
 				return;
@@ -3119,7 +3119,7 @@ export default class BiblePortalPlugin extends Plugin {
 			for (const book of Object.values(data)) {
 				chapterCount += Object.keys(book as object).length;
 			}
-			console.log(`✓ Commentary loaded: ${bookCount} books, ${chapterCount} chapters`);
+			console.debug(`✓ Commentary loaded: ${bookCount} books, ${chapterCount} chapters`);
 
 		} catch (error) {
 			console.error('Error loading commentary data:', error);
@@ -3132,7 +3132,7 @@ export default class BiblePortalPlugin extends Plugin {
 	 * Download Matthew Henry's Concise Commentary from GitHub
 	 */
 	async downloadCommentaryData() {
-		const modal = new DownloadProgressModal(this.app, 'Downloading Commentary');
+		const modal = new DownloadProgressModal(this.app, 'Downloading commentary');
 		modal.open();
 
 		try {
@@ -3155,7 +3155,7 @@ export default class BiblePortalPlugin extends Plugin {
 			}
 
 			const bookCount = Object.keys(commentaryData).length;
-			console.log(`Downloaded commentary with ${bookCount} books`);
+			console.debug(`Downloaded commentary with ${bookCount} books`);
 
 			modal.setStatus('Saving commentary data...');
 			modal.setProgress(70);
@@ -3228,7 +3228,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const hebrewData = await this.readPluginDataFile('strongs-hebrew.json');
 
 			if (!greekData && !hebrewData) {
-				console.log('ℹ️ No Strong\'s dictionaries found');
+				console.debug('ℹ️ No Strong\'s dictionaries found');
 				this.strongsDictionary = null;
 				return;
 			}
@@ -3240,7 +3240,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 			const greekCount = greekData ? Object.keys(greekData).length : 0;
 			const hebrewCount = hebrewData ? Object.keys(hebrewData).length : 0;
-			console.log(`✓ Strong's dictionaries loaded: ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew entries`);
+			console.debug(`✓ Strong's dictionaries loaded: ${greekCount.toLocaleString()} Greek + ${hebrewCount.toLocaleString()} Hebrew entries`);
 
 		} catch (error) {
 			console.error('Error loading Strong\'s dictionaries:', error);
@@ -3376,7 +3376,7 @@ export default class BiblePortalPlugin extends Plugin {
 					const success = await this.writePluginDataFile(file.path, data);
 					if (success) {
 						successCount++;
-						console.log(`✓ Downloaded ${file.path}`);
+						console.debug(`✓ Downloaded ${file.path}`);
 					}
 				} catch (error) {
 					console.error(`Error downloading ${file.path}:`, error);
@@ -3412,12 +3412,12 @@ export default class BiblePortalPlugin extends Plugin {
 	 */
 	async loadTheographicData() {
 		if (!this.settings.enableTheographic) {
-			console.log('ℹ️ Theographic features disabled in settings');
+			console.debug('ℹ️ Theographic features disabled in settings');
 			return;
 		}
 
 		try {
-			console.log('Loading Theographic Bible metadata...');
+			console.debug('Loading Theographic Bible metadata...');
 
 			// Load all JSON files (including verses.json for verse-to-metadata mapping)
 			const people = await this.readPluginDataFile('theographic/people.json') as TheographicPerson[] | null;
@@ -3427,7 +3427,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const verses = await this.readPluginDataFile('theographic/verses.json') as TheographicVerse[] | null;
 
 			if (!people && !places && !events && !periods && !verses) {
-				console.log('ℹ️ No Theographic data found');
+				console.debug('ℹ️ No Theographic data found');
 				return;
 			}
 
@@ -3447,7 +3447,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const periodsCount = periods ? periods.length : 0;
 			const versesCount = verses ? verses.length : 0;
 
-			console.log(`✓ Theographic data loaded: ${peopleCount.toLocaleString()} people, ${placesCount.toLocaleString()} places, ${eventsCount.toLocaleString()} events, ${periodsCount.toLocaleString()} periods, ${versesCount.toLocaleString()} verses`);
+			console.debug(`✓ Theographic data loaded: ${peopleCount.toLocaleString()} people, ${placesCount.toLocaleString()} places, ${eventsCount.toLocaleString()} events, ${periodsCount.toLocaleString()} periods, ${versesCount.toLocaleString()} verses`);
 			this.theographicData.loaded = true;
 
 		} catch (error) {
@@ -3545,7 +3545,7 @@ export default class BiblePortalPlugin extends Plugin {
 		const verseIndexSize = this.theographicData.peopleByVerse.size +
 		                       this.theographicData.placesByVerse.size +
 		                       this.theographicData.eventsByVerse.size;
-		console.log(`✓ Theographic indexes built: ${verseIndexSize.toLocaleString()} verse mappings`);
+		console.debug(`✓ Theographic indexes built: ${verseIndexSize.toLocaleString()} verse mappings`);
 	}
 
 	/**
@@ -3868,7 +3868,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 			// Cache in memory
 			this.interlinearData[bookName] = bookData as InterlinearBook;
-			console.log(`✓ Loaded interlinear data for ${bookName} (${bookData.length} verses)`);
+			console.debug(`✓ Loaded interlinear data for ${bookName} (${bookData.length} verses)`);
 			return this.interlinearData[bookName];
 
 		} catch (error) {
@@ -4027,7 +4027,7 @@ export default class BiblePortalPlugin extends Plugin {
 			p95ResponseTime: 0,
 			responseTimes: []
 		};
-		console.log('✓ Caches cleared and statistics reset');
+		console.debug('✓ Caches cleared and statistics reset');
 	}
 
 	/**
@@ -4124,7 +4124,7 @@ export default class BiblePortalPlugin extends Plugin {
 				const votdJson = await adapter.read(votdPath);
 				this.votdMapping = JSON.parse(votdJson);
 			} else {
-				console.log('ℹ️ No Verse of the Day mapping file found - using fallback verses');
+				console.debug('ℹ️ No Verse of the Day mapping file found - using fallback verses');
 				this.votdMapping = null;
 			}
 		} catch (error) {
@@ -4135,7 +4135,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 	async loadJesusWords() {
 		if (!this.settings.enableJesusWords) {
-			console.log('ℹ️ Jesus Words disabled in settings');
+			console.debug('ℹ️ Jesus Words disabled in settings');
 			return;
 		}
 
@@ -4144,16 +4144,16 @@ export default class BiblePortalPlugin extends Plugin {
 			// Hardcoded path - deployed with plugin
 			const jesusWordsPath = '.obsidian/plugins/bible-portal/src/data/jesus-words-complete.json';
 
-			console.log('📂 Looking for Jesus Words at:', jesusWordsPath);
+			console.debug('📂 Looking for Jesus Words at:', jesusWordsPath);
 
 			const startTime = performance.now();
 
 			if (await adapter.exists(jesusWordsPath)) {
-				console.log('✓ File exists, loading...');
+				console.debug('✓ File exists, loading...');
 				const jesusWordsJson = await adapter.read(jesusWordsPath);
 				this.jesusWordsData = JSON.parse(jesusWordsJson);
 
-				console.log('📖 Jesus Words data loaded:', {
+				console.debug('📖 Jesus Words data loaded:', {
 					hasData: !!this.jesusWordsData,
 					hasVerses: !!this.jesusWordsData?.verses,
 					versesLength: this.jesusWordsData?.verses?.length,
@@ -4173,12 +4173,12 @@ export default class BiblePortalPlugin extends Plugin {
 				const endTime = performance.now();
 				const loadTime = (endTime - startTime).toFixed(2);
 
-				console.log(`✓ Jesus Words loaded: ${this.jesusWordsLookup.size} verses in ${loadTime}ms`);
+				console.debug(`✓ Jesus Words loaded: ${this.jesusWordsLookup.size} verses in ${loadTime}ms`);
 				const gospelsText = (this.jesusWordsData?.gospels || []).join(', ') || 'Gospels';
 				new Notice(`✓ Jesus Words loaded: ${this.jesusWordsLookup.size} red-letter verses across ${gospelsText}`);
 			} else {
-				console.log('ℹ️ Jesus Words file not found - red-letter features disabled');
-				console.log(`   Expected location: ${jesusWordsPath}`);
+				console.debug('ℹ️ Jesus Words file not found - red-letter features disabled');
+				console.debug(`   Expected location: ${jesusWordsPath}`);
 				this.jesusWordsData = null;
 			}
 		} catch (error) {
@@ -4512,7 +4512,7 @@ export default class BiblePortalPlugin extends Plugin {
 	async promptBookmarkName(defaultName: string): Promise<string | null> {
 		return new Promise((resolve) => {
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('Name Your Bookmark');
+			modal.titleEl.setText('Name your bookmark');
 
 			const contentEl = modal.contentEl;
 			contentEl.empty();
@@ -4662,7 +4662,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const tagLines = tagsSection.split('\n').filter(line => line.trim().startsWith('-'));
 			const tags = tagLines.map(line => line.trim().replace(/^- /, '').trim()).filter(tag => tag.length > 0);
 
-			console.log('🏷️ Extracted tags from', notePath, ':', tags);
+			console.debug('🏷️ Extracted tags from', notePath, ':', tags);
 
 			return tags;
 		} catch (error) {
@@ -4675,18 +4675,18 @@ export default class BiblePortalPlugin extends Plugin {
 	async getAllTags(): Promise<Array<{tag: string, count: number}>> {
 		const tagCounts = new Map<string, number>();
 
-		console.log('🏷️ Getting all tags from', this.noteReferences.length, 'notes');
+		console.debug('🏷️ Getting all tags from', this.noteReferences.length, 'notes');
 
 		for (const noteRef of this.noteReferences) {
 			const tags = await this.getNoteTags(noteRef.notePath);
-			console.log('📄', noteRef.notePath, '→ tags:', tags);
+			console.debug('📄', noteRef.notePath, '→ tags:', tags);
 			for (const tag of tags) {
 				tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
 			}
 		}
 
-		console.log('🏷️ Total unique tags found:', tagCounts.size);
-		console.log('🏷️ Tags:', Array.from(tagCounts.keys()));
+		console.debug('🏷️ Total unique tags found:', tagCounts.size);
+		console.debug('🏷️ Tags:', Array.from(tagCounts.keys()));
 
 		return Array.from(tagCounts.entries())
 			.map(([tag, count]) => ({ tag, count }))
@@ -5263,7 +5263,7 @@ class BibleView extends ItemView {
 
 		if (this.plugin.settings.enableTheographic && this.plugin.theographicData.loaded) {
 			modes.push(
-				{ icon: 'users', mode: ViewMode.PEOPLE_INDEX, title: 'People Index' },
+				{ icon: 'users', mode: ViewMode.PEOPLE_INDEX, title: 'People index' },
 				{ icon: 'map', mode: ViewMode.MAP_VIEW, title: 'Map' },
 				{ icon: 'calendar', mode: ViewMode.TIMELINE_VIEW, title: 'Timeline' }
 			);
@@ -5279,7 +5279,7 @@ class BibleView extends ItemView {
 
 		// Add Reading Plan if enabled
 		if (this.plugin.settings.enableReadingPlan) {
-			modes.push({ icon: 'book-open-check', mode: ViewMode.READING_PLAN, title: 'Reading Plan' });
+			modes.push({ icon: 'book-open-check', mode: ViewMode.READING_PLAN, title: 'Reading plan' });
 		}
 
 		// Add Memorization mode if enabled
@@ -5289,11 +5289,11 @@ class BibleView extends ItemView {
 
 		// Add Study Insights if session tracking is enabled
 		if (this.plugin.settings.enableSessionTracking) {
-			modes.push({ icon: 'bar-chart-2', mode: ViewMode.STUDY_INSIGHTS, title: 'Study Insights' });
+			modes.push({ icon: 'bar-chart-2', mode: ViewMode.STUDY_INSIGHTS, title: 'Study insights' });
 		}
 
 		// Add Comparison Matrix (always available)
-		modes.push({ icon: 'columns', mode: ViewMode.COMPARISON_MATRIX, title: 'Compare Versions' });
+		modes.push({ icon: 'columns', mode: ViewMode.COMPARISON_MATRIX, title: 'Compare versions' });
 
 		modes.forEach(m => {
 			const btn = sidebar.createEl('button', {
@@ -5729,9 +5729,9 @@ class BibleView extends ItemView {
 		setIcon(searchIconSpan, 'search');
 		searchBtn.createSpan({ text: 'Search' });
 		const scopeSelect = searchBar.createEl('select', { cls: 'bible-search-scope' });
-		scopeSelect.createEl('option', { value: 'all', text: 'All Books' });
-		scopeSelect.createEl('option', { value: 'current-book', text: 'Current Book' });
-		scopeSelect.createEl('option', { value: 'current-chapter', text: 'Current Chapter' });
+		scopeSelect.createEl('option', { value: 'all', text: 'All books' });
+		scopeSelect.createEl('option', { value: 'current-book', text: 'Current book' });
+		scopeSelect.createEl('option', { value: 'current-chapter', text: 'Current chapter' });
 		const defaultScope = this.plugin.settings.defaultSearchScope === 'book' ? 'current-book'
 			: this.plugin.settings.defaultSearchScope === 'chapter' ? 'current-chapter'
 			: 'all';
@@ -5771,8 +5771,8 @@ class BibleView extends ItemView {
 		const studyModeBtn = primaryNav.createEl('button', {
 			cls: `bible-study-mode-btn ${this.plugin.isStudyModeActive ? 'active' : ''}`,
 			attr: {
-				'aria-label': this.plugin.isStudyModeActive ? 'End Study Session' : 'Start Study Session',
-				'title': this.plugin.isStudyModeActive ? 'End Study Session' : 'Start Study Session'
+				'aria-label': this.plugin.isStudyModeActive ? 'End study session' : 'Start study session',
+				'title': this.plugin.isStudyModeActive ? 'End study session' : 'Start study session'
 			}
 		});
 		setIcon(studyModeBtn, this.plugin.isStudyModeActive ? 'pause-circle' : 'play-circle');
@@ -5788,8 +5788,8 @@ class BibleView extends ItemView {
 		const contextBtn = primaryNav.createEl('button', {
 			cls: `bible-context-btn ${this.plugin.settings.showContextSidebar ? 'active' : ''}`,
 			attr: {
-				'aria-label': this.plugin.settings.showContextSidebar ? 'Hide Study Context' : 'Show Study Context',
-				'title': this.plugin.settings.showContextSidebar ? 'Hide Study Context' : 'Show Study Context'
+				'aria-label': this.plugin.settings.showContextSidebar ? 'Hide study context' : 'Show study context',
+				'title': this.plugin.settings.showContextSidebar ? 'Hide study context' : 'Show study context'
 			}
 		});
 		setIcon(contextBtn, 'panel-right');
@@ -5803,7 +5803,7 @@ class BibleView extends ItemView {
 		const chapterActionsBtn = primaryNav.createEl('button', {
 			cls: 'bible-chapter-actions-btn',
 			attr: {
-				'aria-label': 'Chapter Actions',
+				'aria-label': 'Chapter actions',
 				'title': 'Chapter Actions (bulk move highlights)'
 			}
 		});
@@ -6004,7 +6004,7 @@ class BibleView extends ItemView {
 		}
 
 		const parallelInput = parallelCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'parallel-check' } });
-		parallelCheckbox.createEl('label', { text: 'Parallel View', attr: { for: 'parallel-check' } });
+		parallelCheckbox.createEl('label', { text: 'Parallel view', attr: { for: 'parallel-check' } });
 		parallelInput.checked = !!this.secondVersion;
 		parallelInput.addEventListener('change', () => {
 			if (parallelInput.checked) {
@@ -6356,7 +6356,7 @@ class BibleView extends ItemView {
 		// Parallel view toggle
 		const parallelCheckbox = navControls.createDiv({ cls: 'nav-checkbox' });
 		const parallelInput = parallelCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'parallel-check-verse' } });
-		parallelCheckbox.createEl('label', { text: 'Parallel View', attr: { for: 'parallel-check-verse' } });
+		parallelCheckbox.createEl('label', { text: 'Parallel view', attr: { for: 'parallel-check-verse' } });
 		parallelInput.checked = !!this.secondVersion;
 		parallelInput.addEventListener('change', () => {
 			if (parallelInput.checked) {
@@ -6615,7 +6615,7 @@ class BibleView extends ItemView {
 		// Parallel view toggle
 		const parallelCheckbox = navControls.createDiv({ cls: 'nav-checkbox' });
 		const parallelInput = parallelCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'parallel-check-passage' } });
-		parallelCheckbox.createEl('label', { text: 'Parallel View', attr: { for: 'parallel-check-passage' } });
+		parallelCheckbox.createEl('label', { text: 'Parallel view', attr: { for: 'parallel-check-passage' } });
 		parallelInput.checked = !!this.secondVersion;
 		parallelInput.addEventListener('change', () => {
 			if (parallelInput.checked) {
@@ -7051,9 +7051,9 @@ class BibleView extends ItemView {
 				});
 				const bookNoteIcon = createBookNoteBtn.createSpan({ cls: 'btn-icon' });
 				setIcon(bookNoteIcon, 'book-marked');
-				createBookNoteBtn.createSpan({ text: 'Create Book Note' });
+				createBookNoteBtn.createSpan({ text: 'Create book note' });
 				createBookNoteBtn.addEventListener('click', async (e) => {
-					console.log('📚 Create book note button clicked!');
+					console.debug('📚 Create book note button clicked!');
 					e.stopPropagation();
 					await this.createBookNote(this.currentBook);
 				});
@@ -7130,7 +7130,7 @@ class BibleView extends ItemView {
 				});
 				const chapterNoteIcon = createChapterNoteBtn.createSpan({ cls: 'btn-icon' });
 				setIcon(chapterNoteIcon, 'book-open');
-				createChapterNoteBtn.createSpan({ text: 'Create Chapter Note' });
+				createChapterNoteBtn.createSpan({ text: 'Create chapter note' });
 				createChapterNoteBtn.addEventListener('click', async (e) => {
 					e.stopPropagation();
 					await this.createChapterNote(this.currentBook, this.currentChapter);
@@ -7432,7 +7432,7 @@ class BibleView extends ItemView {
 
 				// Add right-click context menu to entire verse
 				verseDiv.addEventListener('contextmenu', (e) => {
-					console.log('🖱️ RIGHT-CLICK on verse:', this.currentBook, this.currentChapter, verseNumInt);
+					console.debug('🖱️ RIGHT-CLICK on verse:', this.currentBook, this.currentChapter, verseNumInt);
 					e.preventDefault();
 					e.stopPropagation();
 
@@ -8234,7 +8234,7 @@ class BibleView extends ItemView {
 	}
 
 	showVerseContextMenu(event: MouseEvent, book: string, chapter: number, verse: number, version?: string) {
-		console.log('showVerseContextMenu called for:', book, chapter, verse, 'version:', version);
+		console.debug('showVerseContextMenu called for:', book, chapter, verse, 'version:', version);
 
 		// Create custom popup menu
 		const menu = document.createElement('div');
@@ -9068,7 +9068,7 @@ class BibleView extends ItemView {
 			}
 
 			const endTime = performance.now();
-			console.log(`⚡ Indexed search completed in ${(endTime - startTime).toFixed(2)}ms (${results.length} results)`);
+			console.debug(`⚡ Indexed search completed in ${(endTime - startTime).toFixed(2)}ms (${results.length} results)`);
 		} else {
 			// FALLBACK PATH: Full text search for multi-word or phrase searches
 			const booksToSearch = scope === 'current-book'
@@ -10639,7 +10639,7 @@ class BibleView extends ItemView {
 		const h2 = header.createEl('h2', { cls: 'theographic-view-title' });
 		const peopleIcon = h2.createSpan({ cls: 'title-icon' });
 		setIcon(peopleIcon, 'users');
-		h2.createSpan({ text: 'People Index' });
+		h2.createSpan({ text: 'People index' });
 		header.createEl('p', {
 			text: `Browse all ${this.plugin.theographicData.people?.length.toLocaleString() || 0} people mentioned in the Bible`,
 			cls: 'theographic-view-description'
@@ -10726,7 +10726,7 @@ class BibleView extends ItemView {
 		const bookDiv = filtersDiv.createDiv({ cls: 'people-filter-group' });
 		bookDiv.createEl('label', { text: 'Book:', cls: 'people-filter-label' });
 		const bookSelect = bookDiv.createEl('select', { cls: 'people-filter-select' });
-		bookSelect.createEl('option', { value: 'all', text: 'All Books' });
+		bookSelect.createEl('option', { value: 'all', text: 'All books' });
 
 		// Add books in canonical order
 		const canonicalOrder = [
@@ -10751,8 +10751,8 @@ class BibleView extends ItemView {
 		sortDiv.createEl('label', { text: 'Sort:', cls: 'people-filter-label' });
 		const sortSelect = sortDiv.createEl('select', { cls: 'people-filter-select' });
 		sortSelect.createEl('option', { value: 'alpha', text: 'Alphabetical' });
-		sortSelect.createEl('option', { value: 'verses-desc', text: 'Most Verses' });
-		sortSelect.createEl('option', { value: 'verses-asc', text: 'Fewest Verses' });
+		sortSelect.createEl('option', { value: 'verses-desc', text: 'Most verses' });
+		sortSelect.createEl('option', { value: 'verses-asc', text: 'Fewest verses' });
 		sortSelect.createEl('option', { value: 'time', text: 'Chronological' });
 
 		const contentDiv = container.createDiv({ cls: 'theographic-view-content' });
@@ -10926,7 +10926,7 @@ class BibleView extends ItemView {
 		const h2 = header.createEl('h2', { cls: 'theographic-view-title' });
 		const mapIcon = h2.createSpan({ cls: 'title-icon' });
 		setIcon(mapIcon, 'map');
-		h2.createSpan({ text: 'Biblical Places' });
+		h2.createSpan({ text: 'Biblical places' });
 		header.createEl('p', {
 			text: `Browse ${this.plugin.theographicData.places?.length.toLocaleString() || 0} biblical locations`,
 			cls: 'theographic-view-description'
@@ -11017,7 +11017,7 @@ class BibleView extends ItemView {
 		const h2 = header.createEl('h2', { cls: 'theographic-view-title' });
 		const timelineIcon = h2.createSpan({ cls: 'title-icon' });
 		setIcon(timelineIcon, 'calendar');
-		h2.createSpan({ text: 'Biblical Timeline' });
+		h2.createSpan({ text: 'Biblical timeline' });
 		header.createEl('p', {
 			text: `Explore ${this.plugin.theographicData.events?.length.toLocaleString() || 0} biblical events in chronological order`,
 			cls: 'theographic-view-description'
@@ -11033,7 +11033,7 @@ class BibleView extends ItemView {
 		});
 
 		const periodSelect = filterDiv.createEl('select', { cls: 'timeline-period-select' });
-		periodSelect.createEl('option', { value: 'all', text: 'All Periods' });
+		periodSelect.createEl('option', { value: 'all', text: 'All periods' });
 		periodSelect.createEl('option', { value: 'creation', text: 'Creation & Early History' });
 		periodSelect.createEl('option', { value: 'patriarchs', text: 'Patriarchs (2000-1500 BC)' });
 		periodSelect.createEl('option', { value: 'exodus', text: 'Exodus & Conquest (1500-1000 BC)' });
@@ -11472,10 +11472,10 @@ class BibleView extends ItemView {
 				card.createEl('div', { text: label, cls: 'stat-label' });
 			};
 
-			statCard('📝', analytics.totalNotes, 'Total Notes');
-			statCard('📖', analytics.totalWordCount.toLocaleString(), 'Total Words');
-			statCard('🔥', analytics.currentStreak, 'Day Streak');
-			statCard('📚', analytics.notesByBook.size, 'Books Covered');
+			statCard('📝', analytics.totalNotes, 'Total notes');
+			statCard('📖', analytics.totalWordCount.toLocaleString(), 'Total words');
+			statCard('🔥', analytics.currentStreak, 'Day streak');
+			statCard('📚', analytics.notesByBook.size, 'Books covered');
 
 			// Two column layout for charts
 			const chartsRow = analyticsContent.createDiv({ cls: 'analytics-charts-row' });
@@ -11508,7 +11508,7 @@ class BibleView extends ItemView {
 			const rightSection = chartsRow.createDiv({ cls: 'analytics-chart-section' });
 
 			// Top Chapters
-			rightSection.createEl('h4', { text: 'Hot Spots (Top Chapters)' });
+			rightSection.createEl('h4', { text: 'Hot spots (top chapters)' });
 			const topChaptersList = rightSection.createDiv({ cls: 'analytics-top-list' });
 			analytics.topChapters.forEach((ch, i) => {
 				const item = topChaptersList.createDiv({ cls: 'top-list-item' });
@@ -11521,7 +11521,7 @@ class BibleView extends ItemView {
 			}
 
 			// Recent Activity (7-day sparkline)
-			rightSection.createEl('h4', { text: 'Recent Activity', cls: 'activity-header' });
+			rightSection.createEl('h4', { text: 'Recent activity', cls: 'activity-header' });
 			const activityChart = rightSection.createDiv({ cls: 'analytics-activity-chart' });
 			const maxActivity = Math.max(...analytics.recentActivity.map(a => a.count), 1);
 
@@ -11559,7 +11559,7 @@ class BibleView extends ItemView {
 
 		// Book filter (Note: Type filter removed - only one note type exists now)
 		const bookFilter = controlsBar.createEl('select', { cls: 'notes-filter-select' });
-		bookFilter.createEl('option', { value: 'all', text: 'All Books' });
+		bookFilter.createEl('option', { value: 'all', text: 'All books' });
 		const booksWithNotes = new Set(this.plugin.noteReferences.map(n => n.book));
 		const allBooks = this.plugin.getBooksArray(this.currentVersion);
 		allBooks.filter(b => booksWithNotes.has(b)).forEach(book => {
@@ -11641,10 +11641,10 @@ class BibleView extends ItemView {
 		let currentView: 'list' | 'cards' | 'timeline' | 'heatmap' = 'list';
 
 		const viewButtons = [
-			{ id: 'list', icon: '≡', title: 'List View' },
-			{ id: 'cards', icon: '▦', title: 'Card View' },
-			{ id: 'timeline', icon: '⏱', title: 'Timeline View' },
-			{ id: 'heatmap', icon: '▥', title: 'Heatmap View' }
+			{ id: 'list', icon: '≡', title: 'List view' },
+			{ id: 'cards', icon: '▦', title: 'Card view' },
+			{ id: 'timeline', icon: '⏱', title: 'Timeline view' },
+			{ id: 'heatmap', icon: '▥', title: 'Heatmap view' }
 		];
 
 		const viewBtnElements: HTMLButtonElement[] = [];
@@ -12349,28 +12349,28 @@ class BibleView extends ItemView {
 		const totalCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		totalCard.createDiv({ cls: 'stat-icon', text: '🖍️' });
 		totalCard.createDiv({ cls: 'stat-value', text: analytics.totalHighlights.toString() });
-		totalCard.createDiv({ cls: 'stat-label', text: 'Total Highlights' });
+		totalCard.createDiv({ cls: 'stat-label', text: 'Total highlights' });
 
 		const wordsCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		wordsCard.createDiv({ cls: 'stat-icon', text: '📝' });
 		wordsCard.createDiv({ cls: 'stat-value', text: analytics.totalWordCount.toLocaleString() });
-		wordsCard.createDiv({ cls: 'stat-label', text: 'Words Highlighted' });
+		wordsCard.createDiv({ cls: 'stat-label', text: 'Words highlighted' });
 
 		const booksCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		booksCard.createDiv({ cls: 'stat-icon', text: '📚' });
 		booksCard.createDiv({ cls: 'stat-value', text: analytics.highlightsByBook.size.toString() });
-		booksCard.createDiv({ cls: 'stat-label', text: 'Books Covered' });
+		booksCard.createDiv({ cls: 'stat-label', text: 'Books covered' });
 
 		const colorsCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		colorsCard.createDiv({ cls: 'stat-icon', text: '🎨' });
 		colorsCard.createDiv({ cls: 'stat-value', text: analytics.colorCounts.size.toString() });
-		colorsCard.createDiv({ cls: 'stat-label', text: 'Colors Used' });
+		colorsCard.createDiv({ cls: 'stat-label', text: 'Colors used' });
 
 		// Color distribution cards
 		if (analytics.colorCounts.size > 0) {
 			const colorSection = analyticsContent.createDiv({ cls: 'analytics-section' });
 			const colorHeader = colorSection.createDiv({ cls: 'analytics-section-header' });
-			colorHeader.createEl('h4', { text: 'Color Distribution' });
+			colorHeader.createEl('h4', { text: 'Color distribution' });
 			colorHeader.createSpan({ text: 'Click to filter', cls: 'analytics-section-hint' });
 
 			const colorCardsContainer = colorSection.createDiv({ cls: 'color-distribution-cards' });
@@ -12562,7 +12562,7 @@ class BibleView extends ItemView {
 			}
 
 			// Clear all button
-			const clearAllBtn = container.createEl('button', { text: 'Clear All', cls: 'filter-chip-clear-all' });
+			const clearAllBtn = container.createEl('button', { text: 'Clear all', cls: 'filter-chip-clear-all' });
 			clearAllBtn.addEventListener('click', () => {
 				activeFilters = { search: '', color: 'all', layer: 'all', book: 'all' };
 				searchInput.value = '';
@@ -12593,9 +12593,9 @@ class BibleView extends ItemView {
 		// View toggle buttons
 		const viewToggle = primaryControlsBar.createDiv({ cls: 'highlights-view-toggle' });
 		const viewButtons = [
-			{ id: 'list', icon: '≡', label: 'List', title: 'List View' },
-			{ id: 'cards', icon: '▦', label: 'Cards', title: 'Card View' },
-			{ id: 'heatmap', icon: '▥', label: 'Heatmap', title: 'Heatmap View' },
+			{ id: 'list', icon: '≡', label: 'List', title: 'List view' },
+			{ id: 'cards', icon: '▦', label: 'Cards', title: 'Card view' },
+			{ id: 'heatmap', icon: '▥', label: 'Heatmap', title: 'Heatmap view' },
 			{ id: 'layers', icon: '📁', label: 'Layers', title: 'Group by Layer' }
 		];
 
@@ -12623,7 +12623,7 @@ class BibleView extends ItemView {
 
 		// Color filter
 		const colorSelect = secondaryControlsBar.createEl('select', { cls: 'highlights-color-select' });
-		colorSelect.createEl('option', { value: 'all', text: 'All Colors' });
+		colorSelect.createEl('option', { value: 'all', text: 'All colors' });
 		this.plugin.settings.highlightColors.forEach(color => {
 			const option = colorSelect.createEl('option', { value: color.color, text: color.name });
 			option.style.color = color.color;
@@ -12637,7 +12637,7 @@ class BibleView extends ItemView {
 
 		// Layer filter
 		const layerSelect = secondaryControlsBar.createEl('select', { cls: 'highlights-layer-select' });
-		layerSelect.createEl('option', { value: 'all', text: 'All Layers' });
+		layerSelect.createEl('option', { value: 'all', text: 'All layers' });
 		this.plugin.settings.annotationLayers.forEach(layer => {
 			const option = layerSelect.createEl('option', { value: layer.id, text: layer.name });
 			option.style.color = layer.color;
@@ -12651,7 +12651,7 @@ class BibleView extends ItemView {
 
 		// Book filter (only show books with highlights in visible layers)
 		const bookSelect = secondaryControlsBar.createEl('select', { cls: 'highlights-book-select' });
-		bookSelect.createEl('option', { value: 'all', text: 'All Books' });
+		bookSelect.createEl('option', { value: 'all', text: 'All books' });
 		const visibleLayers = this.plugin.settings.visibleAnnotationLayers;
 		const visibleHighlights = this.plugin.highlights.filter(h => {
 			const highlightLayer = h.layer || 'personal';
@@ -12716,7 +12716,7 @@ class BibleView extends ItemView {
 
 		const selectionCount = bulkActionsDiv.createSpan({ cls: 'bulk-selection-count', text: '0 selected' });
 
-		const selectAllBtn = bulkActionsDiv.createEl('button', { text: 'Select All', cls: 'bulk-action-btn' });
+		const selectAllBtn = bulkActionsDiv.createEl('button', { text: 'Select all', cls: 'bulk-action-btn' });
 		selectAllBtn.addEventListener('click', () => {
 			const visibleLayers = this.plugin.settings.visibleAnnotationLayers;
 			const visibleHighlights = this.plugin.highlights.filter(h => {
@@ -12729,7 +12729,7 @@ class BibleView extends ItemView {
 			showToast(`Selected ${selectedHighlightIds.size} highlights`);
 		});
 
-		const deselectAllBtn = bulkActionsDiv.createEl('button', { text: 'Deselect All', cls: 'bulk-action-btn' });
+		const deselectAllBtn = bulkActionsDiv.createEl('button', { text: 'Deselect all', cls: 'bulk-action-btn' });
 		deselectAllBtn.addEventListener('click', () => {
 			selectedHighlightIds.clear();
 			renderHighlightsList();
@@ -12892,7 +12892,7 @@ class BibleView extends ItemView {
 
 			// Full verse context
 			const contextDiv = previewPanel.createDiv({ cls: 'preview-context' });
-			contextDiv.createEl('h4', { text: 'Full Verse' });
+			contextDiv.createEl('h4', { text: 'Full verse' });
 			const verseText = this.plugin.getVerseText(this.currentVersion, highlight.book, highlight.chapter, highlight.verse);
 			if (verseText) {
 				contextDiv.createDiv({ cls: 'preview-verse-text', text: verseText });
@@ -12908,7 +12908,7 @@ class BibleView extends ItemView {
 			if (relatedHighlights.length > 0) {
 				const relatedSection = previewPanel.createDiv({ cls: 'preview-related-section' });
 				const relatedHeader = relatedSection.createDiv({ cls: 'preview-related-header' });
-				relatedHeader.createEl('h4', { text: 'Related Highlights' });
+				relatedHeader.createEl('h4', { text: 'Related highlights' });
 				relatedHeader.createSpan({ text: `${relatedHighlights.length} in this chapter`, cls: 'preview-related-count' });
 
 				const relatedList = relatedSection.createDiv({ cls: 'preview-related-list' });
@@ -13335,7 +13335,7 @@ class BibleView extends ItemView {
 			});
 
 			const confirmBtn = buttonContainer.createEl('button', {
-				text: 'Delete Highlight',
+				text: 'Delete highlight',
 				cls: 'mod-warning'
 			});
 			confirmBtn.addEventListener('click', () => {
@@ -13423,7 +13423,7 @@ class BibleView extends ItemView {
 			});
 
 			const confirmBtn = buttonContainer.createEl('button', {
-				text: 'Delete All Highlights',
+				text: 'Delete all highlights',
 				cls: 'mod-warning'
 			});
 			confirmBtn.addEventListener('click', () => {
@@ -13503,12 +13503,12 @@ class BibleView extends ItemView {
 		const totalCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		totalCard.createDiv({ cls: 'stat-icon', text: '🔖' });
 		totalCard.createDiv({ cls: 'stat-value', text: analytics.totalBookmarks.toString() });
-		totalCard.createDiv({ cls: 'stat-label', text: 'Total Bookmarks' });
+		totalCard.createDiv({ cls: 'stat-label', text: 'Total bookmarks' });
 
 		const booksCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		booksCard.createDiv({ cls: 'stat-icon', text: '📚' });
 		booksCard.createDiv({ cls: 'stat-value', text: analytics.bookmarksByBook.size.toString() });
-		booksCard.createDiv({ cls: 'stat-label', text: 'Books Marked' });
+		booksCard.createDiv({ cls: 'stat-label', text: 'Books marked' });
 
 		const coverageCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		coverageCard.createDiv({ cls: 'stat-icon', text: '📊' });
@@ -13523,7 +13523,7 @@ class BibleView extends ItemView {
 		// Level distribution
 		if (analytics.totalBookmarks > 0) {
 			const levelSection = analyticsContent.createDiv({ cls: 'analytics-section' });
-			levelSection.createEl('h4', { text: 'Bookmark Levels' });
+			levelSection.createEl('h4', { text: 'Bookmark levels' });
 			const levelBar = levelSection.createDiv({ cls: 'level-distribution-bar' });
 
 			const maxLevelCount = Math.max(...Object.values(analytics.levelCounts), 1);
@@ -13576,14 +13576,14 @@ class BibleView extends ItemView {
 
 		// Level filter
 		const levelSelect = controlsBar.createEl('select', { cls: 'bookmarks-level-select' });
-		levelSelect.createEl('option', { value: 'all', text: 'All Levels' });
+		levelSelect.createEl('option', { value: 'all', text: 'All levels' });
 		levelSelect.createEl('option', { value: 'book', text: 'Books' });
 		levelSelect.createEl('option', { value: 'chapter', text: 'Chapters' });
 		levelSelect.createEl('option', { value: 'verse', text: 'Verses' });
 
 		// Book filter
 		const bookSelect = controlsBar.createEl('select', { cls: 'bookmarks-book-select' });
-		bookSelect.createEl('option', { value: 'all', text: 'All Books' });
+		bookSelect.createEl('option', { value: 'all', text: 'All books' });
 		const booksWithBookmarks = [...new Set(this.plugin.bookmarks.map(b => b.book))];
 		booksWithBookmarks.sort((a, b) => books.indexOf(a) - books.indexOf(b));
 		booksWithBookmarks.forEach(book => {
@@ -13593,9 +13593,9 @@ class BibleView extends ItemView {
 		// View toggle buttons
 		const viewToggle = controlsBar.createDiv({ cls: 'bookmarks-view-toggle' });
 		const viewButtons = [
-			{ id: 'list', icon: '≡', title: 'List View' },
-			{ id: 'timeline', icon: '⏱', title: 'Timeline View' },
-			{ id: 'heatmap', icon: '▥', title: 'Heatmap View' }
+			{ id: 'list', icon: '≡', title: 'List view' },
+			{ id: 'timeline', icon: '⏱', title: 'Timeline view' },
+			{ id: 'heatmap', icon: '▥', title: 'Heatmap view' }
 		];
 
 		viewButtons.forEach(btn => {
@@ -13693,7 +13693,7 @@ class BibleView extends ItemView {
 				const verseText = this.plugin.getVerseText(this.currentVersion, bookmark.book, bookmark.chapter!, bookmark.verse);
 				if (verseText) {
 					const verseDiv = previewPanel.createDiv({ cls: 'preview-verse' });
-					verseDiv.createEl('h4', { text: 'Verse Text' });
+					verseDiv.createEl('h4', { text: 'Verse text' });
 					verseDiv.createDiv({ cls: 'preview-verse-text', text: verseText });
 				}
 			}
@@ -14077,7 +14077,7 @@ class BibleView extends ItemView {
 			const progressBarInner = progressBarOuter.createDiv({ cls: 'concordance-progress-bar-inner' });
 
 			const buildBtn = noConcordanceDiv.createEl('button', {
-				text: 'Build Concordance',
+				text: 'Build concordance',
 				cls: 'mod-cta'
 			});
 			buildBtn.addEventListener('click', async () => {
@@ -14372,17 +14372,17 @@ class BibleView extends ItemView {
 		const totalCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		totalCard.createDiv({ cls: 'stat-icon', text: '🏷️' });
 		totalCard.createDiv({ cls: 'stat-value', text: analytics.totalTags.toString() });
-		totalCard.createDiv({ cls: 'stat-label', text: 'Total Tags' });
+		totalCard.createDiv({ cls: 'stat-label', text: 'Total tags' });
 
 		const associationsCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		associationsCard.createDiv({ cls: 'stat-icon', text: '🔗' });
 		associationsCard.createDiv({ cls: 'stat-value', text: analytics.totalAssociations.toLocaleString() });
-		associationsCard.createDiv({ cls: 'stat-label', text: 'Tag Associations' });
+		associationsCard.createDiv({ cls: 'stat-label', text: 'Tag associations' });
 
 		const booksCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		booksCard.createDiv({ cls: 'stat-icon', text: '📚' });
 		booksCard.createDiv({ cls: 'stat-value', text: analytics.tagsByBook.size.toString() });
-		booksCard.createDiv({ cls: 'stat-label', text: 'Books Tagged' });
+		booksCard.createDiv({ cls: 'stat-label', text: 'Books tagged' });
 
 		const avgCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		avgCard.createDiv({ cls: 'stat-icon', text: '📈' });
@@ -14393,7 +14393,7 @@ class BibleView extends ItemView {
 		// Tag cloud visualization (in analytics)
 		if (analytics.totalTags > 0) {
 			const cloudSection = analyticsContent.createDiv({ cls: 'analytics-section' });
-			cloudSection.createEl('h4', { text: 'Tag Cloud' });
+			cloudSection.createEl('h4', { text: 'Tag cloud' });
 			const miniCloud = cloudSection.createDiv({ cls: 'tag-cloud-mini' });
 
 			const maxFreq = Math.max(...analytics.tagFrequency.values());
@@ -14428,7 +14428,7 @@ class BibleView extends ItemView {
 		// Tags by book distribution (bar chart)
 		if (analytics.tagsByBook.size > 0) {
 			const bookDistSection = analyticsContent.createDiv({ cls: 'analytics-section' });
-			bookDistSection.createEl('h4', { text: 'Tag Distribution by Book' });
+			bookDistSection.createEl('h4', { text: 'Tag distribution by book' });
 			const barChart = bookDistSection.createDiv({ cls: 'tag-book-bars' });
 
 			const sortedBooks = Array.from(analytics.tagsByBook.entries())
@@ -14458,9 +14458,9 @@ class BibleView extends ItemView {
 		// View toggle buttons
 		const viewToggle = controlsBar.createDiv({ cls: 'tags-view-toggle' });
 		const viewButtons = [
-			{ id: 'list', icon: '≡', title: 'List View' },
-			{ id: 'cloud', icon: '☁', title: 'Cloud View' },
-			{ id: 'heatmap', icon: '▥', title: 'Heatmap View' }
+			{ id: 'list', icon: '≡', title: 'List view' },
+			{ id: 'cloud', icon: '☁', title: 'Cloud view' },
+			{ id: 'heatmap', icon: '▥', title: 'Heatmap view' }
 		];
 
 		viewButtons.forEach(btn => {
@@ -14603,7 +14603,7 @@ class BibleView extends ItemView {
 			const relatedTags = findRelatedTags(tagName);
 			if (relatedTags.length > 0) {
 				const relatedSection = previewPanel.createDiv({ cls: 'preview-related-tags' });
-				relatedSection.createEl('h4', { text: 'Related Tags' });
+				relatedSection.createEl('h4', { text: 'Related tags' });
 				const relatedTagsContainer = relatedSection.createDiv({ cls: 'related-tags-container' });
 
 				relatedTags.slice(0, 10).forEach(([relTag, sharedCount]) => {
@@ -14622,7 +14622,7 @@ class BibleView extends ItemView {
 
 			// Verses list
 			const versesSection = previewPanel.createDiv({ cls: 'preview-verses-section' });
-			versesSection.createEl('h4', { text: 'Tagged Verses' });
+			versesSection.createEl('h4', { text: 'Tagged verses' });
 
 			if (verses.length === 0) {
 				versesSection.createEl('p', { text: 'No verses with this tag' });
@@ -14682,7 +14682,7 @@ class BibleView extends ItemView {
 								e.preventDefault();
 								const menu = new Menu();
 								menu.addItem((item) => {
-									item.setTitle('Remove Tag')
+									item.setTitle('Remove tag')
 										.setIcon('x')
 										.onClick(() => {
 											this.plugin.removeVerseTag(vt.id);
@@ -14792,7 +14792,7 @@ class BibleView extends ItemView {
 					const menu = new Menu();
 
 					menu.addItem((item) => {
-						item.setTitle('Rename Tag')
+						item.setTitle('Rename tag')
 							.setIcon('pencil')
 							.onClick(() => {
 								this.showRenameTagDialog(tag);
@@ -14800,7 +14800,7 @@ class BibleView extends ItemView {
 					});
 
 					menu.addItem((item) => {
-						item.setTitle('Delete Tag')
+						item.setTitle('Delete tag')
 							.setIcon('trash')
 							.onClick(() => {
 								this.showDeleteTagConfirmation(tag);
@@ -14843,7 +14843,7 @@ class BibleView extends ItemView {
 		// Heatmap View (66 books)
 		const renderHeatmapView = (tags: string[]) => {
 			const heatmapContainer = listPanel.createDiv({ cls: 'tags-heatmap-container' });
-			heatmapContainer.createEl('h3', { text: 'Tag Density by Book' });
+			heatmapContainer.createEl('h3', { text: 'Tag density by book' });
 
 			// Calculate tag count per book
 			const tagsByBook = new Map<string, number>();
@@ -14941,7 +14941,7 @@ class BibleView extends ItemView {
 	 */
 	showCreateTagDialog() {
 		const modal = new Modal(this.app);
-		modal.titleEl.setText('Create New Tag');
+		modal.titleEl.setText('Create new tag');
 
 		const content = modal.contentEl;
 		content.createEl('p', {
@@ -14999,7 +14999,7 @@ class BibleView extends ItemView {
 	 */
 	showAddTagToVerseDialog(book: string, chapter: number, verse: number) {
 		const modal = new Modal(this.app);
-		modal.titleEl.setText('Add Tag to Verse');
+		modal.titleEl.setText('Add tag to verse');
 
 		const content = modal.contentEl;
 		content.createEl('p', {
@@ -15042,7 +15042,7 @@ class BibleView extends ItemView {
 		cancelBtn.addEventListener('click', () => modal.close());
 
 		const addBtn = btnContainer.createEl('button', {
-			text: 'Add Tag',
+			text: 'Add tag',
 			cls: 'mod-cta'
 		});
 		addBtn.addEventListener('click', () => {
@@ -15086,7 +15086,7 @@ class BibleView extends ItemView {
 	 */
 	showRenameTagDialog(oldName: string) {
 		const modal = new Modal(this.app);
-		modal.titleEl.setText('Rename Tag');
+		modal.titleEl.setText('Rename tag');
 
 		const content = modal.contentEl;
 		content.createEl('p', {
@@ -15132,7 +15132,7 @@ class BibleView extends ItemView {
 		const verseCount = this.plugin.getVersesWithTag(tagName).length;
 
 		const modal = new Modal(this.app);
-		modal.titleEl.setText('Delete Tag');
+		modal.titleEl.setText('Delete tag');
 
 		const content = modal.contentEl;
 		content.createEl('p', {
@@ -15300,7 +15300,7 @@ class BibleView extends ItemView {
 	async showBookmarkImportModeDialog(importCount: number): Promise<'merge' | 'replace' | 'cancel'> {
 		return new Promise((resolve) => {
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('Import Bookmarks');
+			modal.titleEl.setText('Import bookmarks');
 
 			const content = modal.contentEl;
 			content.createEl('p', {
@@ -15339,7 +15339,7 @@ class BibleView extends ItemView {
 			});
 
 			const replaceBtn = replaceDiv.createEl('button', {
-				text: 'Replace All',
+				text: 'Replace all',
 				cls: 'mod-warning'
 			});
 			replaceBtn.addEventListener('click', () => {
@@ -15392,7 +15392,7 @@ class BibleView extends ItemView {
 			});
 
 			const confirmBtn = buttonContainer.createEl('button', {
-				text: 'Delete Bookmark',
+				text: 'Delete bookmark',
 				cls: 'mod-warning'
 			});
 			confirmBtn.addEventListener('click', () => {
@@ -15438,7 +15438,7 @@ class BibleView extends ItemView {
 			});
 
 			const confirmBtn = buttonContainer.createEl('button', {
-				text: 'Delete All Bookmarks',
+				text: 'Delete all bookmarks',
 				cls: 'mod-warning'
 			});
 			confirmBtn.addEventListener('click', () => {
@@ -15589,7 +15589,7 @@ class BibleView extends ItemView {
 	async showImportModeDialog(importCount: number): Promise<'merge' | 'replace' | 'cancel'> {
 		return new Promise((resolve) => {
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('Import Highlights');
+			modal.titleEl.setText('Import highlights');
 
 			const content = modal.contentEl;
 			content.createEl('p', {
@@ -15655,16 +15655,16 @@ class BibleView extends ItemView {
 		// Stats summary
 		const stats = this.plugin.settings.achievementStats || DEFAULT_ACHIEVEMENT_STATS;
 		const statsDiv = container.createDiv({ cls: 'achievements-stats' });
-		statsDiv.createEl('h3', { text: 'Your Stats' });
+		statsDiv.createEl('h3', { text: 'Your stats' });
 
 		const statsGrid = statsDiv.createDiv({ cls: 'stats-grid' });
 
 		const statItems = [
-			{ icon: 'book-open', label: 'Chapters Read', value: stats.totalChaptersRead },
-			{ icon: 'sticky-note', label: 'Notes Created', value: stats.totalNotesCreated },
+			{ icon: 'book-open', label: 'Chapters read', value: stats.totalChaptersRead },
+			{ icon: 'sticky-note', label: 'Notes created', value: stats.totalNotesCreated },
 			{ icon: 'highlighter', label: 'Highlights', value: stats.totalHighlightsAdded },
-			{ icon: 'flame', label: 'Longest Streak', value: `${stats.longestStreak} days` },
-			{ icon: 'book-marked', label: 'Books Completed', value: stats.booksCompleted.length }
+			{ icon: 'flame', label: 'Longest streak', value: `${stats.longestStreak} days` },
+			{ icon: 'book-marked', label: 'Books completed', value: stats.booksCompleted.length }
 		];
 
 		statItems.forEach(item => {
@@ -15743,7 +15743,7 @@ class BibleView extends ItemView {
 		const h2 = header.createEl('h2');
 		const readingIcon = h2.createSpan({ cls: 'title-icon' });
 		setIcon(readingIcon, 'book-open-check');
-		h2.createSpan({ text: 'Reading Plans' });
+		h2.createSpan({ text: 'Reading plans' });
 
 		// Subtitle showing active count
 		if (activePlans.length > 0) {
@@ -15755,7 +15755,7 @@ class BibleView extends ItemView {
 
 		// Plan selector section - always show all plans with toggle
 		const planSelectorDiv = container.createDiv({ cls: 'reading-plan-selector-section' });
-		planSelectorDiv.createEl('h3', { text: 'Available Reading Plans' });
+		planSelectorDiv.createEl('h3', { text: 'Available reading plans' });
 		planSelectorDiv.createEl('p', {
 			text: 'Toggle plans on/off to track multiple reading plans simultaneously.',
 			cls: 'reading-plan-intro'
@@ -15806,8 +15806,8 @@ class BibleView extends ItemView {
 			const modeSelector = adaptiveSection.createDiv({ cls: 'adaptive-mode-selector' });
 			const modes: { id: 'normal' | 'catch-up' | 'skip-ahead'; label: string; desc: string; icon: string }[] = [
 				{ id: 'normal', label: 'Normal', desc: 'Follow the planned schedule', icon: 'calendar' },
-				{ id: 'catch-up', label: 'Catch Up', desc: 'Double readings to get back on track', icon: 'fast-forward' },
-				{ id: 'skip-ahead', label: 'Skip Ahead', desc: 'Jump to today\'s date in the plan', icon: 'skip-forward' }
+				{ id: 'catch-up', label: 'Catch up', desc: 'Double readings to get back on track', icon: 'fast-forward' },
+				{ id: 'skip-ahead', label: 'Skip ahead', desc: 'Jump to today\'s date in the plan', icon: 'skip-forward' }
 			];
 
 			modes.forEach(mode => {
@@ -15945,7 +15945,7 @@ class BibleView extends ItemView {
 		const h2 = header.createEl('h2');
 		const titleIcon = h2.createSpan({ cls: 'title-icon' });
 		setIcon(titleIcon, 'folder-open');
-		h2.createSpan({ text: 'Study Collections' });
+		h2.createSpan({ text: 'Study collections' });
 
 		// Two-panel layout
 		const layout = container.createDiv({ cls: 'collections-layout' });
@@ -15956,14 +15956,14 @@ class BibleView extends ItemView {
 		const newBtn = listPanel.createEl('button', { cls: 'collections-new-btn' });
 		const plusIcon = newBtn.createSpan({ cls: 'btn-icon' });
 		setIcon(plusIcon, 'plus');
-		newBtn.createSpan({ text: 'New Collection' });
+		newBtn.createSpan({ text: 'New collection' });
 		this.registerDomEvent(newBtn, 'click', async (e: MouseEvent) => {
 			e.preventDefault();
 			e.stopPropagation();
 			const newId = `col-${Date.now()}`;
 			const collection: Collection = {
 				id: newId,
-				name: 'New Collection',
+				name: 'New collection',
 				description: '',
 				createdAt: Date.now(),
 				verses: []
@@ -15981,7 +15981,7 @@ class BibleView extends ItemView {
 
 		// Template buttons
 		const templates = listPanel.createDiv({ cls: 'collections-templates' });
-		templates.createEl('h4', { text: 'Quick Start Templates' });
+		templates.createEl('h4', { text: 'Quick start templates' });
 		const templateData = [
 			{ name: 'Armor of God', verses: ['Ephesians 6:10', 'Ephesians 6:11', 'Ephesians 6:12', 'Ephesians 6:13', 'Ephesians 6:14', 'Ephesians 6:15', 'Ephesians 6:16', 'Ephesians 6:17', 'Ephesians 6:18'] },
 			{ name: 'Fruit of the Spirit', verses: ['Galatians 5:22', 'Galatians 5:23'] },
@@ -16074,13 +16074,13 @@ class BibleView extends ItemView {
 		setIcon(editHint, 'pencil');
 
 		this.registerDomEvent(nameInput, 'change', async () => {
-			collection.name = nameInput.value || 'Untitled Collection';
+			collection.name = nameInput.value || 'Untitled collection';
 			await this.plugin.saveSettings();
 			this.render();
 		});
 
 		// Focus the name input if this is a new collection with default name
-		if (collection.name === 'New Collection') {
+		if (collection.name === 'New collection') {
 			setTimeout(() => {
 				nameInput.focus();
 				nameInput.select();
@@ -16131,7 +16131,7 @@ class BibleView extends ItemView {
 		const addBtn = addRow.createEl('button', { cls: 'collection-add-btn' });
 		const addBtnIcon = addBtn.createSpan({ cls: 'btn-icon' });
 		setIcon(addBtnIcon, 'plus');
-		addBtn.createSpan({ text: 'Add Verse' });
+		addBtn.createSpan({ text: 'Add verse' });
 
 		// Helper function to add verse(s) - supports comma-separated list
 		const addVerse = async () => {
@@ -16453,7 +16453,7 @@ class BibleView extends ItemView {
 			{ label: 'Learning', value: learningCount, icon: 'loader', cls: 'stat-learning' },
 			{ label: 'Reviewing', value: reviewingCount, icon: 'refresh-cw', cls: 'stat-reviewing' },
 			{ label: 'Mastered', value: masteredCount, icon: 'check-circle', cls: 'stat-mastered' },
-			{ label: 'Due Today', value: dueCount, icon: 'clock', cls: 'stat-due' }
+			{ label: 'Due today', value: dueCount, icon: 'clock', cls: 'stat-due' }
 		].forEach(stat => {
 			const card = statsGrid.createDiv({ cls: `memorization-stat-card ${stat.cls}` });
 			const iconEl = card.createDiv({ cls: 'stat-icon' });
@@ -16478,14 +16478,14 @@ class BibleView extends ItemView {
 		const addBtn = actionsSection.createEl('button', { cls: 'memorization-add-btn' });
 		const addIcon = addBtn.createSpan({ cls: 'btn-icon' });
 		setIcon(addIcon, 'plus');
-		addBtn.createSpan({ text: 'Add Verse' });
+		addBtn.createSpan({ text: 'Add verse' });
 		this.registerDomEvent(addBtn, 'click', () => {
 			this.showAddMemorizationVerseModal();
 		});
 
 		// Verses list
 		const versesSection = container.createDiv({ cls: 'memorization-verses-section' });
-		versesSection.createEl('h3', { text: 'Your Verses' });
+		versesSection.createEl('h3', { text: 'Your verses' });
 
 		if (verses.length === 0) {
 			const emptyState = versesSection.createDiv({ cls: 'memorization-empty' });
@@ -16832,7 +16832,7 @@ class BibleView extends ItemView {
 		const titleDiv = header.createDiv({ cls: 'context-sidebar-title' });
 		const titleIcon = titleDiv.createSpan({ cls: 'title-icon' });
 		setIcon(titleIcon, 'book-marked');
-		titleDiv.createSpan({ text: 'Study Context' });
+		titleDiv.createSpan({ text: 'Study context' });
 
 		const closeBtn = header.createEl('button', { cls: 'context-sidebar-close' });
 		setIcon(closeBtn, 'x');
@@ -16912,7 +16912,7 @@ class BibleView extends ItemView {
 			});
 
 			const downloadBtn = placeholder.createEl('button', {
-				text: 'Download Commentary',
+				text: 'Download commentary',
 				cls: 'mod-cta'
 			});
 			downloadBtn.addEventListener('click', async () => {
@@ -16925,7 +16925,7 @@ class BibleView extends ItemView {
 					this.renderContextSidebar(container);
 				} else {
 					downloadBtn.disabled = false;
-					downloadBtn.textContent = 'Download Commentary';
+					downloadBtn.textContent = 'Download commentary';
 				}
 			});
 
@@ -17008,7 +17008,7 @@ class BibleView extends ItemView {
 			const placeholder = container.createDiv({ cls: 'context-placeholder' });
 			const icon = placeholder.createSpan({ cls: 'placeholder-icon' });
 			setIcon(icon, 'languages');
-			placeholder.createEl('h3', { text: 'Word Studies' });
+			placeholder.createEl('h3', { text: 'Word studies' });
 			placeholder.createEl('p', { text: 'Strong\'s data not downloaded.' });
 			placeholder.createEl('p', { text: 'Download to enable Greek & Hebrew word studies with clickable words.', cls: 'text-muted' });
 
@@ -17039,7 +17039,7 @@ class BibleView extends ItemView {
 			const sectionHeader = selectedSection.createDiv({ cls: 'section-header' });
 			const headerIcon = sectionHeader.createSpan({ cls: 'section-icon' });
 			setIcon(headerIcon, 'target');
-			sectionHeader.createSpan({ text: 'Selected Word' });
+			sectionHeader.createSpan({ text: 'Selected word' });
 
 			// Clear button
 			const clearBtn = sectionHeader.createEl('button', { cls: 'clear-selection-btn', text: '✕' });
@@ -17233,7 +17233,7 @@ class BibleView extends ItemView {
 			const placeholder = container.createDiv({ cls: 'context-placeholder' });
 			const icon = placeholder.createSpan({ cls: 'placeholder-icon' });
 			setIcon(icon, 'map-pin');
-			placeholder.createEl('h3', { text: 'Historical Context' });
+			placeholder.createEl('h3', { text: 'Historical context' });
 			placeholder.createEl('p', { text: 'Theographic metadata not downloaded.' });
 			placeholder.createEl('p', { text: 'Download to see people, places, and events mentioned in Scripture.', cls: 'text-muted' });
 
@@ -17361,7 +17361,7 @@ class BibleView extends ItemView {
 				Array.from(bookEvents.values()).forEach(event => {
 					const eventItem = eventsList.createDiv({ cls: 'context-event-item clickable' });
 					const eventTitle = eventItem.createDiv({ cls: 'event-title' });
-					eventTitle.createSpan({ text: event.fields?.title || 'Unknown Event' });
+					eventTitle.createSpan({ text: event.fields?.title || 'Unknown event' });
 
 					// Show date if available
 					if (event.fields?.startDate) {
@@ -17393,12 +17393,12 @@ class BibleView extends ItemView {
 			const placeholder = container.createDiv({ cls: 'context-placeholder' });
 			const icon = placeholder.createSpan({ cls: 'placeholder-icon' });
 			setIcon(icon, 'git-compare');
-			placeholder.createEl('h3', { text: 'Parallel Passages' });
+			placeholder.createEl('h3', { text: 'Parallel passages' });
 			placeholder.createEl('p', { text: 'Cross-references not downloaded.' });
 			placeholder.createEl('p', { text: 'Download to see related Scripture passages.', cls: 'text-muted' });
 
 			const downloadBtn = placeholder.createEl('button', {
-				text: 'Download Cross-References',
+				text: 'Download cross-references',
 				cls: 'sidebar-download-btn'
 			});
 			this.registerDomEvent(downloadBtn, 'click', async () => {
@@ -17519,7 +17519,7 @@ class BibleView extends ItemView {
 		const createBtn = summary.createEl('button', { cls: 'notes-tab-create-btn' });
 		const createIcon = createBtn.createSpan({ cls: 'btn-icon' });
 		setIcon(createIcon, 'plus');
-		createBtn.createSpan({ text: 'New Note' });
+		createBtn.createSpan({ text: 'New note' });
 		this.registerDomEvent(createBtn, 'click', () => {
 			// Create note for selected verse or verse 1
 			const targetVerse = this.selectedVerseStart || 1;
@@ -17636,7 +17636,7 @@ class BibleView extends ItemView {
 		const h2 = header.createEl('h2');
 		const titleIcon = h2.createSpan({ cls: 'title-icon' });
 		setIcon(titleIcon, 'bar-chart-2');
-		h2.createSpan({ text: 'Study Insights' });
+		h2.createSpan({ text: 'Study insights' });
 
 		// Ensure studyHistory is initialized
 		const studyHistory = this.plugin.settings.studyHistory || {
@@ -17656,7 +17656,7 @@ class BibleView extends ItemView {
 		const timeIcon = timeCard.createSpan({ cls: 'stat-icon' });
 		setIcon(timeIcon, 'clock');
 		timeCard.createEl('div', { text: `${studyHistory.totalStudyMinutes} min`, cls: 'stat-value' });
-		timeCard.createEl('div', { text: 'Total Study Time', cls: 'stat-label' });
+		timeCard.createEl('div', { text: 'Total study time', cls: 'stat-label' });
 
 		// Total books visited
 		const bookCount = Object.keys(studyHistory.bookVisits).length;
@@ -17664,7 +17664,7 @@ class BibleView extends ItemView {
 		const bookIcon = bookCard.createSpan({ cls: 'stat-icon' });
 		setIcon(bookIcon, 'book');
 		bookCard.createEl('div', { text: `${bookCount}`, cls: 'stat-value' });
-		bookCard.createEl('div', { text: 'Books Studied', cls: 'stat-label' });
+		bookCard.createEl('div', { text: 'Books studied', cls: 'stat-label' });
 
 		// Total chapters visited
 		const chapterCount = Object.keys(studyHistory.chapterVisits).length;
@@ -17679,7 +17679,7 @@ class BibleView extends ItemView {
 		const streakIcon = streakCard.createSpan({ cls: 'stat-icon' });
 		setIcon(streakIcon, 'flame');
 		streakCard.createEl('div', { text: `${this.plugin.settings.studyStreak}`, cls: 'stat-value' });
-		streakCard.createEl('div', { text: 'Day Streak', cls: 'stat-label' });
+		streakCard.createEl('div', { text: 'Day streak', cls: 'stat-label' });
 
 		// Insights section
 		const insightsSection = container.createDiv({ cls: 'insights-section' });
@@ -17701,7 +17701,7 @@ class BibleView extends ItemView {
 
 		// Book heatmap (66 books grid)
 		const heatmapSection = container.createDiv({ cls: 'insights-heatmap-section' });
-		heatmapSection.createEl('h3', { text: 'Study Heatmap' });
+		heatmapSection.createEl('h3', { text: 'Study heatmap' });
 		heatmapSection.createEl('p', { text: 'Darker = more visits', cls: 'heatmap-hint' });
 
 		const allBooks = [
@@ -17768,7 +17768,7 @@ class BibleView extends ItemView {
 				entryHeader.createSpan({ text: dateStr, cls: 'journal-entry-date' });
 
 				const typeBadge = entryHeader.createSpan({
-					text: entry.type === 'session' ? 'Study Session' : 'Reflection',
+					text: entry.type === 'session' ? 'Study session' : 'Reflection',
 					cls: `journal-entry-type ${entry.type}`
 				});
 
@@ -17846,7 +17846,7 @@ class BibleView extends ItemView {
 
 		// Export button
 		const exportSection = container.createDiv({ cls: 'insights-export-section' });
-		const exportBtn = exportSection.createEl('button', { text: 'Export Study Report', cls: 'insights-export-btn' });
+		const exportBtn = exportSection.createEl('button', { text: 'Export study report', cls: 'insights-export-btn' });
 		exportBtn.addEventListener('click', async () => {
 			let report = '# Study Insights Report\n\n';
 			report += `Generated: ${new Date().toLocaleDateString()}\n\n`;
@@ -17874,11 +17874,11 @@ class BibleView extends ItemView {
 		const h2 = header.createEl('h2');
 		const titleIcon = h2.createSpan({ cls: 'title-icon' });
 		setIcon(titleIcon, 'columns');
-		h2.createSpan({ text: 'Version Comparison' });
+		h2.createSpan({ text: 'Version comparison' });
 
 		// Version selector
 		const selectorSection = container.createDiv({ cls: 'comparison-selector' });
-		selectorSection.createEl('h4', { text: 'Select Versions to Compare (2-6):' });
+		selectorSection.createEl('h4', { text: 'Select versions to compare (2-6):' });
 
 		const versionsGrid = selectorSection.createDiv({ cls: 'versions-checkbox-grid' });
 		const availableVersions = this.plugin.settings.bibleVersions;
@@ -18034,7 +18034,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		} catch (error) {
 			console.error('Bible Portal: Error rendering settings:', error);
 			containerEl.empty();
-			containerEl.createEl('h2', { text: '📖 Bible Portal Settings' });
+			
 			containerEl.createEl('p', { text: 'Error loading settings. Please try reloading Obsidian.' });
 			containerEl.createEl('pre', { text: String(error), cls: 'bp-settings-error' });
 		}
@@ -18043,7 +18043,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 	private renderSettings(containerEl: HTMLElement): void {
 		// Header
 		const header = containerEl.createDiv({ cls: 'bp-settings-header' });
-		header.createEl('h2', { text: '📖 Bible Portal Settings' });
+		
 		header.createEl('p', {
 			text: 'Configure your Bible study experience',
 			cls: 'settings-subtitle'
@@ -18133,12 +18133,12 @@ class BiblePortalSettingTab extends PluginSettingTab {
 			content: (content) => {
 				// Banner theme with visual preview
 				const themeGroup = content.createDiv({ cls: 'bp-settings-group' });
-				themeGroup.createEl('div', { text: 'Banner Theme', cls: 'bp-settings-group-title' });
+				themeGroup.createEl('div', { text: 'Banner theme', cls: 'bp-settings-group-title' });
 
 				const themePreview = themeGroup.createDiv({ cls: 'bp-settings-preview-row' });
 				const themes = [
 					{ id: 'parchment', name: 'Parchment', desc: 'Aged manuscript' },
-					{ id: 'holy-light', name: 'Holy Light', desc: 'Gold & white' },
+					{ id: 'holy-light', name: 'Holy light', desc: 'Gold & white' },
 					{ id: 'royal', name: 'Royal', desc: 'Deep purple' },
 					{ id: 'sacrifice', name: 'Sacrifice', desc: 'Crimson & gold' },
 					{ id: 'ocean', name: 'Ocean', desc: 'Deep blue' },
@@ -18246,7 +18246,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					.setName('Font family')
 					.setDesc('Specific font to use for Bible text')
 					.addDropdown(dropdown => dropdown
-						.addOption('system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', 'System Default')
+						.addOption('system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', 'System default')
 						.addOption('Georgia, serif', 'Georgia')
 						.addOption('"Times New Roman", Times, serif', 'Times New Roman')
 						.addOption('Arial, sans-serif', 'Arial')
@@ -18329,7 +18329,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Color palette display
 				const colorGroup = content.createDiv({ cls: 'bp-settings-group' });
-				colorGroup.createEl('div', { text: 'Highlight Colors', cls: 'bp-settings-group-title' });
+				colorGroup.createEl('div', { text: 'Highlight colors', cls: 'bp-settings-group-title' });
 
 				// Count highlights by color
 				const colorCounts: { [color: string]: number } = {};
@@ -18388,14 +18388,14 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				const colorActions = content.createDiv({ cls: 'bp-settings-actions' });
 				const addColorBtn = colorActions.createEl('button', { text: '+ Add Color', cls: 'action-secondary' });
 				addColorBtn.addEventListener('click', async () => {
-					this.plugin.settings.highlightColors.push({ name: 'New Color', color: '#ffeb3b' });
+					this.plugin.settings.highlightColors.push({ name: 'New color', color: '#ffeb3b' });
 					await this.plugin.saveSettings();
 					this.display();
 				});
 
 				// Annotation Layers
 				const layerGroup = content.createDiv({ cls: 'bp-settings-group' });
-				layerGroup.createEl('div', { text: 'Annotation Layers', cls: 'bp-settings-group-title' });
+				layerGroup.createEl('div', { text: 'Annotation layers', cls: 'bp-settings-group-title' });
 
 				const layerPurpose = layerGroup.createDiv({ cls: 'bp-settings-purpose' });
 				layerPurpose.textContent = 'Layers let you organize highlights by purpose. Toggle layers on/off to focus on specific study contexts.';
@@ -18479,7 +18479,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				addLayerBtn.addEventListener('click', async () => {
 					const newLayer: AnnotationLayer = {
 						id: `layer-${Date.now()}`,
-						name: 'New Layer',
+						name: 'New layer',
 						color: '#10b981',
 						createdDate: new Date().toISOString(),
 						isDefault: false
@@ -18584,12 +18584,12 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		this.createSection(containerEl, {
 			id: 'study-tools',
 			icon: 'book-marked',
-			title: 'Study Tools',
+			title: 'Study tools',
 			purpose: 'Configure advanced study features like cross-references, Strong\'s Concordance, and Jesus words highlighting.',
 			content: (content) => {
 				// Study Data Downloads Group
 				const downloadGroup = content.createDiv({ cls: 'bp-settings-group' });
-				downloadGroup.createEl('div', { text: 'Study Data Downloads', cls: 'bp-settings-group-title' });
+				downloadGroup.createEl('div', { text: 'Study data downloads', cls: 'bp-settings-group-title' });
 
 				const downloadPurpose = downloadGroup.createDiv({ cls: 'bp-settings-purpose' });
 				downloadPurpose.textContent = 'Download study resources to enable cross-references, word studies, and contextual information.';
@@ -18699,7 +18699,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Disputed passages group
 				const disputedGroup = content.createDiv({ cls: 'bp-settings-group' });
-				disputedGroup.createEl('div', { text: 'Textual Criticism', cls: 'bp-settings-group-title' });
+				disputedGroup.createEl('div', { text: 'Textual criticism', cls: 'bp-settings-group-title' });
 
 				const disputedPurpose = disputedGroup.createDiv({ cls: 'bp-settings-purpose' });
 				disputedPurpose.textContent = 'Some passages have textual variants between ancient manuscripts. These settings control how disputed passages are indicated.';
@@ -18730,7 +18730,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				votdGroup.createEl('div', { text: 'Verse of the Day', cls: 'bp-settings-group-title' });
 
 				new Setting(content)
-					.setName('Enable Verse of the Day')
+					.setName('Enable verse of the day')
 					.setDesc('Show a daily verse on the dashboard')
 					.addToggle(toggle => toggle
 						.setValue(this.plugin.settings.verseOfTheDayEnabled)
@@ -18740,7 +18740,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						}));
 
 				const votdActions = content.createDiv({ cls: 'bp-settings-actions' });
-				const regenerateBtn = votdActions.createEl('button', { text: 'Regenerate Mapping', cls: 'action-secondary' });
+				const regenerateBtn = votdActions.createEl('button', { text: 'Regenerate mapping', cls: 'action-secondary' });
 				regenerateBtn.addEventListener('click', async () => {
 					if (confirm('Generate a new random verse mapping? This overwrites the existing mapping.')) {
 						const success = await this.plugin.generateVOTDMapping();
@@ -18777,9 +18777,9 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					.setName('Default search scope')
 					.setDesc('Initial scope when opening search')
 					.addDropdown(dropdown => dropdown
-						.addOption('all', 'All Books')
-						.addOption('book', 'Current Book')
-						.addOption('chapter', 'Current Chapter')
+						.addOption('all', 'All books')
+						.addOption('book', 'Current book')
+						.addOption('chapter', 'Current chapter')
 						.setValue(this.plugin.settings.defaultSearchScope)
 						.onChange(async (value) => {
 							this.plugin.settings.defaultSearchScope = value as 'all' | 'book' | 'chapter';
@@ -18795,7 +18795,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		this.createSection(containerEl, {
 			id: 'reading-plans',
 			icon: 'calendar',
-			title: 'Reading Plans',
+			title: 'Reading plans',
 			badge: activePlans.length > 0 ? `${activePlans.length} active` : undefined,
 			purpose: 'Follow structured Bible reading plans. Activate multiple plans simultaneously and track your progress.',
 			content: (content) => {
@@ -18824,7 +18824,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				if (this.plugin.settings.enableReadingPlan) {
 					// Plan cards
 					const plansGroup = content.createDiv({ cls: 'bp-settings-group' });
-					plansGroup.createEl('div', { text: 'Available Plans', cls: 'bp-settings-group-title' });
+					plansGroup.createEl('div', { text: 'Available plans', cls: 'bp-settings-group-title' });
 
 					READING_PLANS.forEach(plan => {
 						const isActive = this.plugin.settings.activeReadingPlans.includes(plan.id);
@@ -18982,7 +18982,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						{ label: 'Chapters', value: stats.totalChaptersRead, icon: '📖' },
 						{ label: 'Notes', value: stats.totalNotesCreated, icon: '📝' },
 						{ label: 'Highlights', value: stats.totalHighlightsAdded, icon: '🎨' },
-						{ label: 'Best Streak', value: `${stats.longestStreak}d`, icon: '🔥' }
+						{ label: 'Best streak', value: `${stats.longestStreak}d`, icon: '🔥' }
 					];
 
 					statItems.forEach(item => {
@@ -18993,7 +18993,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 					// Reset button
 					const actions = content.createDiv({ cls: 'bp-settings-actions' });
-					const resetBtn = actions.createEl('button', { text: 'Reset Achievements', cls: 'action-danger' });
+					const resetBtn = actions.createEl('button', { text: 'Reset achievements', cls: 'action-danger' });
 					resetBtn.addEventListener('click', async () => {
 						if (confirm('Reset ALL achievements and stats? This cannot be undone.')) {
 							this.plugin.settings.unlockedAchievements = [];
@@ -19013,7 +19013,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		this.createSection(containerEl, {
 			id: 'session-tracking',
 			icon: 'clock',
-			title: 'Session Tracking',
+			title: 'Session tracking',
 			badge: this.plugin.settings.studyStreak > 0 ? `${this.plugin.settings.studyStreak}🔥` : undefined,
 			purpose: 'Track your study sessions to see patterns in your Bible reading. Build streaks by studying consistently.',
 			content: (content) => {
@@ -19039,13 +19039,13 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Onboarding reset
 				const onboardingGroup = content.createDiv({ cls: 'bp-settings-group' });
-				onboardingGroup.createEl('div', { text: 'Feature Discovery', cls: 'bp-settings-group-title' });
+				onboardingGroup.createEl('div', { text: 'Feature discovery', cls: 'bp-settings-group-title' });
 
 				new Setting(content)
 					.setName('Reset onboarding hints')
 					.setDesc('Show the feature discovery hints bar again')
 					.addButton(button => button
-						.setButtonText('Reset Hints')
+						.setButtonText('Reset hints')
 						.onClick(async () => {
 							this.plugin.settings.onboardingComplete = false;
 							await this.plugin.saveSettings();
@@ -19060,12 +19060,12 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		this.createSection(containerEl, {
 			id: 'data-management',
 			icon: 'database',
-			title: 'Data Management',
+			title: 'Data management',
 			purpose: 'Download Bible translations, convert markdown files, and manage your study data.',
 			content: (content) => {
 				// Bible Downloader
 				const downloadGroup = content.createDiv({ cls: 'bp-settings-group' });
-				downloadGroup.createEl('div', { text: 'Download Translations', cls: 'bp-settings-group-title' });
+				downloadGroup.createEl('div', { text: 'Download translations', cls: 'bp-settings-group-title' });
 
 				const downloadPurpose = downloadGroup.createDiv({ cls: 'bp-settings-purpose' });
 				downloadPurpose.textContent = 'Download Bible translations from the Bolls Life API. Choose from 50+ translations in multiple languages.';
@@ -19092,7 +19092,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				const importExportActions = content.createDiv({ cls: 'bp-settings-actions' });
 
-				const exportColorsBtn = importExportActions.createEl('button', { text: 'Export Colors', cls: 'action-secondary' });
+				const exportColorsBtn = importExportActions.createEl('button', { text: 'Export colors', cls: 'action-secondary' });
 				exportColorsBtn.addEventListener('click', async () => {
 					const exportData = {
 						exportDate: new Date().toISOString(),
@@ -19110,7 +19110,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					new Notice(`Exported ${this.plugin.settings.highlightColors.length} colors`);
 				});
 
-				const importColorsBtn = importExportActions.createEl('button', { text: 'Import Colors', cls: 'action-secondary' });
+				const importColorsBtn = importExportActions.createEl('button', { text: 'Import colors', cls: 'action-secondary' });
 				importColorsBtn.addEventListener('click', async () => {
 					const input = document.createElement('input');
 					input.type = 'file';
@@ -19183,7 +19183,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Credits
 				const creditsGroup = content.createDiv({ cls: 'bp-settings-group' });
-				creditsGroup.createEl('div', { text: 'Data Sources & Licenses', cls: 'bp-settings-group-title' });
+				creditsGroup.createEl('div', { text: 'Data sources & licenses', cls: 'bp-settings-group-title' });
 
 				const creditsList = creditsGroup.createEl('ul');
 				creditsList.style.fontSize = '13px';
