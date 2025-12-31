@@ -1777,7 +1777,7 @@ export default class BiblePortalPlugin extends Plugin {
 				this.settings.studyStreak = 1; // Reset streak
 			}
 			this.settings.lastStudyDate = today;
-			this.saveSettings();
+			void this.saveSettings();
 		}
 
 		// Start timer to update status bar every minute
@@ -1839,7 +1839,7 @@ export default class BiblePortalPlugin extends Plugin {
 		this.currentSession = null;
 
 		// Save settings
-		this.saveSettings();
+		void this.saveSettings();
 
 		// Update status bar to normal
 		this.updateStatusBar('', 0);
@@ -1898,7 +1898,7 @@ export default class BiblePortalPlugin extends Plugin {
 				this.settings.studyHistory.bookVisits[book] = (this.settings.studyHistory.bookVisits[book] || 0) + 1;
 				// Increment chapter visits
 				this.settings.studyHistory.chapterVisits[key] = (this.settings.studyHistory.chapterVisits[key] || 0) + 1;
-				this.saveSettings();
+				void this.saveSettings();
 			}
 		}
 	}
@@ -1984,7 +1984,7 @@ export default class BiblePortalPlugin extends Plugin {
 		};
 
 		this.settings.journalEntries.push(entry);
-		this.saveSettings();
+		void this.saveSettings();
 
 		console.debug('Study session saved to journal:', entry);
 	}
@@ -4634,13 +4634,13 @@ export default class BiblePortalPlugin extends Plugin {
 				t.tag = newName;
 			}
 		});
-		this.saveHighlightsAndNotes();
+		void this.saveHighlightsAndNotes();
 	}
 
 	// Delete a tag from all verses
 	deleteTagFromAll(tagName: string) {
 		this.verseTags = this.verseTags.filter(t => t.tag !== tagName);
-		this.saveHighlightsAndNotes();
+		void this.saveHighlightsAndNotes();
 	}
 
 	// Get tags from a note file
@@ -5160,7 +5160,7 @@ class BibleView extends ItemView {
 		this.setupResizeObserver();
 
 		// Render the UI
-		this.render();
+		await this.render();
 	}
 
 	async onClose() {
@@ -5197,7 +5197,7 @@ class BibleView extends ItemView {
 							// Also disable parallel view if it was on
 							if (this.secondVersion) {
 								this.secondVersion = null;
-								this.render();
+								void this.render();
 							}
 						}
 					}
@@ -5312,7 +5312,7 @@ class BibleView extends ItemView {
 			btn.createSpan({ text: m.title, cls: 'sidebar-mode-title' });
 			btn.addEventListener('click', () => {
 				this.viewMode = m.mode;
-				this.render();
+				void this.render();
 			});
 		});
 	}
@@ -5625,7 +5625,7 @@ class BibleView extends ItemView {
 
 				quickLink.addEventListener('click', () => {
 					this.viewMode = ViewMode.READING_PLAN;
-					this.render();
+					void this.render();
 				});
 			}
 		}
@@ -5790,7 +5790,7 @@ class BibleView extends ItemView {
 		contextBtn.addEventListener('click', async () => {
 			this.plugin.settings.showContextSidebar = !this.plugin.settings.showContextSidebar;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		// Chapter Actions button (bulk operations)
@@ -6931,7 +6931,7 @@ class BibleView extends ItemView {
 					navigator.clipboard.writeText(copyText).then(() => {
 						copyBtn.setText('✓ Copied!');
 						setTimeout(() => copyBtn.setText('📋 Copy to Clipboard'), 2000);
-					});
+					}).catch(() => showToast('Failed to copy to clipboard'));
 				});
 
 			} else {
@@ -7354,8 +7354,8 @@ class BibleView extends ItemView {
 							e.stopPropagation();
 							// Toggle visibility to show only this layer
 							this.plugin.settings.visibleAnnotationLayers = [layerId];
-							this.plugin.saveSettings();
-							this.render();
+							void this.plugin.saveSettings();
+							void this.render();
 							showToast(`Showing only "${layer.name}" layer`);
 						});
 					}
@@ -7906,7 +7906,7 @@ class BibleView extends ItemView {
 			navigator.clipboard.writeText(copyText).then(() => {
 				copyBtn.setText('✓');
 				setTimeout(() => copyBtn.setText('📋'), 1000);
-			});
+			}).catch(() => showToast('Failed to copy to clipboard'));
 		});
 
 		// Close handlers

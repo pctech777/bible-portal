@@ -1120,7 +1120,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
         this.settings.studyStreak = 1;
       }
       this.settings.lastStudyDate = today;
-      this.saveSettings();
+      void this.saveSettings();
     }
     this.studyModeTimer = window.setInterval(() => {
       this.updateStudyModeStatusBar();
@@ -1165,7 +1165,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     }
     this.isStudyModeActive = false;
     this.currentSession = null;
-    this.saveSettings();
+    void this.saveSettings();
     this.updateStatusBar("", 0);
     new import_obsidian.Notice(`\u{1F4D6} Study session ended - ${durationMinutes} min, ${((_a = journalEntry.chaptersVisited) == null ? void 0 : _a.length) || 0} chapters`);
   }
@@ -1208,7 +1208,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
         }
         this.settings.studyHistory.bookVisits[book] = (this.settings.studyHistory.bookVisits[book] || 0) + 1;
         this.settings.studyHistory.chapterVisits[key] = (this.settings.studyHistory.chapterVisits[key] || 0) + 1;
-        this.saveSettings();
+        void this.saveSettings();
       }
     }
   }
@@ -1283,7 +1283,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
       highlightsAdded: stats.highlights
     };
     this.settings.journalEntries.push(entry);
-    this.saveSettings();
+    void this.saveSettings();
     console.debug("Study session saved to journal:", entry);
   }
   /**
@@ -3411,12 +3411,12 @@ Saved to: ${outputPath}`, 8e3);
         t.tag = newName;
       }
     });
-    this.saveHighlightsAndNotes();
+    void this.saveHighlightsAndNotes();
   }
   // Delete a tag from all verses
   deleteTagFromAll(tagName) {
     this.verseTags = this.verseTags.filter((t) => t.tag !== tagName);
-    this.saveHighlightsAndNotes();
+    void this.saveHighlightsAndNotes();
   }
   // Get tags from a note file
   async getNoteTags(notePath) {
@@ -3773,7 +3773,7 @@ var BibleView = class extends import_obsidian.ItemView {
     container.empty();
     container.addClass("bible-portal-view");
     this.setupResizeObserver();
-    this.render();
+    await this.render();
   }
   async onClose() {
     if (this.resizeObserver) {
@@ -3801,7 +3801,7 @@ var BibleView = class extends import_obsidian.ItemView {
               parallelCheckbox.style.display = "none";
               if (this.secondVersion) {
                 this.secondVersion = null;
-                this.render();
+                void this.render();
               }
             }
           }
@@ -3885,7 +3885,7 @@ var BibleView = class extends import_obsidian.ItemView {
       btn.createSpan({ text: m.title, cls: "sidebar-mode-title" });
       btn.addEventListener("click", () => {
         this.viewMode = m.mode;
-        this.render();
+        void this.render();
       });
     });
   }
@@ -4106,7 +4106,7 @@ var BibleView = class extends import_obsidian.ItemView {
         miniProgressFill.style.width = `${avgProgress}%`;
         quickLink.addEventListener("click", () => {
           this.viewMode = "reading-plan" /* READING_PLAN */;
-          this.render();
+          void this.render();
         });
       }
     }
@@ -4246,7 +4246,7 @@ var BibleView = class extends import_obsidian.ItemView {
     contextBtn.addEventListener("click", async () => {
       this.plugin.settings.showContextSidebar = !this.plugin.settings.showContextSidebar;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const chapterActionsBtn = primaryNav.createEl("button", {
       cls: "bible-chapter-actions-btn",
@@ -5156,7 +5156,7 @@ var BibleView = class extends import_obsidian.ItemView {
           navigator.clipboard.writeText(copyText).then(() => {
             copyBtn.setText("\u2713 Copied!");
             setTimeout(() => copyBtn.setText("\u{1F4CB} Copy to Clipboard"), 2e3);
-          });
+          }).catch(() => showToast("Failed to copy to clipboard"));
         });
       } else {
         resultContainer.createEl("p", {
@@ -5474,8 +5474,8 @@ ${disputedInfo.manuscriptInfo}`);
             layerBadge.addEventListener("click", (e) => {
               e.stopPropagation();
               this.plugin.settings.visibleAnnotationLayers = [layerId];
-              this.plugin.saveSettings();
-              this.render();
+              void this.plugin.saveSettings();
+              void this.render();
               showToast(`Showing only "${layer.name}" layer`);
             });
           }
@@ -5865,7 +5865,7 @@ ${disputedInfo.manuscriptInfo}`);
       navigator.clipboard.writeText(copyText).then(() => {
         copyBtn.setText("\u2713");
         setTimeout(() => copyBtn.setText("\u{1F4CB}"), 1e3);
-      });
+      }).catch(() => showToast("Failed to copy to clipboard"));
     });
     closeBtn.addEventListener("click", () => overlay.remove());
     overlay.addEventListener("click", (e) => {
