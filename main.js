@@ -4502,8 +4502,7 @@ var BibleView = class extends import_obsidian.ItemView {
     if (this.plugin.settings.verseOfTheDayEnabled) {
       const votd = this.getVerseOfTheDay();
       if (votd) {
-        const votdDiv = banner.createDiv({ cls: "verse-of-the-day" });
-        votdDiv.style.cursor = "pointer";
+        const votdDiv = banner.createDiv({ cls: "verse-of-the-day bp-clickable" });
         votdDiv.createEl("span", { text: "Verse of the Day: ", cls: "votd-label" });
         votdDiv.createEl("span", {
           text: `${votd.reference} - "${votd.text}"`,
@@ -5258,11 +5257,10 @@ var BibleView = class extends import_obsidian.ItemView {
               text: `${parsed.book} ${parsed.chapter}:${parsed.verse} (${this.currentVersion})`,
               cls: "verse-reference"
             });
-            const verseText1 = leftPanel.createEl("p", { text: verse, cls: "verse-text-large" });
+            const verseText1 = leftPanel.createEl("p", { text: verse, cls: "verse-text-large bp-clickable" });
             verseText1.dataset.book = parsed.book;
             verseText1.dataset.chapter = parsed.chapter.toString();
             verseText1.dataset.verse = parsed.verse.toString();
-            verseText1.style.cursor = "pointer";
             verseText1.addEventListener("contextmenu", (e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -5276,11 +5274,10 @@ var BibleView = class extends import_obsidian.ItemView {
                 text: `${parsed.book} ${parsed.chapter}:${parsed.verse} (${this.secondVersion})`,
                 cls: "verse-reference"
               });
-              const verseText2 = rightPanel.createEl("p", { text: verse2, cls: "verse-text-large" });
+              const verseText2 = rightPanel.createEl("p", { text: verse2, cls: "verse-text-large bp-clickable" });
               verseText2.dataset.book = parsed.book;
               verseText2.dataset.chapter = parsed.chapter.toString();
               verseText2.dataset.verse = parsed.verse.toString();
-              verseText2.style.cursor = "pointer";
               verseText2.addEventListener("contextmenu", (e) => {
                 var _a;
                 e.preventDefault();
@@ -5294,11 +5291,10 @@ var BibleView = class extends import_obsidian.ItemView {
               text: `${parsed.book} ${parsed.chapter}:${parsed.verse} (${this.currentVersion})`,
               cls: "verse-reference"
             });
-            const verseText = verseDisplay.createEl("p", { text: verse, cls: "verse-text-large" });
+            const verseText = verseDisplay.createEl("p", { text: verse, cls: "verse-text-large bp-clickable" });
             verseText.dataset.book = parsed.book;
             verseText.dataset.chapter = parsed.chapter.toString();
             verseText.dataset.verse = parsed.verse.toString();
-            verseText.style.cursor = "pointer";
             verseText.addEventListener("contextmenu", (e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -5866,7 +5862,7 @@ var BibleView = class extends import_obsidian.ItemView {
         const verseNumStyle = this.plugin.settings.verseNumberStyle || "default";
         const verseNumber = verseDiv.createEl("span", {
           text: verseNum,
-          cls: `bible-verse-number verse-num-${verseNumStyle}`
+          cls: `bible-verse-number verse-num-${verseNumStyle} bp-clickable`
         });
         const verseNumInt = parseInt(verseNum);
         verseDiv.setAttribute("data-verse", verseNum);
@@ -5892,7 +5888,6 @@ ${disputedInfo.manuscriptInfo}`);
             verseDiv.addClass("verse-tag-dimmed");
           }
         }
-        verseNumber.style.cursor = "pointer";
         verseNumber.addEventListener("click", (e) => {
           e.stopPropagation();
           if (e.shiftKey && this.selectedVerseStart !== null) {
@@ -6025,9 +6020,8 @@ ${disputedInfo.manuscriptInfo}`);
               const typeName = (noteTypeInfo == null ? void 0 : noteTypeInfo.label) || "Study";
               const noteIcon = actionsDiv.createEl("span", {
                 text: typeIcon,
-                cls: "verse-indicator-icon"
+                cls: "verse-indicator-icon bp-clickable"
               });
-              noteIcon.style.cursor = "pointer";
               noteIcon.addEventListener("click", async (e) => {
                 e.stopPropagation();
                 const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
@@ -6079,10 +6073,9 @@ ${disputedInfo.manuscriptInfo}`);
         if (isBookmarked) {
           const bookmarkIcon = actionsDiv.createEl("span", {
             text: "\u2B50",
-            cls: "verse-indicator-icon bookmark-icon",
+            cls: "verse-indicator-icon bookmark-icon bp-clickable",
             attr: { title: "Bookmarked" }
           });
-          bookmarkIcon.style.cursor = "pointer";
           bookmarkIcon.addEventListener("click", async (e) => {
             e.stopPropagation();
             const bookmark = this.plugin.getBookmarkForVerse(this.currentBook, this.currentChapter, verseNumInt);
@@ -6415,11 +6408,8 @@ ${disputedInfo.manuscriptInfo}`);
       const strongsNum = match[1];
       const link = container.createEl("a", {
         text: strongsNum,
-        cls: "strongs-link"
+        cls: "strongs-link bp-link"
       });
-      link.style.cursor = "pointer";
-      link.style.color = "var(--interactive-accent)";
-      link.style.textDecoration = "underline";
       link.addEventListener("click", async (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -7439,9 +7429,8 @@ ${disputedInfo.manuscriptInfo}`);
       const refItem = contentEl.createEl("div", { cls: "cross-ref-item" });
       const refLink = refItem.createEl("a", {
         text: ref,
-        cls: "cross-ref-link"
+        cls: "cross-ref-link bp-clickable"
       });
-      refLink.style.cursor = "pointer";
       refLink.addEventListener("click", (e) => {
         e.preventDefault();
         modal.close();
@@ -7790,7 +7779,7 @@ ${disputedInfo.manuscriptInfo}`);
       });
     } else {
       results.forEach((result) => {
-        const resultItem = resultsList.createDiv("search-result-item");
+        const resultItem = resultsList.createDiv("search-result-item bp-clickable");
         const noteTypeInfo = NOTE_TYPES.find((t) => t.type === result.noteType);
         const typeIcon = (noteTypeInfo == null ? void 0 : noteTypeInfo.icon) || "\u{1F4DD}";
         const typeName = (noteTypeInfo == null ? void 0 : noteTypeInfo.label) || "Study";
@@ -7842,7 +7831,6 @@ ${disputedInfo.manuscriptInfo}`);
             showToast(`Opened note for ${result.reference}`);
           }
         });
-        resultItem.style.cursor = "pointer";
         resultItem.addEventListener("click", (e) => {
           if (e.target.tagName === "BUTTON")
             return;
@@ -8062,7 +8050,7 @@ ${disputedInfo.manuscriptInfo}`);
       cls: "tags-count"
     });
     notesWithTag.forEach((noteRef) => {
-      const noteItem = container.createDiv("tag-note-item");
+      const noteItem = container.createDiv("tag-note-item bp-clickable");
       const noteTypeInfo = NOTE_TYPES.find((t) => t.type === (noteRef.noteType || "personal"));
       const typeIcon = (noteTypeInfo == null ? void 0 : noteTypeInfo.icon) || "\u{1F4DD}";
       const typeName = (noteTypeInfo == null ? void 0 : noteTypeInfo.label) || "Study";
@@ -8114,7 +8102,6 @@ ${disputedInfo.manuscriptInfo}`);
           showToast(`Opened note for ${reference}`);
         }
       });
-      noteItem.style.cursor = "pointer";
       noteItem.addEventListener("click", async (e) => {
         if (e.target.tagName === "BUTTON")
           return;
@@ -8748,7 +8735,7 @@ ${disputedInfo.manuscriptInfo}`);
     const content = section.createDiv({ cls: "theographic-section-content" });
     content.style.display = "none";
     items.forEach((item) => {
-      const itemEl = content.createDiv({ cls: "theographic-item" });
+      const itemEl = content.createDiv({ cls: "theographic-item bp-clickable" });
       const nameEl = itemEl.createDiv({
         text: getName(item),
         cls: "theographic-item-name"
@@ -8760,7 +8747,6 @@ ${disputedInfo.manuscriptInfo}`);
           cls: "theographic-item-details"
         });
       }
-      itemEl.style.cursor = "pointer";
       itemEl.addEventListener("click", () => {
         new TheographicDetailModal(this.plugin.app, type, item, this.plugin, this).open();
       });
@@ -9060,7 +9046,7 @@ ${disputedInfo.manuscriptInfo}`);
       }
       const renderPersonCard = (person, container2) => {
         var _a2;
-        const personCard = container2.createDiv({ cls: "person-card" });
+        const personCard = container2.createDiv({ cls: "person-card bp-clickable" });
         personCard.createDiv({
           text: person.fields.displayTitle || person.fields.name,
           cls: "person-card-name"
@@ -9082,7 +9068,6 @@ ${disputedInfo.manuscriptInfo}`);
             cls: "person-card-details"
           });
         }
-        personCard.style.cursor = "pointer";
         personCard.addEventListener("click", () => {
           new TheographicDetailModal(this.plugin.app, "person", person, this.plugin, this).open();
         });
@@ -9166,7 +9151,7 @@ ${disputedInfo.manuscriptInfo}`);
         const typeSection = placesList.createDiv({ cls: "map-type-section" });
         typeSection.createEl("h4", { text: `${type} (${grouped[type].length})`, cls: "map-type-heading" });
         grouped[type].forEach((place) => {
-          const placeItem = typeSection.createDiv({ cls: "map-place-item" });
+          const placeItem = typeSection.createDiv({ cls: "map-place-item bp-clickable" });
           placeItem.createDiv({
             text: place.fields.displayTitle,
             cls: "map-place-name"
@@ -9177,7 +9162,6 @@ ${disputedInfo.manuscriptInfo}`);
               cls: "map-place-comment"
             });
           }
-          placeItem.style.cursor = "pointer";
           placeItem.addEventListener("click", () => {
             new TheographicDetailModal(this.plugin.app, "place", place, this.plugin, this).open();
           });
@@ -9263,7 +9247,7 @@ ${disputedInfo.manuscriptInfo}`);
         return dateA - dateB;
       });
       filteredEvents.forEach((event) => {
-        const eventCard = timelineDiv.createDiv({ cls: "timeline-event-card" });
+        const eventCard = timelineDiv.createDiv({ cls: "timeline-event-card bp-clickable" });
         if (event.fields.startDate) {
           const year = parseInt(event.fields.startDate);
           const dateText = year < 0 ? `${Math.abs(year)} BC` : `${year} AD`;
@@ -9279,7 +9263,6 @@ ${disputedInfo.manuscriptInfo}`);
             cls: "timeline-event-duration"
           });
         }
-        eventCard.style.cursor = "pointer";
         eventCard.addEventListener("click", () => {
           new TheographicDetailModal(this.plugin.app, "event", event, this.plugin, this).open();
         });
@@ -14275,8 +14258,7 @@ ${collection.description}`);
           continue;
         const entry = this.plugin.getStrongsDefinition(strongsNum);
         if (entry) {
-          const wordCard = wordsContainer.createDiv({ cls: "word-study-card compact" });
-          wordCard.style.cursor = "pointer";
+          const wordCard = wordsContainer.createDiv({ cls: "word-study-card compact bp-clickable" });
           const wordHeader = wordCard.createDiv({ cls: "word-card-header" });
           const numSpan = wordHeader.createSpan({ text: strongsNum, cls: "strongs-number" });
           numSpan.addClass(strongsNum.startsWith("H") ? "hebrew" : "greek");
@@ -14300,8 +14282,7 @@ ${collection.description}`);
       for (const strongsNum of greekSamples) {
         const entry = (_a = this.plugin.strongsDictionary.greek) == null ? void 0 : _a[strongsNum];
         if (entry) {
-          const wordCard = wordsContainer.createDiv({ cls: "word-study-card" });
-          wordCard.style.cursor = "pointer";
+          const wordCard = wordsContainer.createDiv({ cls: "word-study-card bp-clickable" });
           const wordHeader = wordCard.createDiv({ cls: "word-card-header" });
           wordHeader.createSpan({ text: strongsNum, cls: "strongs-number" });
           wordHeader.createSpan({ text: entry.lemma || "", cls: "word-lemma" });
@@ -14321,8 +14302,7 @@ ${collection.description}`);
       for (const strongsNum of hebrewSamples) {
         const entry = (_b = this.plugin.strongsDictionary.hebrew) == null ? void 0 : _b[strongsNum];
         if (entry) {
-          const wordCard = wordsContainer.createDiv({ cls: "word-study-card" });
-          wordCard.style.cursor = "pointer";
+          const wordCard = wordsContainer.createDiv({ cls: "word-study-card bp-clickable" });
           const wordHeader = wordCard.createDiv({ cls: "word-card-header" });
           wordHeader.createSpan({ text: strongsNum, cls: "strongs-number" });
           wordHeader.createSpan({ text: entry.lemma || "", cls: "word-lemma" });
@@ -15640,12 +15620,9 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           })).addExtraButton((btn) => {
             const colorInput = btn.extraSettingsEl.createEl("input", {
               type: "color",
-              value: this.plugin.settings.bannerColor
+              value: this.plugin.settings.bannerColor,
+              cls: "bp-color-input"
             });
-            colorInput.style.width = "32px";
-            colorInput.style.height = "24px";
-            colorInput.style.border = "none";
-            colorInput.style.cursor = "pointer";
             colorInput.addEventListener("change", async () => {
               this.plugin.settings.bannerColor = colorInput.value;
               await this.plugin.saveSettings();
@@ -15739,12 +15716,9 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           })).addExtraButton((btn) => {
             const colorInput = btn.extraSettingsEl.createEl("input", {
               type: "color",
-              value: colorDef.color.startsWith("#") ? colorDef.color : "#ffeb3b"
+              value: colorDef.color.startsWith("#") ? colorDef.color : "#ffeb3b",
+              cls: "bp-color-input"
             });
-            colorInput.style.width = "32px";
-            colorInput.style.height = "24px";
-            colorInput.style.border = "none";
-            colorInput.style.cursor = "pointer";
             colorInput.addEventListener("change", async () => {
               this.plugin.settings.highlightColors[index].color = colorInput.value;
               await this.plugin.saveSettings();
@@ -16102,9 +16076,8 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
               progressDiv.createDiv({ text: `${progress}%`, cls: "plan-progress-value" });
               progressDiv.createDiv({ text: "complete", cls: "plan-progress-label" });
             }
-            const toggle = card.createEl("input", { type: "checkbox" });
+            const toggle = card.createEl("input", { type: "checkbox", cls: "bp-toggle-input" });
             toggle.checked = isActive;
-            toggle.style.cursor = "pointer";
             toggle.addEventListener("change", async () => {
               await this.plugin.toggleReadingPlan(plan.id);
               this.display();
@@ -16565,9 +16538,8 @@ var TheographicDetailModal = class extends import_obsidian.Modal {
       const versesList = versesSection.createDiv({ cls: "theographic-modal-verses-list" });
       const displayVerses = verses.slice(0, 20);
       displayVerses.forEach((verse) => {
-        const verseRef = versesList.createDiv({ cls: "theographic-modal-verse-ref" });
+        const verseRef = versesList.createDiv({ cls: "theographic-modal-verse-ref bp-clickable" });
         verseRef.setText(verse.fields.osisRef);
-        verseRef.style.cursor = "pointer";
         verseRef.addEventListener("click", () => {
           this.close();
           this.view.navigateToVerse(verse.fields.osisRef);
@@ -16632,9 +16604,8 @@ var TheographicDetailModal = class extends import_obsidian.Modal {
       const versesList = versesSection.createDiv({ cls: "theographic-modal-verses-list" });
       const displayVerses = verses.slice(0, 20);
       displayVerses.forEach((verse) => {
-        const verseRef = versesList.createDiv({ cls: "theographic-modal-verse-ref" });
+        const verseRef = versesList.createDiv({ cls: "theographic-modal-verse-ref bp-clickable" });
         verseRef.setText(verse.fields.osisRef);
-        verseRef.style.cursor = "pointer";
         verseRef.addEventListener("click", () => {
           this.close();
           this.view.navigateToVerse(verse.fields.osisRef);
@@ -16683,9 +16654,8 @@ var TheographicDetailModal = class extends import_obsidian.Modal {
       const versesList = versesSection.createDiv({ cls: "theographic-modal-verses-list" });
       const displayVerses = verses.slice(0, 20);
       displayVerses.forEach((verse) => {
-        const verseRef = versesList.createDiv({ cls: "theographic-modal-verse-ref" });
+        const verseRef = versesList.createDiv({ cls: "theographic-modal-verse-ref bp-clickable" });
         verseRef.setText(verse.fields.osisRef);
-        verseRef.style.cursor = "pointer";
         verseRef.addEventListener("click", () => {
           this.close();
           this.view.navigateToVerse(verse.fields.osisRef);

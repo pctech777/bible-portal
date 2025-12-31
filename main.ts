@@ -5892,8 +5892,7 @@ class BibleView extends ItemView {
 		if (this.plugin.settings.verseOfTheDayEnabled) {
 			const votd = this.getVerseOfTheDay();
 			if (votd) {
-				const votdDiv = banner.createDiv({ cls: 'verse-of-the-day' });
-				votdDiv.style.cursor = 'pointer';
+				const votdDiv = banner.createDiv({ cls: 'verse-of-the-day bp-clickable' });
 				votdDiv.createEl('span', { text: 'Verse of the Day: ', cls: 'votd-label' });
 				votdDiv.createEl('span', {
 					text: `${votd.reference} - "${votd.text}"`,
@@ -6839,11 +6838,10 @@ class BibleView extends ItemView {
 							text: `${parsed.book} ${parsed.chapter}:${parsed.verse} (${this.currentVersion})`,
 							cls: 'verse-reference'
 						});
-						const verseText1 = leftPanel.createEl('p', { text: verse, cls: 'verse-text-large' });
+						const verseText1 = leftPanel.createEl('p', { text: verse, cls: 'verse-text-large bp-clickable' });
 						verseText1.dataset.book = parsed.book;
 						verseText1.dataset.chapter = parsed.chapter.toString();
 						verseText1.dataset.verse = parsed.verse.toString();
-						verseText1.style.cursor = 'pointer';
 
 						// Add right-click context menu
 						verseText1.addEventListener('contextmenu', (e) => {
@@ -6861,11 +6859,10 @@ class BibleView extends ItemView {
 								text: `${parsed.book} ${parsed.chapter}:${parsed.verse} (${this.secondVersion})`,
 								cls: 'verse-reference'
 							});
-							const verseText2 = rightPanel.createEl('p', { text: verse2, cls: 'verse-text-large' });
+							const verseText2 = rightPanel.createEl('p', { text: verse2, cls: 'verse-text-large bp-clickable' });
 							verseText2.dataset.book = parsed.book;
 							verseText2.dataset.chapter = parsed.chapter.toString();
 							verseText2.dataset.verse = parsed.verse.toString();
-							verseText2.style.cursor = 'pointer';
 
 							// Add right-click context menu
 							verseText2.addEventListener('contextmenu', (e) => {
@@ -6881,11 +6878,10 @@ class BibleView extends ItemView {
 							text: `${parsed.book} ${parsed.chapter}:${parsed.verse} (${this.currentVersion})`,
 							cls: 'verse-reference'
 						});
-						const verseText = verseDisplay.createEl('p', { text: verse, cls: 'verse-text-large' });
+						const verseText = verseDisplay.createEl('p', { text: verse, cls: 'verse-text-large bp-clickable' });
 						verseText.dataset.book = parsed.book;
 						verseText.dataset.chapter = parsed.chapter.toString();
 						verseText.dataset.verse = parsed.verse.toString();
-						verseText.style.cursor = 'pointer';
 
 						// Add right-click context menu
 						verseText.addEventListener('contextmenu', (e) => {
@@ -7608,7 +7604,7 @@ class BibleView extends ItemView {
 				const verseNumStyle = this.plugin.settings.verseNumberStyle || 'default';
 				const verseNumber = verseDiv.createEl('span', {
 					text: verseNum,
-					cls: `bible-verse-number verse-num-${verseNumStyle}`
+					cls: `bible-verse-number verse-num-${verseNumStyle} bp-clickable`
 				});
 
 				// Add verse number as data attribute for selection
@@ -7640,7 +7636,6 @@ class BibleView extends ItemView {
 				}
 
 				// Handle verse click - show note preview and verse selection
-				verseNumber.style.cursor = 'pointer';
 				verseNumber.addEventListener('click', (e) => {
 					e.stopPropagation();
 
@@ -7842,10 +7837,8 @@ class BibleView extends ItemView {
 							// Create individual clickable icon for this note (no title - we have custom hover preview)
 							const noteIcon = actionsDiv.createEl('span', {
 								text: typeIcon,
-								cls: 'verse-indicator-icon'
+								cls: 'verse-indicator-icon bp-clickable'
 							});
-
-							noteIcon.style.cursor = 'pointer';
 
 							// Click to open this specific note
 							noteIcon.addEventListener('click', async (e) => {
@@ -7911,11 +7904,10 @@ class BibleView extends ItemView {
 				if (isBookmarked) {
 					const bookmarkIcon = actionsDiv.createEl('span', {
 						text: '⭐',
-						cls: 'verse-indicator-icon bookmark-icon',
+						cls: 'verse-indicator-icon bookmark-icon bp-clickable',
 						attr: { title: 'Bookmarked' }
 					});
 
-					bookmarkIcon.style.cursor = 'pointer';
 					bookmarkIcon.addEventListener('click', async (e) => {
 						e.stopPropagation();
 						const bookmark = this.plugin.getBookmarkForVerse(this.currentBook, this.currentChapter, verseNumInt);
@@ -8380,11 +8372,8 @@ class BibleView extends ItemView {
 			const strongsNum = match[1];
 			const link = container.createEl('a', {
 				text: strongsNum,
-				cls: 'strongs-link'
+				cls: 'strongs-link bp-link'
 			});
-			link.style.cursor = 'pointer';
-			link.style.color = 'var(--interactive-accent)';
-			link.style.textDecoration = 'underline';
 
 			link.addEventListener('click', async (e) => {
 				e.preventDefault();
@@ -9409,9 +9398,8 @@ class BibleView extends ItemView {
 
 			const refLink = refItem.createEl('a', {
 				text: ref,
-				cls: 'cross-ref-link'
+				cls: 'cross-ref-link bp-clickable'
 			});
-			refLink.style.cursor = 'pointer';
 
 			// Add click handler to navigate to reference
 			refLink.addEventListener('click', (e) => {
@@ -9901,7 +9889,7 @@ class BibleView extends ItemView {
 			});
 		} else {
 			results.forEach(result => {
-				const resultItem = resultsList.createDiv('search-result-item');
+				const resultItem = resultsList.createDiv('search-result-item bp-clickable');
 
 				// Note type icon
 				const noteTypeInfo = NOTE_TYPES.find(t => t.type === result.noteType);
@@ -9975,7 +9963,6 @@ class BibleView extends ItemView {
 				});
 
 				// Click anywhere on result item to open note
-				resultItem.style.cursor = 'pointer';
 				resultItem.addEventListener('click', (e) => {
 					// Don't trigger if clicking buttons
 					if ((e.target as HTMLElement).tagName === 'BUTTON') return;
@@ -10271,7 +10258,7 @@ class BibleView extends ItemView {
 
 		// Show notes
 		notesWithTag.forEach(noteRef => {
-			const noteItem = container.createDiv('tag-note-item');
+			const noteItem = container.createDiv('tag-note-item bp-clickable');
 
 			// Note type icon
 			const noteTypeInfo = NOTE_TYPES.find(t => t.type === (noteRef.noteType || 'personal'));
@@ -10340,7 +10327,6 @@ class BibleView extends ItemView {
 			});
 
 			// Click anywhere on item to open note
-			noteItem.style.cursor = 'pointer';
 			noteItem.addEventListener('click', async (e) => {
 				// Don't trigger if clicking buttons
 				if ((e.target as HTMLElement).tagName === 'BUTTON') return;
@@ -11183,7 +11169,7 @@ class BibleView extends ItemView {
 
 		// Populate items
 		items.forEach(item => {
-			const itemEl = content.createDiv({ cls: 'theographic-item' });
+			const itemEl = content.createDiv({ cls: 'theographic-item bp-clickable' });
 
 			const nameEl = itemEl.createDiv({
 				text: getName(item),
@@ -11199,7 +11185,6 @@ class BibleView extends ItemView {
 			}
 
 			// Make clickable to show detail modal
-			itemEl.style.cursor = 'pointer';
 			itemEl.addEventListener('click', () => {
 				new TheographicDetailModal(this.plugin.app, type, item as any, this.plugin, this).open();
 			});
@@ -11426,7 +11411,7 @@ class BibleView extends ItemView {
 
 			// Helper to render a person card
 			const renderPersonCard = (person: TheographicPerson, container: HTMLElement) => {
-				const personCard = container.createDiv({ cls: 'person-card' });
+				const personCard = container.createDiv({ cls: 'person-card bp-clickable' });
 
 				personCard.createDiv({
 					text: person.fields.displayTitle || person.fields.name,
@@ -11451,7 +11436,6 @@ class BibleView extends ItemView {
 					});
 				}
 
-				personCard.style.cursor = 'pointer';
 				personCard.addEventListener('click', () => {
 					new TheographicDetailModal(this.plugin.app, 'person', person, this.plugin, this).open();
 				});
@@ -11558,7 +11542,7 @@ class BibleView extends ItemView {
 				typeSection.createEl('h4', { text: `${type} (${grouped[type].length})`, cls: 'map-type-heading' });
 
 				grouped[type].forEach(place => {
-					const placeItem = typeSection.createDiv({ cls: 'map-place-item' });
+					const placeItem = typeSection.createDiv({ cls: 'map-place-item bp-clickable' });
 
 					placeItem.createDiv({
 						text: place.fields.displayTitle,
@@ -11572,7 +11556,6 @@ class BibleView extends ItemView {
 						});
 					}
 
-					placeItem.style.cursor = 'pointer';
 					placeItem.addEventListener('click', () => {
 						new TheographicDetailModal(this.plugin.app, 'place', place, this.plugin, this).open();
 					});
@@ -11665,7 +11648,7 @@ class BibleView extends ItemView {
 
 			// Render events
 			filteredEvents.forEach(event => {
-				const eventCard = timelineDiv.createDiv({ cls: 'timeline-event-card' });
+				const eventCard = timelineDiv.createDiv({ cls: 'timeline-event-card bp-clickable' });
 
 				// Date
 				if (event.fields.startDate) {
@@ -11688,7 +11671,6 @@ class BibleView extends ItemView {
 					});
 				}
 
-				eventCard.style.cursor = 'pointer';
 				eventCard.addEventListener('click', () => {
 					new TheographicDetailModal(this.plugin.app, 'event', event, this.plugin, this).open();
 				});
@@ -17904,8 +17886,7 @@ class BibleView extends ItemView {
 
 				const entry = this.plugin.getStrongsDefinition(strongsNum);
 				if (entry) {
-					const wordCard = wordsContainer.createDiv({ cls: 'word-study-card compact' });
-					wordCard.style.cursor = 'pointer';
+					const wordCard = wordsContainer.createDiv({ cls: 'word-study-card compact bp-clickable' });
 
 					const wordHeader = wordCard.createDiv({ cls: 'word-card-header' });
 
@@ -17942,8 +17923,7 @@ class BibleView extends ItemView {
 			for (const strongsNum of greekSamples) {
 				const entry = this.plugin.strongsDictionary.greek?.[strongsNum];
 				if (entry) {
-					const wordCard = wordsContainer.createDiv({ cls: 'word-study-card' });
-					wordCard.style.cursor = 'pointer';
+					const wordCard = wordsContainer.createDiv({ cls: 'word-study-card bp-clickable' });
 					const wordHeader = wordCard.createDiv({ cls: 'word-card-header' });
 					wordHeader.createSpan({ text: strongsNum, cls: 'strongs-number' });
 					wordHeader.createSpan({ text: entry.lemma || '', cls: 'word-lemma' });
@@ -17967,8 +17947,7 @@ class BibleView extends ItemView {
 			for (const strongsNum of hebrewSamples) {
 				const entry = this.plugin.strongsDictionary.hebrew?.[strongsNum];
 				if (entry) {
-					const wordCard = wordsContainer.createDiv({ cls: 'word-study-card' });
-					wordCard.style.cursor = 'pointer';
+					const wordCard = wordsContainer.createDiv({ cls: 'word-study-card bp-clickable' });
 					const wordHeader = wordCard.createDiv({ cls: 'word-card-header' });
 					wordHeader.createSpan({ text: strongsNum, cls: 'strongs-number' });
 					wordHeader.createSpan({ text: entry.lemma || '', cls: 'word-lemma' });
@@ -19576,12 +19555,9 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						.addExtraButton(btn => {
 							const colorInput = btn.extraSettingsEl.createEl('input', {
 								type: 'color',
-								value: this.plugin.settings.bannerColor
+								value: this.plugin.settings.bannerColor,
+								cls: 'bp-color-input'
 							});
-							colorInput.style.width = '32px';
-							colorInput.style.height = '24px';
-							colorInput.style.border = 'none';
-							colorInput.style.cursor = 'pointer';
 							colorInput.addEventListener('change', async () => {
 								this.plugin.settings.bannerColor = colorInput.value;
 								await this.plugin.saveSettings();
@@ -19765,12 +19741,9 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						.addExtraButton(btn => {
 							const colorInput = btn.extraSettingsEl.createEl('input', {
 								type: 'color',
-								value: colorDef.color.startsWith('#') ? colorDef.color : '#ffeb3b'
+								value: colorDef.color.startsWith('#') ? colorDef.color : '#ffeb3b',
+								cls: 'bp-color-input'
 							});
-							colorInput.style.width = '32px';
-							colorInput.style.height = '24px';
-							colorInput.style.border = 'none';
-							colorInput.style.cursor = 'pointer';
 							colorInput.addEventListener('change', async () => {
 								this.plugin.settings.highlightColors[index].color = colorInput.value;
 								await this.plugin.saveSettings();
@@ -20297,9 +20270,8 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						}
 
 						// Toggle switch
-						const toggle = card.createEl('input', { type: 'checkbox' });
+						const toggle = card.createEl('input', { type: 'checkbox', cls: 'bp-toggle-input' });
 						toggle.checked = isActive;
-						toggle.style.cursor = 'pointer';
 						toggle.addEventListener('change', async () => {
 							await this.plugin.toggleReadingPlan(plan.id);
 							this.display();
@@ -20935,9 +20907,8 @@ class TheographicDetailModal extends Modal {
 			// Limit to first 20 verses to avoid overwhelming the modal
 			const displayVerses = verses.slice(0, 20);
 			displayVerses.forEach(verse => {
-				const verseRef = versesList.createDiv({ cls: 'theographic-modal-verse-ref' });
+				const verseRef = versesList.createDiv({ cls: 'theographic-modal-verse-ref bp-clickable' });
 				verseRef.setText(verse.fields.osisRef);
-				verseRef.style.cursor = 'pointer';
 				verseRef.addEventListener('click', () => {
 					this.close();
 					this.view.navigateToVerse(verse.fields.osisRef);
@@ -21020,9 +20991,8 @@ class TheographicDetailModal extends Modal {
 			// Limit to first 20 verses to avoid overwhelming the modal
 			const displayVerses = verses.slice(0, 20);
 			displayVerses.forEach(verse => {
-				const verseRef = versesList.createDiv({ cls: 'theographic-modal-verse-ref' });
+				const verseRef = versesList.createDiv({ cls: 'theographic-modal-verse-ref bp-clickable' });
 				verseRef.setText(verse.fields.osisRef);
-				verseRef.style.cursor = 'pointer';
 				verseRef.addEventListener('click', () => {
 					this.close();
 					this.view.navigateToVerse(verse.fields.osisRef);
@@ -21085,9 +21055,8 @@ class TheographicDetailModal extends Modal {
 			// Limit to first 20 verses to avoid overwhelming the modal
 			const displayVerses = verses.slice(0, 20);
 			displayVerses.forEach(verse => {
-				const verseRef = versesList.createDiv({ cls: 'theographic-modal-verse-ref' });
+				const verseRef = versesList.createDiv({ cls: 'theographic-modal-verse-ref bp-clickable' });
 				verseRef.setText(verse.fields.osisRef);
-				verseRef.style.cursor = 'pointer';
 				verseRef.addEventListener('click', () => {
 					this.close();
 					this.view.navigateToVerse(verse.fields.osisRef);

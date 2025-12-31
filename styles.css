@@ -83,6 +83,69 @@
 	--bp-radius-full: 9999px;
 }
 
+/* ========================================
+   UTILITY CLASSES
+   Reusable utility classes for common patterns
+   ======================================== */
+
+/* Visibility utilities */
+.bp-hidden { display: none !important; }
+.bp-visible { display: block !important; }
+.bp-visible-flex { display: flex !important; }
+.bp-visible-inline { display: inline !important; }
+.bp-visible-inline-block { display: inline-block !important; }
+
+/* Cursor utilities */
+.bp-clickable { cursor: pointer; }
+.bp-not-allowed { cursor: not-allowed; }
+.bp-grabbing { cursor: grabbing; }
+
+/* Text selection */
+.bp-select-text { user-select: text; }
+.bp-select-none { user-select: none; }
+
+/* Dynamic color utilities (use with CSS custom properties) */
+.bp-bg-dynamic { background-color: var(--bp-dynamic-bg); }
+.bp-text-dynamic { color: var(--bp-dynamic-color); }
+.bp-border-dynamic { border-color: var(--bp-dynamic-border); }
+.bp-border-left-dynamic { border-left-color: var(--bp-dynamic-border); }
+.bp-border-top-dynamic { border-top-color: var(--bp-dynamic-border); }
+
+/* Progress bar utilities */
+.bp-progress-bar {
+	width: var(--bp-progress, 0%);
+	transition: width var(--bp-transition-normal) ease;
+}
+
+/* Position utilities for dynamic positioning */
+.bp-absolute { position: absolute; }
+.bp-fixed { position: fixed; }
+.bp-relative { position: relative; }
+
+/* Z-index layers */
+.bp-z-dropdown { z-index: 100; }
+.bp-z-modal { z-index: 1000; }
+.bp-z-tooltip { z-index: 10000; }
+
+/* Link-like appearance */
+.bp-link {
+	cursor: pointer;
+	color: var(--interactive-accent);
+	text-decoration: underline;
+}
+
+/* Form input utilities */
+.bp-color-input {
+	width: 32px;
+	height: 24px;
+	border: none;
+	cursor: pointer;
+}
+
+.bp-toggle-input {
+	cursor: pointer;
+}
+
 /* Dark mode adjustments */
 .theme-dark {
 	/* Slightly adjusted banner colors for dark mode */
