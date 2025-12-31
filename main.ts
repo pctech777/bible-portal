@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, ItemView, Menu, Notice, Modal, TFile, TFolder, requestUrl, MarkdownRenderer, setIcon, EditorSuggest, EditorSuggestContext, EditorSuggestTriggerInfo, Editor, EditorPosition } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, ItemView, Menu, Notice, Modal, TFile, requestUrl, MarkdownRenderer, setIcon, EditorSuggest, EditorSuggestContext, EditorSuggestTriggerInfo, Editor, EditorPosition } from 'obsidian';
 
 // Highlight color definition
 interface HighlightColor {
@@ -112,7 +112,7 @@ interface BiblePortalSettings {
 	studyStreak: number; // Current consecutive days streak
 	lastStudyDate: string; // Last study date (YYYY-MM-DD)
 
-	// Reading Plans
+	// Reading plans
 	enableReadingPlan: boolean; // Enable reading plan feature
 	activeReadingPlans: string[]; // Array of active plan IDs (supports multiple plans)
 	readingPlanStartDates: { [planId: string]: string }; // Start date per plan (YYYY-MM-DD)
@@ -310,13 +310,11 @@ function generateBibleInYearPlan(): ReadingPlanDay[] {
 		{ book: 'Revelation', chapters: 22 }
 	];
 
-	// Calculate total OT and NT chapters
+	// Calculate total OT chapters (NT total is 260, kept for documentation)
 	const totalOT = otBooks.reduce((sum, b) => sum + b.chapters, 0); // 929
-	const totalNT = ntBooks.reduce((sum, b) => sum + b.chapters, 0); // 260
 
 	// Spread readings across 365 days
 	let otChapter = 0;
-	let ntChapter = 0;
 	let currentOTBook = 0;
 	let currentNTBook = 0;
 	let otChapInBook = 1;
@@ -341,7 +339,6 @@ function generateBibleInYearPlan(): ReadingPlanDay[] {
 		if (currentNTBook < ntBooks.length) {
 			passages.push(`${ntBooks[currentNTBook].book} ${ntChapInBook}`);
 			ntChapInBook++;
-			ntChapter++;
 			if (ntChapInBook > ntBooks[currentNTBook].chapters) {
 				currentNTBook++;
 				ntChapInBook = 1;
@@ -793,6 +790,75 @@ const DISPUTED_PASSAGES: DisputedPassage[] = [
 	}
 ];
 
+// Obsidian App with settings for type-safe access
+interface ObsidianAppWithSettings extends App {
+	setting: {
+		open(): void;
+		openTabById(id: string): void;
+	};
+}
+
+// Persisted plugin data structure (what loadData() returns)
+interface PersistedPluginData extends Partial<BiblePortalSettings> {
+	highlights?: Highlight[];
+	noteReferences?: NoteReference[];
+	bookmarks?: Bookmark[];
+	verseTags?: VerseTag[];
+	highlightGradient?: boolean; // Legacy field for migration
+}
+
+// Bolls.life API response types
+interface BollsLanguage {
+	language: string;
+	translations: Array<{ short_name: string; full_name: string }>;
+}
+
+interface BollsBook {
+	bookid: number;
+	name: string;
+	chapters: number;
+}
+
+interface BollsVerse {
+	verse: number;
+	text: string;
+}
+
+// Import data types for notes, tags, bookmarks, highlights
+interface ImportedNoteData {
+	version?: string;
+	filename?: string;
+	notePath?: string;
+	book: string;
+	chapter: number;
+	verse: number;
+	endVerse?: number;
+	noteLevel: 'verse' | 'passage' | 'chapter' | 'book';
+	noteType?: NoteType;
+	content?: string;
+}
+
+interface ImportedTagsData {
+	tags: Array<{
+		book: string;
+		chapter: number;
+		verse: number;
+		tag: string;
+	}>;
+}
+
+interface ImportedBookmarksData {
+	bookmarks: Bookmark[];
+}
+
+interface ImportedHighlightsData {
+	highlights: Highlight[];
+}
+
+interface ImportedColorsData {
+	highlightColors: HighlightColor[];
+}
+
 // Bookmark structure
 interface Bookmark {
 	id: string;
@@ -839,7 +905,7 @@ interface VerseTag {
 const DEFAULT_SETTINGS: BiblePortalSettings = {
 	bibleVersions: [], // Auto-detected from Bible data folder
 	defaultVersion: '', // Auto-set to first available version
-	notesFolder: 'Bible Portal/Notes',
+	notesFolder: 'Bible portal/Notes',
 	parallelViewEnabled: false,
 	highlightColors: [
 		{ name: 'Yellow', color: '#ffeb3b' },
@@ -864,7 +930,7 @@ const DEFAULT_SETTINGS: BiblePortalSettings = {
 	copyIncludeReference: true,
 	copyIncludeFormatting: true,
 	calloutTitle: 'bible',
-	imageExportFolder: 'Bible Portal/Images',
+	imageExportFolder: 'Bible portal/Images',
 	imageExportQuality: 75,
 
 	// Verse of the Day
@@ -891,7 +957,7 @@ const DEFAULT_SETTINGS: BiblePortalSettings = {
 
 	// Strong's Concordance
 	enableStrongs: true, // Enable by default for epic Bible study
-	strongsDictionaryPath: 'Bible Portal/Bibles/BSB/strongs-dictionary.json',
+	strongsDictionaryPath: 'Bible portal/Bibles/BSB/strongs-dictionary.json',
 	strongsTooltipMode: 'hover', // Hover for quick lookups
 	strongsShowRelated: true, // Show related words
 	strongsOriginalFontSize: 20, // Nice big font for Hebrew/Greek
@@ -910,7 +976,7 @@ const DEFAULT_SETTINGS: BiblePortalSettings = {
 
 	// Theographic Metadata
 	enableTheographic: true, // Enable Theographic features by default
-	theographicDataPath: 'Bible Portal/Theographic',
+	theographicDataPath: 'Bible portal/Theographic',
 	theographicShowPeople: true, // Show people in contextual sidebar
 	theographicShowPlaces: true, // Show places in contextual sidebar
 	theographicShowEvents: true, // Show events in contextual sidebar
@@ -928,7 +994,7 @@ const DEFAULT_SETTINGS: BiblePortalSettings = {
 	studyStreak: 0, // Start with no streak
 	lastStudyDate: '', // No previous study
 
-	// Reading Plans
+	// Reading plans
 	enableReadingPlan: false, // Disabled by default - user must opt in
 	activeReadingPlans: [], // No plans selected (supports multiple)
 	readingPlanStartDates: {}, // No start dates
@@ -1565,8 +1631,8 @@ export default class BiblePortalPlugin extends Plugin {
 		);
 
 		// Add ribbon icon
-		this.addRibbonIcon('book-open', 'Open Bible Portal', () => {
-			this.activateBibleView();
+		this.addRibbonIcon('book-open', 'Open Bible portal', () => {
+			void this.activateBibleView();
 		});
 
 		// Add status bar item
@@ -1575,7 +1641,7 @@ export default class BiblePortalPlugin extends Plugin {
 		this.updateStatusBar('', 0); // Initialize empty
 
 		// Study mode is now manual - don't auto-start
-		// User toggles it with the Study Mode button
+		// User toggles it with the Study mode button
 
 		// Add command to toggle study mode
 		this.addCommand({
@@ -1588,17 +1654,17 @@ export default class BiblePortalPlugin extends Plugin {
 
 		// Add command to open Bible
 		this.addCommand({
-			id: 'open-bible-portal',
-			name: 'Open Bible Portal',
+			id: 'open-view',
+			name: 'Open view',
 			callback: () => {
-				this.activateBibleView();
+				void this.activateBibleView();
 			}
 		});
 
 		// Add command to show performance statistics
 		this.addCommand({
 			id: 'show-performance-stats',
-			name: "Strong's: Show performance statistics",
+			name: "Strong's: show performance statistics",
 			callback: () => {
 				const stats = this.getPerformanceStats();
 				const cacheHitRate = stats.interlinearLookups > 0
@@ -1636,10 +1702,10 @@ export default class BiblePortalPlugin extends Plugin {
 		// Add command to clear caches
 		this.addCommand({
 			id: 'clear-strongs-cache',
-			name: "Strong's: Clear caches and reset stats",
+			name: "Strong's: clear caches and reset stats",
 			callback: () => {
 				this.clearCaches();
-				new Notice('✓ Strong\'s caches cleared and statistics reset', 4000);
+				new Notice('✓ Strong\'s caches cleared and stats reset', 4000);
 			}
 		});
 
@@ -1696,14 +1762,14 @@ export default class BiblePortalPlugin extends Plugin {
 				}
 			}
 		} catch (error) {
-			console.warn('[Bible Portal] Data loading failed - plugin will still work for conversion:', error);
+			console.warn('[Bible portal] Data loading failed - plugin will still work for conversion:', error);
 		}
 
 		// Load Verse of the Day mapping (non-blocking)
 		try {
 			await this.loadVOTDMapping();
 		} catch (error) {
-			console.warn('[Bible Portal] VOTD loading failed:', error);
+			console.warn('[Bible portal] VOTD loading failed:', error);
 		}
 
 		// Note: Strong's dictionaries now loaded in onload() via loadStrongsDictionaries()
@@ -1712,7 +1778,7 @@ export default class BiblePortalPlugin extends Plugin {
 		try {
 			await this.loadJesusWords();
 		} catch (error) {
-			console.warn('[Bible Portal] Jesus Words loading failed:', error);
+			console.warn('[Bible portal] Jesus Words loading failed:', error);
 		}
 
 		// Register Bible Reference EditorSuggest (@reference syntax)
@@ -1721,7 +1787,7 @@ export default class BiblePortalPlugin extends Plugin {
 		}
 
 		// Register post-processor for click-to-open Bible callouts
-		this.registerMarkdownPostProcessor((el, ctx) => {
+		this.registerMarkdownPostProcessor((el) => {
 			// Find all Bible callouts
 			const callouts = el.querySelectorAll('.callout[data-callout="bible"], .callout[data-callout="bible-manuscript"]');
 
@@ -1757,11 +1823,11 @@ export default class BiblePortalPlugin extends Plugin {
 					if (metadata) {
 						// Parse metadata: bookChapter:startVerse-endVerse:versions
 						// e.g., "gen1:1-3:esv" or "john3:16:esv,niv"
-						this.navigateToCalloutReference(metadata);
+						void this.navigateToCalloutReference(metadata);
 					} else if (titleInner) {
 						// Fallback: try to parse from the title text
 						const titleText = titleInner.textContent || '';
-						this.navigateToCalloutReference(titleText);
+						void this.navigateToCalloutReference(titleText);
 					}
 				});
 			});
@@ -1775,7 +1841,7 @@ export default class BiblePortalPlugin extends Plugin {
 		const parsed = this.parseAtReference(reference.replace(/[|:]+$/, ''));
 
 		if (parsed.valid && parsed.bookName && parsed.chapter) {
-			// Open Bible Portal and navigate
+			// Open Bible portal and navigate
 			await this.activateBibleView();
 
 			// Small delay to let view initialize if newly created
@@ -1847,7 +1913,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 		// Reveal the leaf
 		if (leaf) {
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 		}
 	}
 
@@ -1882,7 +1948,7 @@ export default class BiblePortalPlugin extends Plugin {
 		// Refresh the view to update the button state
 		this.app.workspace.getLeavesOfType(VIEW_TYPE_BIBLE).forEach(leaf => {
 			if (leaf.view instanceof BibleView) {
-				leaf.view.render();
+				void leaf.view.render();
 			}
 		});
 	}
@@ -1921,7 +1987,7 @@ export default class BiblePortalPlugin extends Plugin {
 		// Initial status bar update
 		this.updateStudyModeStatusBar();
 
-		new Notice('📖 Study Mode started - tracking your session');
+		new Notice('📖 Study mode started - tracking your session');
 	}
 
 	/**
@@ -2008,7 +2074,7 @@ export default class BiblePortalPlugin extends Plugin {
 			if (!this.currentSession.chaptersVisited.has(key)) {
 				this.currentSession.chaptersVisited.add(key);
 				// Achievement tracking
-				this.updateAchievementStat('totalChaptersRead');
+				void this.updateAchievementStat('totalChaptersRead');
 
 				// Ensure studyHistory is initialized (for users with old settings)
 				if (!this.settings.studyHistory) {
@@ -2053,7 +2119,7 @@ export default class BiblePortalPlugin extends Plugin {
 			this.currentSession.notesCreated++;
 		}
 		// Achievement tracking (always)
-		this.updateAchievementStat('totalNotesCreated');
+		void this.updateAchievementStat('totalNotesCreated');
 	}
 
 	/**
@@ -2065,7 +2131,7 @@ export default class BiblePortalPlugin extends Plugin {
 			this.currentSession.highlightsAdded++;
 		}
 		// Achievement tracking (always)
-		this.updateAchievementStat('totalHighlightsAdded');
+		void this.updateAchievementStat('totalHighlightsAdded');
 	}
 
 	/**
@@ -2437,10 +2503,10 @@ export default class BiblePortalPlugin extends Plugin {
 		setIcon(iconEl, achievement.icon);
 
 		// Achievement name
-		const nameEl = card.createDiv({ cls: 'achievement-name-large', text: achievement.name });
+		card.createDiv({ cls: 'achievement-name-large', text: achievement.name });
 
 		// Description
-		const descEl = card.createDiv({ cls: 'achievement-desc-large', text: achievement.description });
+		card.createDiv({ cls: 'achievement-desc-large', text: achievement.description });
 
 		// Rarity badge
 		const rarityBadge = card.createDiv({ cls: `achievement-rarity-badge rarity-${achievement.rarity}` });
@@ -2484,23 +2550,24 @@ export default class BiblePortalPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		const savedData = await this.loadData();
+		const savedData = await this.loadData() as PersistedPluginData | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
 
 		// Migration: Convert old highlightGradient boolean to new highlightStyle
 		if (savedData && 'highlightGradient' in savedData && !savedData.highlightStyle) {
 			this.settings.highlightStyle = savedData.highlightGradient ? 'gradient' : 'solid';
-			delete (this.settings as any).highlightGradient;
+			// Remove legacy field from settings object using type assertion to mutable type
+			delete (this.settings as BiblePortalSettings & { highlightGradient?: boolean }).highlightGradient;
 			await this.saveSettings();
 		}
 	}
 
 	async saveSettings() {
 		// Load existing data to preserve highlights, bookmarks, notes, tags
-		const data = await this.loadData() || {};
+		const data = (await this.loadData() as PersistedPluginData | null) || {};
 
 		// Save settings while explicitly preserving data arrays
-		const mergedData = {
+		const mergedData: PersistedPluginData = {
 			...this.settings,  // All settings
 			highlights: data.highlights || [],  // Preserve highlights
 			noteReferences: data.noteReferences || [],  // Preserve note refs
@@ -2530,7 +2597,7 @@ export default class BiblePortalPlugin extends Plugin {
 	/**
 	 * Read JSON file from plugin data folder
 	 */
-	async readPluginDataFile(filename: string): Promise<unknown | null> {
+	async readPluginDataFile(filename: string): Promise<unknown> {
 		try {
 			const filePath = `${this.getPluginDataPath()}/${filename}`;
 			const adapter = this.app.vault.adapter;
@@ -2560,7 +2627,6 @@ export default class BiblePortalPlugin extends Plugin {
 			// Ensure data folder exists
 			const dataFolderExists = await adapter.exists(pluginDataPath);
 			if (!dataFolderExists) {
-				// @ts-ignore
 				await adapter.mkdir(pluginDataPath);
 			}
 
@@ -2577,7 +2643,6 @@ export default class BiblePortalPlugin extends Plugin {
 						currentPath = currentPath ? `${currentPath}/${part}` : part;
 						const partExists = await adapter.exists(currentPath);
 						if (!partExists) {
-							// @ts-ignore
 							await adapter.mkdir(currentPath);
 						}
 					}
@@ -2626,7 +2691,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 					try {
 						const bibleJson = await adapter.read(filePath);
-						const bibleData = JSON.parse(bibleJson);
+						const bibleData = JSON.parse(bibleJson) as BibleData;
 						this.bibleVersions.set(versionName, bibleData);
 						discoveredVersions.push(versionName);
 					} catch (error) {
@@ -2657,7 +2722,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 		} catch (error) {
 			console.error('Error loading Bible data:', error);
-			new Notice('Error loading Bible data. Check console for details.');
+			new Notice('Error loading Bible data');
 		}
 	}
 
@@ -2792,7 +2857,7 @@ export default class BiblePortalPlugin extends Plugin {
 	}
 
 	/**
-	 * Download Bible translation from Bolls Life API
+	 * Download Bible version from Bolls Life API
 	 * @param onProgress Optional callback for progress updates (step, message, percent)
 	 */
 	async downloadBibleTranslation(onProgress?: (step: string, message: string, percent: number) => void) {
@@ -2808,14 +2873,14 @@ export default class BiblePortalPlugin extends Plugin {
 				throw new Error(`Failed to fetch translations list: ${languagesResponse.status}`);
 			}
 
-			const languagesData = languagesResponse.json;
+			const languagesData = languagesResponse.json as BollsLanguage[];
 
 			// Flatten all translations from all languages, but ONLY keep English
 			const allTranslations: Array<{short_name: string, full_name: string, language: string}> = [];
-			languagesData.forEach((lang: { language: string; translations: Array<{ short_name: string; full_name: string }> }) => {
+			languagesData.forEach((lang: BollsLanguage) => {
 				// Only include English translations
 				if (lang.language === 'English') {
-					lang.translations.forEach((trans: { short_name: string; full_name: string }) => {
+					lang.translations.forEach((trans) => {
 						allTranslations.push({
 							short_name: trans.short_name,
 							full_name: trans.full_name,
@@ -2849,7 +2914,7 @@ export default class BiblePortalPlugin extends Plugin {
 				throw new Error(`Failed to fetch books for ${versionCode}: ${booksResponse.status}`);
 			}
 
-			const booksData = booksResponse.json;
+			const booksData = booksResponse.json as BollsBook[];
 
 			// Step 4: Download all chapters for all books (IN PARALLEL)
 			if (onProgress) onProgress('chapters', `Downloading ${versionCode}... Preparing ${booksData.length} books`, 10);
@@ -2904,11 +2969,11 @@ export default class BiblePortalPlugin extends Plugin {
 								return null;
 							}
 
-							const versesData = response.json;
+							const versesData = response.json as BollsVerse[];
 
 							// Convert verses array to our format (strip HTML tags)
 							const verses: Record<string, string> = {};
-							versesData.forEach((verseObj: { verse: number; text: string }) => {
+							versesData.forEach((verseObj: BollsVerse) => {
 								verses[verseObj.verse.toString()] = this.stripHtml(verseObj.text);
 							});
 
@@ -2971,8 +3036,9 @@ export default class BiblePortalPlugin extends Plugin {
 
 		} catch (error) {
 			console.error('Bible download error:', error);
-			if (onProgress) onProgress('error', `Download failed: ${error.message}`, -1);
-			else new Notice(`❌ Download failed: ${error.message}`, 8000);
+			const errMsg = error instanceof Error ? error.message : String(error);
+			if (onProgress) onProgress('error', `Download failed: ${errMsg}`, -1);
+			else new Notice(`❌ Download failed: ${errMsg}`, 8000);
 		}
 	}
 
@@ -2984,7 +3050,7 @@ export default class BiblePortalPlugin extends Plugin {
 			let selectedTranslation: {short_name: string, full_name: string} | null = null;
 
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('Select Bible translation');
+			modal.titleEl.setText('Select Bible version');
 
 			const contentEl = modal.contentEl;
 			contentEl.empty();
@@ -3076,7 +3142,7 @@ export default class BiblePortalPlugin extends Plugin {
 				throw new Error(`HTTP ${response.status}`);
 			}
 
-			const crossRefs = response.json;
+			const crossRefs = response.json as CrossReferenceEntry[];
 
 			if (!crossRefs || !Array.isArray(crossRefs)) {
 				throw new Error('Invalid cross-reference data format');
@@ -3105,7 +3171,8 @@ export default class BiblePortalPlugin extends Plugin {
 
 		} catch (error) {
 			console.error('Cross-reference download error:', error);
-			modal.setError(`Download failed: ${error.message}`);
+			const errMsg = error instanceof Error ? error.message : String(error);
+			modal.setError(`Download failed: ${errMsg}`);
 		}
 	}
 
@@ -3115,7 +3182,7 @@ export default class BiblePortalPlugin extends Plugin {
 	async loadCrossReferences() {
 		try {
 			// Load cross-references from plugin data folder
-			const fileData = await this.readPluginDataFile('cross-references.json');
+			const fileData = await this.readPluginDataFile('cross-references.json') as CrossReferenceEntry[] | null;
 			if (!fileData || !Array.isArray(fileData)) {
 				console.debug('ℹ️ Cross-references not downloaded yet');
 				this.crossReferences = null;
@@ -3240,7 +3307,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const version = this.settings.defaultVersion;
 			const bible = this.getBibleData(version);
 			if (!bible) {
-				new Notice('No Bible data loaded to build concordance from');
+				new Notice('No Bible data loaded');
 				return false;
 			}
 
@@ -3382,7 +3449,7 @@ export default class BiblePortalPlugin extends Plugin {
 				throw new Error(`HTTP ${response.status}`);
 			}
 
-			const commentaryData = response.json;
+			const commentaryData = response.json as Record<string, unknown>;
 
 			if (!commentaryData || typeof commentaryData !== 'object') {
 				throw new Error('Invalid commentary data format');
@@ -3410,7 +3477,7 @@ export default class BiblePortalPlugin extends Plugin {
 				author: "Matthew Henry",
 				year: "1706",
 				license: "Public Domain",
-				source: "Bible Portal Data Repository",
+				source: "Bible portal Data Repository",
 				books: bookCount
 			};
 			await this.writePluginDataFile('commentaries/mhc/metadata.json', metadata);
@@ -3422,7 +3489,8 @@ export default class BiblePortalPlugin extends Plugin {
 
 		} catch (error) {
 			console.error('Commentary download error:', error);
-			modal.setError(`Download failed: ${error.message}`);
+			const errMsg = error instanceof Error ? error.message : String(error);
+			modal.setError(`Download failed: ${errMsg}`);
 		}
 	}
 
@@ -3520,8 +3588,8 @@ export default class BiblePortalPlugin extends Plugin {
 			modal.setStatus('Saving dictionaries...');
 			modal.setProgress(20);
 
-			const greekData = greekResponse.json;
-			const hebrewData = hebrewResponse.json;
+			const greekData = greekResponse.json as Record<string, StrongsGreekEntry>;
+			const hebrewData = hebrewResponse.json as Record<string, StrongsHebrewEntry>;
 
 			await this.writePluginDataFile('strongs-greek.json', greekData);
 			await this.writePluginDataFile('strongs-hebrew.json', hebrewData);
@@ -3538,7 +3606,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const interlinearFiles = Object.values(INTERLINEAR_BOOK_MAPPING);
 			const totalFiles = interlinearFiles.length;
 			let downloadedFiles = 0;
-			let failedFiles: string[] = [];
+			const failedFiles: string[] = [];
 
 			for (const filename of interlinearFiles) {
 				const url = `${this.DATA_REPO_URL}/interlinear/${filename}.json`;
@@ -3550,7 +3618,7 @@ export default class BiblePortalPlugin extends Plugin {
 					} else {
 						failedFiles.push(filename);
 					}
-				} catch (e) {
+				} catch {
 					failedFiles.push(filename);
 				}
 
@@ -3573,12 +3641,13 @@ export default class BiblePortalPlugin extends Plugin {
 
 		} catch (error) {
 			console.error('Strong\'s download error:', error);
-			modal.setError(`Download failed: ${error.message}`);
+			const errMsg = error instanceof Error ? error.message : String(error);
+			modal.setError(`Download failed: ${errMsg}`);
 		}
 	}
 
 	/**
-	 * Download Theographic metadata from GitHub
+	 * Download theographic data metadata from GitHub
 	 */
 	async downloadTheographicData() {
 		const modal = new DownloadProgressModal(this.app, 'Downloading Theographic data');
@@ -3609,7 +3678,7 @@ export default class BiblePortalPlugin extends Plugin {
 						continue;
 					}
 
-					const data = response.json;
+					const data = response.json as unknown;
 					const success = await this.writePluginDataFile(file.path, data);
 					if (success) {
 						successCount++;
@@ -3639,7 +3708,8 @@ export default class BiblePortalPlugin extends Plugin {
 
 		} catch (error) {
 			console.error('Theographic download error:', error);
-			modal.setError(`Download failed: ${error.message}`);
+			const errMsg = error instanceof Error ? error.message : String(error);
+			modal.setError(`Download failed: ${errMsg}`);
 		}
 	}
 
@@ -3673,7 +3743,7 @@ export default class BiblePortalPlugin extends Plugin {
 			this.theographicData.verses = verses;
 
 			// Build indexes for fast lookups
-			await this.buildTheographicIndexes();
+			this.buildTheographicIndexes();
 
 			const peopleCount = people ? people.length : 0;
 			const placesCount = places ? places.length : 0;
@@ -3693,7 +3763,7 @@ export default class BiblePortalPlugin extends Plugin {
 	 * Build indexes for fast verse-to-metadata lookups
 	 * This creates Maps for O(1) lookups by verse reference
 	 */
-	async buildTheographicIndexes() {
+	buildTheographicIndexes() {
 		// Initialize indexes
 		this.theographicData.peopleByVerse = new Map();
 		this.theographicData.placesByVerse = new Map();
@@ -4261,7 +4331,7 @@ export default class BiblePortalPlugin extends Plugin {
 			p95ResponseTime: 0,
 			responseTimes: []
 		};
-		console.debug('✓ Caches cleared and statistics reset');
+		console.debug('✓ Caches cleared and stats reset');
 	}
 
 	/**
@@ -4300,8 +4370,6 @@ export default class BiblePortalPlugin extends Plugin {
 	}
 
 	buildSearchIndex(version: string) {
-		const startTime = performance.now();
-
 		const bible = this.getBibleData(version);
 		if (!bible) {
 			console.error(`Cannot build search index: ${version} not loaded`);
@@ -4356,7 +4424,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 			if (await adapter.exists(votdPath)) {
 				const votdJson = await adapter.read(votdPath);
-				this.votdMapping = JSON.parse(votdJson);
+				this.votdMapping = JSON.parse(votdJson) as VOTDMapping;
 			} else {
 				console.debug('ℹ️ No Verse of the Day mapping file found - using fallback verses');
 				this.votdMapping = null;
@@ -4380,7 +4448,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 			if (await adapter.exists(jesusWordsPath)) {
 				const jesusWordsJson = await adapter.read(jesusWordsPath);
-				this.jesusWordsData = JSON.parse(jesusWordsJson);
+				this.jesusWordsData = JSON.parse(jesusWordsJson) as JesusWordsData;
 
 				// Build fast lookup set from simple verse array
 				this.jesusWordsLookup.clear();
@@ -4398,8 +4466,8 @@ export default class BiblePortalPlugin extends Plugin {
 				this.jesusWordsData = null;
 			}
 		} catch (error) {
-			console.error('Error loading Jesus Words:', error);
-			new Notice('Error loading Jesus Words - check console for details');
+			console.error('Error loading Jesus words data:', error);
+			new Notice('Error loading Jesus words data - check console for details');
 			this.jesusWordsData = null;
 		}
 	}
@@ -4450,14 +4518,14 @@ export default class BiblePortalPlugin extends Plugin {
 			const fileExists = await adapter.exists(votdPath);
 			if (fileExists) {
 				// User should have already confirmed overwrite in settings
-				new Notice('Regenerating Verse of the Day mapping...');
+				new Notice('Regenerating verse of the day mapping...');
 			}
 
 			// Get all verses from default version
 			const version = this.settings.defaultVersion;
 			const bible = this.getBibleData(version);
 			if (!bible) {
-				new Notice('Error: Bible data not loaded');
+				new Notice('No Bible data available');
 				return false;
 			}
 
@@ -4511,7 +4579,7 @@ export default class BiblePortalPlugin extends Plugin {
 			return true;
 		} catch (error) {
 			console.error('Error generating VOTD mapping:', error);
-			new Notice('Error generating Verse of the Day mapping');
+			new Notice('Error generating verse of the day mapping');
 			return false;
 		}
 	}
@@ -4612,14 +4680,14 @@ export default class BiblePortalPlugin extends Plugin {
 		if (leaves.length > 0) {
 			const view = leaves[0].view;
 			if (view instanceof BibleView) {
-				view.render();
+				void view.render();
 			}
 		}
 	}
 
 	async loadHighlightsAndNotes() {
 		try {
-			const data = await this.loadData();
+			const data = await this.loadData() as PersistedPluginData | null;
 			if (data) {
 				this.highlights = data.highlights || [];
 				this.noteReferences = data.noteReferences || [];
@@ -4633,7 +4701,7 @@ export default class BiblePortalPlugin extends Plugin {
 
 	async saveHighlightsAndNotes() {
 		try {
-			const data = await this.loadData() || {};
+			const data = (await this.loadData() as PersistedPluginData | null) || {};
 			data.highlights = this.highlights;
 			data.noteReferences = this.noteReferences;
 			data.bookmarks = this.bookmarks;
@@ -4857,9 +4925,9 @@ export default class BiblePortalPlugin extends Plugin {
 	async getNoteTags(notePath: string): Promise<string[]> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(notePath);
-			if (!file) return [];
+			if (!(file instanceof TFile)) return [];
 
-			const content = await this.app.vault.read(file as any);
+			const content = await this.app.vault.read(file);
 
 			// Extract YAML frontmatter
 			const yamlMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
@@ -4904,9 +4972,9 @@ export default class BiblePortalPlugin extends Plugin {
 	async addTagToNote(notePath: string, newTag: string): Promise<boolean> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(notePath);
-			if (!file) return false;
+			if (!(file instanceof TFile)) return false;
 
-			let content = await this.app.vault.read(file as any);
+			let content = await this.app.vault.read(file);
 
 			// Check if tag already exists
 			const existingTags = await this.getNoteTags(notePath);
@@ -4923,7 +4991,7 @@ export default class BiblePortalPlugin extends Plugin {
 				const newTagLine = `  - ${newTag}\n`;
 				content = content.replace(yamlMatch[0], beforeTags + newTagLine + afterTags);
 
-				await this.app.vault.modify(file as any, content);
+				await this.app.vault.modify(file, content);
 				return true;
 			}
 
@@ -4938,15 +5006,15 @@ export default class BiblePortalPlugin extends Plugin {
 	async removeTagFromNote(notePath: string, tagToRemove: string): Promise<boolean> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(notePath);
-			if (!file) return false;
+			if (!(file instanceof TFile)) return false;
 
-			let content = await this.app.vault.read(file as any);
+			let content = await this.app.vault.read(file);
 
 			// Find and remove the tag line
 			const tagLineRegex = new RegExp(`  - ${tagToRemove.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\n`, 'g');
 			content = content.replace(tagLineRegex, '');
 
-			await this.app.vault.modify(file as any, content);
+			await this.app.vault.modify(file, content);
 			return true;
 		} catch (error) {
 			console.error(`Error removing tag from ${notePath}:`, error);
@@ -5111,7 +5179,7 @@ tags:
 		}
 
 		// Add note reference for the start verse (passage notes are anchored to start verse)
-		this.addNoteReference({
+		void this.addNoteReference({
 			book,
 			chapter,
 			verse: startVerse,
@@ -5168,7 +5236,7 @@ tags:
 		}
 
 		// Add note reference (chapter notes use verse 0 as anchor)
-		this.addNoteReference({
+		void this.addNoteReference({
 			book,
 			chapter,
 			verse: 0,
@@ -5223,7 +5291,7 @@ tags:
 		}
 
 		// Add note reference (book notes use chapter 0, verse 0 as anchor)
-		this.addNoteReference({
+		void this.addNoteReference({
 			book,
 			chapter: 0,
 			verse: 0,
@@ -5486,7 +5554,7 @@ class BibleView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return 'Bible Portal';
+		return 'Bible portal';
 	}
 
 	getIcon(): string {
@@ -5521,6 +5589,7 @@ class BibleView extends ItemView {
 	}
 
 	async onOpen() {
+		await Promise.resolve();
 		const container = this.containerEl.children[1];
 		container.empty();
 		container.addClass('bible-portal-view');
@@ -5533,6 +5602,7 @@ class BibleView extends ItemView {
 	}
 
 	async onClose() {
+		await Promise.resolve();
 		// Cleanup resize observer
 		if (this.resizeObserver) {
 			this.resizeObserver.disconnect();
@@ -5782,7 +5852,7 @@ class BibleView extends ItemView {
 
 			// Don't push to history when navigating back
 			const skipHistory = true;
-			this.render(skipHistory);
+			void this.render(skipHistory);
 		}
 	}
 
@@ -5800,7 +5870,7 @@ class BibleView extends ItemView {
 
 			// Don't push to history when navigating forward
 			const skipHistory = true;
-			this.render(skipHistory);
+			void this.render(skipHistory);
 		}
 	}
 
@@ -5845,15 +5915,15 @@ class BibleView extends ItemView {
 		const sidebarFooter = sidebar.createDiv({ cls: 'sidebar-footer' });
 		const settingsBtn = sidebarFooter.createEl('button', {
 			cls: 'sidebar-mode-btn sidebar-settings-btn',
-			attr: { 'aria-label': 'Settings', title: 'Open Bible Portal settings' }
+			attr: { 'aria-label': 'Settings', title: 'Open Bible portal settings' }
 		});
 		const settingsIcon = settingsBtn.createSpan({ cls: 'sidebar-mode-icon' });
 		setIcon(settingsIcon, 'settings');
 		settingsBtn.createSpan({ text: 'Settings', cls: 'sidebar-mode-title' });
 		settingsBtn.addEventListener('click', () => {
-			// Open Obsidian settings and navigate to Bible Portal plugin settings
-			(this.app as any).setting.open();
-			(this.app as any).setting.openTabById('bible-portal');
+			// Open Obsidian settings and navigate to Bible portal plugin settings
+			(this.app as ObsidianAppWithSettings).setting.open();
+			(this.app as ObsidianAppWithSettings).setting.openTabById('bible-portal');
 		});
 
 		const mainArea = layout.createDiv({ cls: 'bible-portal-main' });
@@ -5882,7 +5952,7 @@ class BibleView extends ItemView {
 			banner.style.setProperty('background', this.plugin.settings.bannerColor, 'important');
 		}
 		banner.createEl('h1', {
-			text: `${this.plugin.settings.bannerIcon} Bible Portal`,
+			text: `${this.plugin.settings.bannerIcon} Bible portal`,
 			cls: 'bible-portal-title'
 		});
 
@@ -5891,7 +5961,7 @@ class BibleView extends ItemView {
 			const votd = this.getVerseOfTheDay();
 			if (votd) {
 				const votdDiv = banner.createDiv({ cls: 'verse-of-the-day bp-clickable' });
-				votdDiv.createEl('span', { text: 'Verse of the Day: ', cls: 'votd-label' });
+				votdDiv.createEl('span', { text: 'Verse of the day: ', cls: 'votd-label' });
 				votdDiv.createEl('span', {
 					text: `${votd.reference} - "${votd.text}"`,
 					cls: 'votd-text'
@@ -5963,7 +6033,7 @@ class BibleView extends ItemView {
 
 			if (todaysReadings.length > 0) {
 				const quickLink = banner.createDiv({ cls: 'reading-plan-quick-link' });
-				quickLink.setAttribute('title', 'Click to open Reading Plans');
+				quickLink.setAttribute('title', 'Click to open Reading plans');
 
 				const iconSpan = quickLink.createSpan({ cls: 'quick-link-icon' });
 				setIcon(iconSpan, 'book-open-check');
@@ -6034,10 +6104,12 @@ class BibleView extends ItemView {
 				attr: { 'aria-label': 'Dismiss hints' }
 			});
 			setIcon(dismissBtn, 'x');
-			dismissBtn.addEventListener('click', async () => {
-				this.plugin.settings.onboardingComplete = true;
-				await this.plugin.saveSettings();
-				onboardingBar.remove();
+			dismissBtn.addEventListener('click', () => {
+				void (async () => {
+					this.plugin.settings.onboardingComplete = true;
+					await this.plugin.saveSettings();
+					onboardingBar.remove();
+				})();
 			});
 		}
 
@@ -6139,7 +6211,7 @@ class BibleView extends ItemView {
 			}
 		});
 
-		// Study Mode toggle button
+		// Study mode toggle button
 		const studyModeBtn = primaryNav.createEl('button', {
 			cls: `bible-study-mode-btn ${this.plugin.isStudyModeActive ? 'active' : ''}`,
 			attr: {
@@ -6165,18 +6237,20 @@ class BibleView extends ItemView {
 			}
 		});
 		setIcon(contextBtn, 'panel-right');
-		contextBtn.addEventListener('click', async () => {
-			this.plugin.settings.showContextSidebar = !this.plugin.settings.showContextSidebar;
-			await this.plugin.saveSettings();
-			await this.render();
+		contextBtn.addEventListener('click', () => {
+			void (async () => {
+				this.plugin.settings.showContextSidebar = !this.plugin.settings.showContextSidebar;
+				await this.plugin.saveSettings();
+				await this.render();
+			})();
 		});
 
-		// Chapter Actions button (bulk operations)
+		// Chapter actions button (bulk operations)
 		const chapterActionsBtn = primaryNav.createEl('button', {
 			cls: 'bible-chapter-actions-btn',
 			attr: {
 				'aria-label': 'Chapter actions',
-				'title': 'Chapter Actions (bulk move highlights)'
+				'title': 'Chapter actions (bulk move highlights)'
 			}
 		});
 		setIcon(chapterActionsBtn, 'more-vertical');
@@ -6345,10 +6419,12 @@ class BibleView extends ItemView {
 			attr: { 'aria-label': 'Toggle options', 'title': 'Toggle options' }
 		});
 		setIcon(toggleSecondaryBtn, this.plugin.settings.showSecondaryNav ? 'chevron-up' : 'chevron-down');
-		toggleSecondaryBtn.addEventListener('click', async () => {
-			this.plugin.settings.showSecondaryNav = !this.plugin.settings.showSecondaryNav;
-			await this.plugin.saveSettings();
-			await this.render();
+		toggleSecondaryBtn.addEventListener('click', () => {
+			void (async () => {
+				this.plugin.settings.showSecondaryNav = !this.plugin.settings.showSecondaryNav;
+				await this.plugin.saveSettings();
+				await this.render();
+			})();
 		});
 
 		// ===== SECONDARY NAV BAR (collapsible) =====
@@ -6425,9 +6501,11 @@ class BibleView extends ItemView {
 				option.selected = true;
 			}
 		});
-		layerSelect.addEventListener('change', async (e) => {
-			this.plugin.settings.activeAnnotationLayer = (e.target as HTMLSelectElement).value;
-			await this.plugin.saveSettings();
+		layerSelect.addEventListener('change', (e) => {
+			void (async () => {
+				this.plugin.settings.activeAnnotationLayer = (e.target as HTMLSelectElement).value;
+				await this.plugin.saveSettings();
+			})();
 		});
 
 		// Layer visibility toggles (compact)
@@ -6444,15 +6522,17 @@ class BibleView extends ItemView {
 			const eyeIcon = toggle.createSpan({ cls: 'toggle-icon' });
 			setIcon(eyeIcon, this.plugin.settings.visibleAnnotationLayers.includes(layer.id) ? 'eye' : 'eye-off');
 
-			toggle.addEventListener('click', async () => {
-				const idx = this.plugin.settings.visibleAnnotationLayers.indexOf(layer.id);
-				if (idx > -1) {
-					this.plugin.settings.visibleAnnotationLayers.splice(idx, 1);
-				} else {
-					this.plugin.settings.visibleAnnotationLayers.push(layer.id);
-				}
-				await this.plugin.saveSettings();
-				await this.render();
+			toggle.addEventListener('click', () => {
+				void (async () => {
+					const idx = this.plugin.settings.visibleAnnotationLayers.indexOf(layer.id);
+					if (idx > -1) {
+						this.plugin.settings.visibleAnnotationLayers.splice(idx, 1);
+					} else {
+						this.plugin.settings.visibleAnnotationLayers.push(layer.id);
+					}
+					await this.plugin.saveSettings();
+					await this.render();
+				})();
 			});
 		});
 
@@ -6464,10 +6544,12 @@ class BibleView extends ItemView {
 		const strongsInput = strongsCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'strongs-check' } });
 		strongsCheckbox.createEl('label', { text: "Strong's", attr: { for: 'strongs-check' } });
 		strongsInput.checked = this.plugin.settings.enableStrongs;
-		strongsInput.addEventListener('change', async () => {
-			this.plugin.settings.enableStrongs = strongsInput.checked;
-			await this.plugin.saveSettings();
-			await this.render();
+		strongsInput.addEventListener('change', () => {
+			void (async () => {
+				this.plugin.settings.enableStrongs = strongsInput.checked;
+				await this.plugin.saveSettings();
+				await this.render();
+			})();
 		});
 
 		// Notes checkbox
@@ -6475,10 +6557,12 @@ class BibleView extends ItemView {
 		const notesInput = notesCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'notes-check' } });
 		notesCheckbox.createEl('label', { text: 'Notes', attr: { for: 'notes-check' } });
 		notesInput.checked = this.plugin.settings.showNoteIndicators !== false;
-		notesInput.addEventListener('change', async () => {
-			this.plugin.settings.showNoteIndicators = notesInput.checked;
-			await this.plugin.saveSettings();
-			await this.render();
+		notesInput.addEventListener('change', () => {
+			void (async () => {
+				this.plugin.settings.showNoteIndicators = notesInput.checked;
+				await this.plugin.saveSettings();
+				await this.render();
+			})();
 		});
 
 		// Tags checkbox
@@ -6486,10 +6570,12 @@ class BibleView extends ItemView {
 		const tagsInput = tagsCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'tags-check' } });
 		tagsCheckbox.createEl('label', { text: 'Tags', attr: { for: 'tags-check' } });
 		tagsInput.checked = this.plugin.settings.showTagIndicators !== false;
-		tagsInput.addEventListener('change', async () => {
-			this.plugin.settings.showTagIndicators = tagsInput.checked;
-			await this.plugin.saveSettings();
-			await this.render();
+		tagsInput.addEventListener('change', () => {
+			void (async () => {
+				this.plugin.settings.showTagIndicators = tagsInput.checked;
+				await this.plugin.saveSettings();
+				await this.render();
+			})();
 		});
 
 		// Tags filter dropdown (only show if tags are enabled)
@@ -6500,7 +6586,7 @@ class BibleView extends ItemView {
 			const tagsSelect = tagsFilter.createEl('select', { cls: 'nav-filter-select' });
 
 			// Add "All" option
-			const allOption = tagsSelect.createEl('option', { value: '', text: 'All' });
+			tagsSelect.createEl('option', { value: '', text: 'All' });
 
 			// Add each tag as an option
 			allTags.forEach(tag => {
@@ -6584,10 +6670,10 @@ class BibleView extends ItemView {
 		const iconDiv = emptyState.createDiv({ cls: 'empty-state-icon' });
 		setIcon(iconDiv, 'book-open');
 
-		emptyState.createEl('h2', { text: 'No Bible translations installed', cls: 'empty-state-title' });
+		emptyState.createEl('h2', { text: 'No Bible versions installed', cls: 'empty-state-title' });
 
 		emptyState.createEl('p', {
-			text: 'Download a Bible translation to get started with Bible Portal.',
+			text: 'Download a Bible version to get started with Bible portal.',
 			cls: 'empty-state-desc'
 		});
 
@@ -6599,32 +6685,34 @@ class BibleView extends ItemView {
 
 		// Download button
 		const downloadBtn = emptyState.createEl('button', {
-			text: '📥 Download Bible translation',
+			text: '📥 Download Bible version',
 			cls: 'bible-download-btn mod-cta'
 		});
 
-		downloadBtn.addEventListener('click', async () => {
-			// Show progress, hide button
-			downloadBtn.addClass('bp-hidden');
-			progressContainer.removeClass('bp-hidden');
-			progressText.textContent = 'Fetching available translations...';
-			progressBarInner.style.width = '0%';
+		downloadBtn.addEventListener('click', () => {
+			void (async () => {
+				// Show progress, hide button
+				downloadBtn.addClass('bp-hidden');
+				progressContainer.removeClass('bp-hidden');
+				progressText.textContent = 'Fetching available translations...';
+				progressBarInner.style.setProperty('--bp-progress-width', '0%');
 
-			await this.plugin.downloadBibleTranslation((step, message, percent) => {
-				progressText.textContent = message;
-				if (percent >= 0) {
-					progressBarInner.style.width = `${percent}%`;
-				}
+				await this.plugin.downloadBibleTranslation((step, message, percent) => {
+					progressText.textContent = message;
+					if (percent >= 0) {
+						progressBarInner.style.setProperty('--bp-progress-width', `${percent}%`);
+					}
 
-				if (step === 'complete') {
-					// Re-render to show Bible content
-					setTimeout(() => this.render(), 500);
-				} else if (step === 'error') {
-					// Show error and restore button
-					progressContainer.addClass('bp-hidden');
-					downloadBtn.removeClass('bp-hidden');
-				}
-			});
+					if (step === 'complete') {
+						// Re-render to show Bible content
+						setTimeout(() => void this.render(), 500);
+					} else if (step === 'error') {
+						// Show error and restore button
+						progressContainer.addClass('bp-hidden');
+						downloadBtn.removeClass('bp-hidden');
+					}
+				});
+			})();
 		});
 
 		// Settings link
@@ -6634,8 +6722,8 @@ class BibleView extends ItemView {
 		link.addEventListener('click', (e) => {
 			e.preventDefault();
 			// Open settings
-			(this.app as any).setting.open();
-			(this.app as any).setting.openTabById('bible-portal');
+			(this.app as ObsidianAppWithSettings).setting.open();
+			(this.app as ObsidianAppWithSettings).setting.openTabById('bible-portal');
 		});
 		settingsLink.createEl('span', { text: ' for more options.' });
 	}
@@ -6766,9 +6854,11 @@ class BibleView extends ItemView {
 				option.selected = true;
 			}
 		});
-		layerSelect.addEventListener('change', async (e) => {
-			this.plugin.settings.activeAnnotationLayer = (e.target as HTMLSelectElement).value;
-			await this.plugin.saveSettings();
+		layerSelect.addEventListener('change', (e) => {
+			void (async () => {
+				this.plugin.settings.activeAnnotationLayer = (e.target as HTMLSelectElement).value;
+				await this.plugin.saveSettings();
+			})();
 		});
 
 		const layerToggles = layerGroup.createDiv({ cls: 'layer-toggles' });
@@ -6781,15 +6871,17 @@ class BibleView extends ItemView {
 			const eyeIcon = toggle.createSpan({ cls: 'toggle-icon' });
 			setIcon(eyeIcon, this.plugin.settings.visibleAnnotationLayers.includes(layer.id) ? 'eye' : 'eye-off');
 
-			toggle.addEventListener('click', async () => {
-				const idx = this.plugin.settings.visibleAnnotationLayers.indexOf(layer.id);
-				if (idx > -1) {
-					this.plugin.settings.visibleAnnotationLayers.splice(idx, 1);
-				} else {
-					this.plugin.settings.visibleAnnotationLayers.push(layer.id);
-				}
-				await this.plugin.saveSettings();
-				await this.render();
+			toggle.addEventListener('click', () => {
+				void (async () => {
+					const idx = this.plugin.settings.visibleAnnotationLayers.indexOf(layer.id);
+					if (idx > -1) {
+						this.plugin.settings.visibleAnnotationLayers.splice(idx, 1);
+					} else {
+						this.plugin.settings.visibleAnnotationLayers.push(layer.id);
+					}
+					await this.plugin.saveSettings();
+					await this.render();
+				})();
 			});
 		});
 
@@ -6800,20 +6892,24 @@ class BibleView extends ItemView {
 		const strongsInput = strongsCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'strongs-check-verse' } });
 		strongsCheckbox.createEl('label', { text: "Strong's", attr: { for: 'strongs-check-verse' } });
 		strongsInput.checked = this.plugin.settings.enableStrongs;
-		strongsInput.addEventListener('change', async () => {
-			this.plugin.settings.enableStrongs = strongsInput.checked;
-			await this.plugin.saveSettings();
-			await this.render();
+		strongsInput.addEventListener('change', () => {
+			void (async () => {
+				this.plugin.settings.enableStrongs = strongsInput.checked;
+				await this.plugin.saveSettings();
+				await this.render();
+			})();
 		});
 
 		const notesCheckbox = checkboxGroup.createDiv({ cls: 'nav-checkbox' });
 		const notesInput = notesCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'notes-check-verse' } });
 		notesCheckbox.createEl('label', { text: 'Notes', attr: { for: 'notes-check-verse' } });
 		notesInput.checked = this.plugin.settings.showNoteIndicators !== false;
-		notesInput.addEventListener('change', async () => {
-			this.plugin.settings.showNoteIndicators = notesInput.checked;
-			await this.plugin.saveSettings();
-			await this.render();
+		notesInput.addEventListener('change', () => {
+			void (async () => {
+				this.plugin.settings.showNoteIndicators = notesInput.checked;
+				await this.plugin.saveSettings();
+				await this.render();
+			})();
 		});
 
 		// Verse display
@@ -6891,7 +6987,7 @@ class BibleView extends ItemView {
 				}
 			} else {
 				const verseDisplay = container.createDiv({ cls: 'bible-verse-display' });
-				verseDisplay.createEl('p', { text: 'Invalid format. Use: Book Chapter:Verse (e.g., John 3:16)', cls: 'bible-error' });
+				verseDisplay.createEl('p', { text: 'Invalid format. Use: book chapter:verse (e.g., John 3:16)', cls: 'bible-error' });
 			}
 		}
 	}
@@ -7022,9 +7118,11 @@ class BibleView extends ItemView {
 				option.selected = true;
 			}
 		});
-		layerSelect.addEventListener('change', async (e) => {
-			this.plugin.settings.activeAnnotationLayer = (e.target as HTMLSelectElement).value;
-			await this.plugin.saveSettings();
+		layerSelect.addEventListener('change', (e) => {
+			void (async () => {
+				this.plugin.settings.activeAnnotationLayer = (e.target as HTMLSelectElement).value;
+				await this.plugin.saveSettings();
+			})();
 		});
 
 		const layerToggles = layerGroup.createDiv({ cls: 'layer-toggles' });
@@ -7037,15 +7135,17 @@ class BibleView extends ItemView {
 			const eyeIcon = toggle.createSpan({ cls: 'toggle-icon' });
 			setIcon(eyeIcon, this.plugin.settings.visibleAnnotationLayers.includes(layer.id) ? 'eye' : 'eye-off');
 
-			toggle.addEventListener('click', async () => {
-				const idx = this.plugin.settings.visibleAnnotationLayers.indexOf(layer.id);
-				if (idx > -1) {
-					this.plugin.settings.visibleAnnotationLayers.splice(idx, 1);
-				} else {
-					this.plugin.settings.visibleAnnotationLayers.push(layer.id);
-				}
-				await this.plugin.saveSettings();
-				await this.render();
+			toggle.addEventListener('click', () => {
+				void (async () => {
+					const idx = this.plugin.settings.visibleAnnotationLayers.indexOf(layer.id);
+					if (idx > -1) {
+						this.plugin.settings.visibleAnnotationLayers.splice(idx, 1);
+					} else {
+						this.plugin.settings.visibleAnnotationLayers.push(layer.id);
+					}
+					await this.plugin.saveSettings();
+					await this.render();
+				})();
 			});
 		});
 
@@ -7056,20 +7156,24 @@ class BibleView extends ItemView {
 		const strongsInput = strongsCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'strongs-check-passage' } });
 		strongsCheckbox.createEl('label', { text: "Strong's", attr: { for: 'strongs-check-passage' } });
 		strongsInput.checked = this.plugin.settings.enableStrongs;
-		strongsInput.addEventListener('change', async () => {
-			this.plugin.settings.enableStrongs = strongsInput.checked;
-			await this.plugin.saveSettings();
-			await this.render();
+		strongsInput.addEventListener('change', () => {
+			void (async () => {
+				this.plugin.settings.enableStrongs = strongsInput.checked;
+				await this.plugin.saveSettings();
+				await this.render();
+			})();
 		});
 
 		const notesCheckbox = checkboxGroup.createDiv({ cls: 'nav-checkbox' });
 		const notesInput = notesCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'notes-check-passage' } });
 		notesCheckbox.createEl('label', { text: 'Notes', attr: { for: 'notes-check-passage' } });
 		notesInput.checked = this.plugin.settings.showNoteIndicators !== false;
-		notesInput.addEventListener('change', async () => {
-			this.plugin.settings.showNoteIndicators = notesInput.checked;
-			await this.plugin.saveSettings();
-			await this.render();
+		notesInput.addEventListener('change', () => {
+			void (async () => {
+				this.plugin.settings.showNoteIndicators = notesInput.checked;
+				await this.plugin.saveSettings();
+				await this.render();
+			})();
 		});
 
 		// Passage display
@@ -7095,7 +7199,7 @@ class BibleView extends ItemView {
 			} else {
 				const passageDisplay = container.createDiv({ cls: 'bible-passage-display' });
 				passageDisplay.createEl('p', {
-					text: 'Invalid format. Use: Book Chapter:StartVerse-EndVerse (e.g., John 3:16-21)',
+					text: 'Invalid format. Use: book chapter:startVerse-endVerse (e.g., John 3:16-21)',
 					cls: 'bible-error'
 				});
 			}
@@ -7192,7 +7296,7 @@ class BibleView extends ItemView {
 
 				// KJV definition
 				const kjvSection = entryDiv.createDiv({ cls: 'strongs-kjv-section' });
-				kjvSection.createEl('h4', { text: 'KJV Translation:' });
+				kjvSection.createEl('h4', { text: 'KJV translation:' });
 				kjvSection.createEl('p', { text: entry.kjv_def });
 
 				// Derivation/Etymology
@@ -7282,7 +7386,7 @@ class BibleView extends ItemView {
 
 				// Copy button
 				const copyBtn = entryDiv.createEl('button', {
-					text: '📋 Copy to Clipboard',
+					text: '📋 Copy to clipboard',
 					cls: 'strongs-copy-btn'
 				});
 				copyBtn.addEventListener('click', () => {
@@ -7299,7 +7403,7 @@ class BibleView extends ItemView {
 
 					navigator.clipboard.writeText(copyText).then(() => {
 						copyBtn.setText('✓ Copied!');
-						setTimeout(() => copyBtn.setText('📋 Copy to Clipboard'), 2000);
+						setTimeout(() => copyBtn.setText('📋 Copy to clipboard'), 2000);
 					}).catch(() => showToast('Failed to copy to clipboard'));
 				});
 
@@ -7381,13 +7485,13 @@ class BibleView extends ItemView {
 					text: `${bookTypeIcon} Book Note (${bookTypeLabel})`,
 					cls: 'note-action-btn note-exists-btn'
 				});
-				bookNoteBtn.addEventListener('click', async (e) => {
+				bookNoteBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
 					const notePath = currentBookNoteRefs[0].notePath;
 					const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-					if (file) {
+					if (file instanceof TFile) {
 						const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-						await leaf.openFile(file as any);
+						void leaf.openFile(file);
 					}
 				});
 
@@ -7397,16 +7501,18 @@ class BibleView extends ItemView {
 					attr: { title: 'Delete book note' }
 				});
 				setIcon(deleteBookNoteBtn, 'trash-2');
-				deleteBookNoteBtn.addEventListener('click', async (e) => {
+				deleteBookNoteBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
-					const notePath = currentBookNoteRefs[0].notePath;
-					const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-					if (file) {
-						await this.plugin.app.vault.delete(file);
-					}
-					this.plugin.removeNoteReference(this.currentBook, 0, 0);
-					await this.render();
-					showToast('Book note deleted');
+					void (async () => {
+						const notePath = currentBookNoteRefs[0].notePath;
+						const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+						if (file) {
+							await this.plugin.app.vault.delete(file);
+						}
+						void this.plugin.removeNoteReference(this.currentBook, 0, 0);
+						await this.render();
+						showToast('Book note deleted');
+					})();
 				});
 			} else {
 				const createBookNoteBtn = noteButtonsContainer.createEl('button', {
@@ -7415,9 +7521,9 @@ class BibleView extends ItemView {
 				const bookNoteIcon = createBookNoteBtn.createSpan({ cls: 'btn-icon' });
 				setIcon(bookNoteIcon, 'book-marked');
 				createBookNoteBtn.createSpan({ text: 'Create book note' });
-				createBookNoteBtn.addEventListener('click', async (e) => {
+				createBookNoteBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
-					await this.createBookNote(this.currentBook);
+					void this.createBookNote(this.currentBook);
 				});
 			}
 
@@ -7459,13 +7565,13 @@ class BibleView extends ItemView {
 					text: `${chapterTypeIcon} Chapter Note (${chapterTypeLabel})`,
 					cls: 'note-action-btn note-exists-btn'
 				});
-				chapterNoteBtn.addEventListener('click', async (e) => {
+				chapterNoteBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
 					const notePath = currentChapterNoteRefs[0].notePath;
 					const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-					if (file) {
+					if (file instanceof TFile) {
 						const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-						await leaf.openFile(file as any);
+						void leaf.openFile(file);
 					}
 				});
 
@@ -7475,16 +7581,18 @@ class BibleView extends ItemView {
 					attr: { title: 'Delete chapter note' }
 				});
 				setIcon(deleteChapterNoteBtn, 'trash-2');
-				deleteChapterNoteBtn.addEventListener('click', async (e) => {
+				deleteChapterNoteBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
-					const notePath = currentChapterNoteRefs[0].notePath;
-					const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-					if (file) {
-						await this.plugin.app.vault.delete(file);
-					}
-					this.plugin.removeNoteReference(this.currentBook, this.currentChapter, 0);
-					await this.render();
-					showToast('Chapter note deleted');
+					void (async () => {
+						const notePath = currentChapterNoteRefs[0].notePath;
+						const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+						if (file) {
+							await this.plugin.app.vault.delete(file);
+						}
+						void this.plugin.removeNoteReference(this.currentBook, this.currentChapter, 0);
+						await this.render();
+						showToast('Chapter note deleted');
+					})();
 				});
 			} else {
 				const createChapterNoteBtn = noteButtonsContainer.createEl('button', {
@@ -7493,9 +7601,9 @@ class BibleView extends ItemView {
 				const chapterNoteIcon = createChapterNoteBtn.createSpan({ cls: 'btn-icon' });
 				setIcon(chapterNoteIcon, 'book-open');
 				createChapterNoteBtn.createSpan({ text: 'Create chapter note' });
-				createChapterNoteBtn.addEventListener('click', async (e) => {
+				createChapterNoteBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
-					await this.createChapterNote(this.currentBook, this.currentChapter);
+					void this.createChapterNote(this.currentBook, this.currentChapter);
 				});
 			}
 
@@ -7517,7 +7625,7 @@ class BibleView extends ItemView {
 				});
 
 				// All highlights option
-				const allOption = filterSelect.createEl('option', {
+				filterSelect.createEl('option', {
 					text: `All highlights (${chapterHighlights.length})`,
 					value: 'all'
 				});
@@ -7530,7 +7638,7 @@ class BibleView extends ItemView {
 
 				Object.entries(colorCounts).forEach(([color, count]) => {
 					const colorName = this.plugin.settings.highlightColors.find(c => c.color === color)?.name || 'Unknown';
-					const option = filterSelect.createEl('option', {
+					filterSelect.createEl('option', {
 						text: `${colorName} (${count})`,
 						value: color
 					});
@@ -7558,10 +7666,12 @@ class BibleView extends ItemView {
 				const clearIcon = clearBtn.createSpan({ cls: 'btn-icon' });
 				setIcon(clearIcon, 'trash-2');
 				clearBtn.createSpan({ text: `Clear all (${chapterHighlights.length})` });
-				clearBtn.addEventListener('click', async () => {
-					await Promise.all(chapterHighlights.map(h => this.plugin.removeHighlight(h.id)));
-					await this.renderAndScrollToVerse(1);
-					showToast(`Cleared ${chapterHighlights.length} highlight(s) from this chapter`);
+				clearBtn.addEventListener('click', () => {
+					void (async () => {
+						await Promise.all(chapterHighlights.map(h => this.plugin.removeHighlight(h.id)));
+						await this.renderAndScrollToVerse(1);
+						showToast(`Cleared ${chapterHighlights.length} highlight(s) from this chapter`);
+					})();
 				});
 			}
 
@@ -7823,8 +7933,6 @@ class BibleView extends ItemView {
 							const noteType = note.noteType || 'personal';
 							const noteTypeInfo = NOTE_TYPES.find(t => t.type === noteType);
 							const typeIcon = noteTypeInfo?.icon || '📝';
-							const levelName = level.charAt(0).toUpperCase() + level.slice(1);
-							const typeName = noteTypeInfo?.label || 'Study';
 
 							// Create individual clickable icon for this note (no title - we have custom hover preview)
 							const noteIcon = actionsDiv.createEl('span', {
@@ -7833,12 +7941,12 @@ class BibleView extends ItemView {
 							});
 
 							// Click to open this specific note
-							noteIcon.addEventListener('click', async (e) => {
+							noteIcon.addEventListener('click', (e) => {
 								e.stopPropagation();
 								const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
-								if (file) {
+								if (file instanceof TFile) {
 									const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-									await leaf.openFile(file as any);
+									void leaf.openFile(file);
 								}
 							});
 
@@ -7846,37 +7954,38 @@ class BibleView extends ItemView {
 							let hoverTimeout: NodeJS.Timeout;
 							let previewEl: HTMLElement | null = null;
 
-							noteIcon.addEventListener('mouseenter', async (e) => {
-								hoverTimeout = setTimeout(async () => {
-									const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
-									if (file) {
-										const content = await this.plugin.app.vault.read(file as any);
+							noteIcon.addEventListener('mouseenter', () => {
+								hoverTimeout = setTimeout(() => {
+									void (async () => {
+										const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
+										if (file instanceof TFile) {
+											const content = await this.plugin.app.vault.read(file);
 
-										// Extract just the Study Notes section
-										let preview = '';
-										const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
-										if (studyNotesMatch && studyNotesMatch[1]) {
-											preview = studyNotesMatch[1].trim();
-										} else {
-											// Fallback: strip frontmatter and show beginning
-											preview = content.replace(/^---[\s\S]*?---\s*/, '').trim();
+											// Extract just the Study Notes section
+											let preview = '';
+											const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+											if (studyNotesMatch && studyNotesMatch[1]) {
+												preview = studyNotesMatch[1].trim();
+											} else {
+												// Fallback: strip frontmatter and show beginning
+												preview = content.replace(/^---[\s\S]*?---\s*/, '').trim();
+											}
+
+											if (preview.length > 200) {
+												preview = preview.substring(0, 200) + '...';
+											}
+
+											previewEl = document.createElement('div');
+											previewEl.addClass('note-preview-popup');
+											previewEl.addClass('bp-positioned');
+											previewEl.textContent = preview || '(No study notes yet)';
+											document.body.appendChild(previewEl);
+
+											const rect = noteIcon.getBoundingClientRect();
+											previewEl.style.setProperty('--bp-pos-left', `${rect.right + 10}px`);
+											previewEl.style.setProperty('--bp-pos-top', `${rect.top}px`);
 										}
-
-										if (preview.length > 200) {
-											preview = preview.substring(0, 200) + '...';
-										}
-
-										previewEl = document.createElement('div');
-										previewEl.addClass('note-preview-popup');
-										previewEl.textContent = preview || '(No study notes yet)';
-										document.body.appendChild(previewEl);
-
-										const rect = noteIcon.getBoundingClientRect();
-										previewEl.style.position = 'absolute';
-										previewEl.style.left = `${rect.right + 10}px`;
-										previewEl.style.top = `${rect.top}px`;
-										previewEl.style.zIndex = '10000';
-									}
+									})();
 								}, 500);
 							});
 
@@ -7900,12 +8009,12 @@ class BibleView extends ItemView {
 						attr: { title: 'Bookmarked' }
 					});
 
-					bookmarkIcon.addEventListener('click', async (e) => {
+					bookmarkIcon.addEventListener('click', (e) => {
 						e.stopPropagation();
 						const bookmark = this.plugin.getBookmarkForVerse(this.currentBook, this.currentChapter, verseNumInt);
 						if (bookmark) {
-							this.plugin.removeBookmark(bookmark.id);
-							await this.renderAndScrollToVerse(verseNumInt);
+							void this.plugin.removeBookmark(bookmark.id);
+							void this.renderAndScrollToVerse(verseNumInt);
 							showToast('Bookmark removed');
 						}
 					});
@@ -7941,7 +8050,7 @@ class BibleView extends ItemView {
 								item.setTitle(`Remove "${tag.tag}" tag`)
 									.setIcon('x')
 									.onClick(async () => {
-										this.plugin.removeVerseTag(tag.id);
+										void this.plugin.removeVerseTag(tag.id);
 										showToast(`Removed "${tag.tag}" tag`);
 										await this.renderAndScrollToVerse(verseNumInt);
 									});
@@ -7954,7 +8063,7 @@ class BibleView extends ItemView {
 			}
 		} else {
 			container.createEl('p', {
-				text: 'Chapter not found. Please check your Bible data.',
+				text: 'Chapter not found',
 				cls: 'bible-error'
 			});
 		}
@@ -7988,7 +8097,7 @@ class BibleView extends ItemView {
 		// Track which Strong's words we've already used
 		const usedStrongs: Set<number> = new Set();
 
-		words.forEach((word, index) => {
+		words.forEach((word) => {
 			// Clean word for matching (remove punctuation)
 			const cleanWord = word.replace(/[^\w]/g, '').toLowerCase();
 
@@ -8012,7 +8121,7 @@ class BibleView extends ItemView {
 				wordSpan.dataset.strongs = strongsWord.number;
 
 				// Click to select word for Word Study tab
-				wordSpan.addEventListener('click', async (e) => {
+				wordSpan.addEventListener('click', (e) => {
 					e.stopPropagation();
 					this.selectedStrongsWord = strongsWord.number;
 
@@ -8024,7 +8133,7 @@ class BibleView extends ItemView {
 						this.plugin.settings.showContextSidebar = true;
 					}
 					this.plugin.settings.contextSidebarTab = 'word-study';
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 
 					// If sidebar was already visible, just update its content (no scroll reset)
 					if (sidebarWasVisible) {
@@ -8134,7 +8243,7 @@ class BibleView extends ItemView {
 			wordSpan.dataset.strongs = strongsNum;
 
 			// Click to select word for Word Study tab
-			wordSpan.addEventListener('click', async (e) => {
+			wordSpan.addEventListener('click', (e) => {
 				e.stopPropagation();
 				this.selectedStrongsWord = strongsNum;
 
@@ -8146,7 +8255,7 @@ class BibleView extends ItemView {
 					this.plugin.settings.showContextSidebar = true;
 				}
 				this.plugin.settings.contextSidebarTab = 'word-study';
-				await this.plugin.saveSettings();
+				void this.plugin.saveSettings();
 
 				// If sidebar was already visible, just update its content (no scroll reset)
 				if (sidebarWasVisible) {
@@ -8231,9 +8340,9 @@ class BibleView extends ItemView {
 		const tooltipLeft = rect.left + (rect.width / 2);
 		const tooltipTop = rect.bottom + 10;
 
-		tooltip.style.left = `${tooltipLeft}px`;
-		tooltip.style.top = `${tooltipTop}px`;
-		tooltip.style.transform = 'translateX(-50%)'; // Center horizontally
+		tooltip.style.setProperty('--bp-tooltip-left', `${tooltipLeft}px`);
+		tooltip.style.setProperty('--bp-tooltip-top', `${tooltipTop}px`);
+		tooltip.style.setProperty('--bp-tooltip-transform', 'translateX(-50%)'); // Center horizontally
 
 		document.body.appendChild(tooltip);
 		tooltip.dataset.strongsTooltip = 'active';
@@ -8364,7 +8473,7 @@ class BibleView extends ItemView {
 				cls: 'strongs-link bp-link'
 			});
 
-			link.addEventListener('click', async (e) => {
+			link.addEventListener('click', (e) => {
 				e.preventDefault();
 				e.stopPropagation();
 				// Close modal and show in Word Study tab
@@ -8375,8 +8484,8 @@ class BibleView extends ItemView {
 					this.plugin.settings.showContextSidebar = true;
 				}
 				this.plugin.settings.contextSidebarTab = 'word-study';
-				await this.plugin.saveSettings();
-				await this.render();
+				void this.plugin.saveSettings();
+				void this.render();
 			});
 
 			lastIndex = strongsPattern.lastIndex;
@@ -8617,7 +8726,7 @@ class BibleView extends ItemView {
 
 		if (ambiguous[lowerBook]) {
 			// Return null with error logged - caller should handle this
-			console.warn(`[Bible Portal] Ambiguous abbreviation "${book}" could match: ${ambiguous[lowerBook].join(', ')}`);
+			console.warn(`[Bible portal] Ambiguous abbreviation "${book}" could match: ${ambiguous[lowerBook].join(', ')}`);
 			return null;
 		}
 
@@ -8754,7 +8863,7 @@ class BibleView extends ItemView {
 					overlay.remove();
 				});
 
-				const chapterList = bookItem.createSpan({
+				bookItem.createSpan({
 					cls: 'session-chapter-list',
 					text: chapters.length > 5
 						? `Ch. ${chapters.slice(0, 5).join(', ')}... (${chapters.length} total)`
@@ -8786,13 +8895,11 @@ class BibleView extends ItemView {
 		menu.addClass('bible-verse-menu');
 
 		// Position near click
-		menu.style.position = 'absolute';
-		menu.style.left = `${event.clientX}px`;
-		menu.style.top = `${event.clientY}px`;
-		menu.style.zIndex = '1000';
+		menu.style.setProperty('--bp-pos-left', `${event.clientX}px`);
+		menu.style.setProperty('--bp-pos-top', `${event.clientY}px`);
 
 		// Add menu header
-		const header = menu.createEl('div', {
+		menu.createEl('div', {
 			text: `${book} ${chapter}:${verse}`,
 			cls: 'bible-menu-header'
 		});
@@ -8803,7 +8910,7 @@ class BibleView extends ItemView {
 		const hasSelection = this.selectedVerseStart !== null && this.selectedVerseEnd !== null;
 
 		// Add highlight options (or change color if highlighted)
-		this.plugin.settings.highlightColors.forEach((colorDef, index) => {
+		this.plugin.settings.highlightColors.forEach((colorDef) => {
 			let itemText = '';
 			if (hasSelection) {
 				itemText = `🎨 Highlight verses ${this.selectedVerseStart}-${this.selectedVerseEnd} (${colorDef.name})`;
@@ -8818,31 +8925,33 @@ class BibleView extends ItemView {
 				text: itemText
 			});
 			item.style.borderLeft = `4px solid ${colorDef.color}`;
-			item.addEventListener('click', async () => {
+			item.addEventListener('click', () => {
 				// Remember which verse we're working with
 				const targetVerse = hasSelection ? this.selectedVerseStart : verse;
 
 				menu.remove();
 
-				if (hasSelection) {
-					// Highlight range
-					await this.highlightSelectedRange(colorDef.color);
-				} else {
-					// Highlight single verse
-					// If already highlighted, remove old highlight first
-					if (hasHighlight) {
-						await Promise.all(highlights.map(h => this.plugin.removeHighlight(h.id)));
+				void (async () => {
+					if (hasSelection) {
+						// Highlight range
+						await this.highlightSelectedRange(colorDef.color);
+					} else {
+						// Highlight single verse
+						// If already highlighted, remove old highlight first
+						if (hasHighlight) {
+							await Promise.all(highlights.map(h => this.plugin.removeHighlight(h.id)));
+						}
+						await this.addVerseHighlight(book, chapter, verse, colorDef.color);
 					}
-					await this.addVerseHighlight(book, chapter, verse, colorDef.color);
-				}
 
-				// Scroll to the verse after render
-				setTimeout(() => {
-					const verseEl = this.containerEl.querySelector(`.bible-verse[data-verse="${targetVerse}"]`) as HTMLElement;
-					if (verseEl) {
-						verseEl.scrollIntoView({ behavior: 'auto', block: 'center' });
-					}
-				}, 50);
+					// Scroll to the verse after render
+					setTimeout(() => {
+						const verseEl = this.containerEl.querySelector(`.bible-verse[data-verse="${targetVerse}"]`) as HTMLElement;
+						if (verseEl) {
+							verseEl.scrollIntoView({ behavior: 'auto', block: 'center' });
+						}
+					}, 50);
+				})();
 			});
 		});
 
@@ -8854,11 +8963,13 @@ class BibleView extends ItemView {
 			const itemIcon = item.createSpan({ cls: 'menu-icon' });
 			setIcon(itemIcon, 'trash-2');
 			item.createSpan({ text: 'Remove highlight' });
-			item.addEventListener('click', async () => {
-				await Promise.all(highlights.map(h => this.plugin.removeHighlight(h.id)));
-				menu.remove();
-				await this.renderAndScrollToVerse(verse);
-				showToast('Highlight removed');
+			item.addEventListener('click', () => {
+				void (async () => {
+					await Promise.all(highlights.map(h => this.plugin.removeHighlight(h.id)));
+					menu.remove();
+					await this.renderAndScrollToVerse(verse);
+					showToast('Highlight removed');
+				})();
 			});
 		}
 
@@ -8868,7 +8979,7 @@ class BibleView extends ItemView {
 			const currentLayerId = currentHighlight.layer || 'personal';
 
 			// Submenu header
-			const moveToLayerHeader = menu.createEl('div', {
+			menu.createEl('div', {
 				cls: 'bible-menu-subheader',
 				text: '📁 Move to layer'
 			});
@@ -8885,15 +8996,17 @@ class BibleView extends ItemView {
 					layerName.createSpan({ text: ' ✓', cls: 'layer-checkmark' });
 				}
 
-				layerItem.addEventListener('click', async () => {
+				layerItem.addEventListener('click', () => {
 					// Move all highlights for this verse to the selected layer
 					for (const highlight of highlights) {
 						highlight.layer = layer.id;
 					}
-					await this.plugin.saveHighlightsAndNotes();
-					menu.remove();
-					await this.renderAndScrollToVerse(verse);
-					showToast(`Moved to ${layer.name} layer`);
+					void (async () => {
+						await this.plugin.saveHighlightsAndNotes();
+						menu.remove();
+						await this.renderAndScrollToVerse(verse);
+						showToast(`Moved to ${layer.name} layer`);
+					})();
 				});
 			});
 		}
@@ -8913,8 +9026,8 @@ class BibleView extends ItemView {
 				cls: 'bible-menu-item',
 				text: `${noteType.icon} Create ${noteType.label} note`
 			});
-			verseNoteItem.addEventListener('click', async () => {
-				await this.createNoteForVerseWithType(book, chapter, verse, noteType.type);
+			verseNoteItem.addEventListener('click', () => {
+				void this.createNoteForVerseWithType(book, chapter, verse, noteType.type);
 				menu.remove();
 			});
 		});
@@ -8925,8 +9038,8 @@ class BibleView extends ItemView {
 				cls: 'bible-menu-item',
 				text: `📝 Create passage note (${this.selectedVerseStart}-${this.selectedVerseEnd})`
 			});
-			passageNoteItem.addEventListener('click', async () => {
-				await this.createPassageNote(book, chapter, this.selectedVerseStart!, this.selectedVerseEnd!);
+			passageNoteItem.addEventListener('click', () => {
+				void this.createPassageNote(book, chapter, this.selectedVerseStart!, this.selectedVerseEnd!);
 				menu.remove();
 			});
 		}
@@ -8936,8 +9049,8 @@ class BibleView extends ItemView {
 			cls: 'bible-menu-item',
 			text: `📝 Create chapter note (${book} ${chapter})`
 		});
-		chapterNoteItem.addEventListener('click', async () => {
-			await this.createChapterNote(book, chapter);
+		chapterNoteItem.addEventListener('click', () => {
+			void this.createChapterNote(book, chapter);
 			menu.remove();
 		});
 
@@ -8946,8 +9059,8 @@ class BibleView extends ItemView {
 			cls: 'bible-menu-item',
 			text: `📝 Create book note (${book})`
 		});
-		bookNoteItem.addEventListener('click', async () => {
-			await this.createBookNote(book);
+		bookNoteItem.addEventListener('click', () => {
+			void this.createBookNote(book);
 			menu.remove();
 		});
 
@@ -8958,13 +9071,13 @@ class BibleView extends ItemView {
 				cls: 'bible-menu-item',
 				text: `📂 Open note (${noteRefs[0].noteLevel})`
 			});
-			openNoteItem.addEventListener('click', async () => {
+			openNoteItem.addEventListener('click', () => {
 				const notePath = noteRefs[0].notePath;
 				const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-				if (file) {
+				if (file instanceof TFile) {
 					// Open in split pane to the right
 					const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-					await leaf.openFile(file as any);
+					void leaf.openFile(file);
 				}
 				menu.remove();
 			});
@@ -8979,15 +9092,17 @@ class BibleView extends ItemView {
 				const deleteIcon = deleteNoteItem.createSpan({ cls: 'menu-icon' });
 				setIcon(deleteIcon, 'trash-2');
 				deleteNoteItem.createSpan({ text: `Delete ${noteTypeInfo?.label || 'Study'} note` });
-				deleteNoteItem.addEventListener('click', async () => {
-					const file = this.plugin.app.vault.getAbstractFileByPath(noteRefs[0].notePath);
-					if (file) {
-						await this.plugin.app.vault.delete(file);
-					}
-					this.plugin.removeNoteReference(book, chapter, verse, noteRefs[0].noteType);
-					menu.remove();
-					await this.renderAndScrollToVerse(verse);
-					showToast('Note deleted');
+				deleteNoteItem.addEventListener('click', () => {
+					void (async () => {
+						const file = this.plugin.app.vault.getAbstractFileByPath(noteRefs[0].notePath);
+						if (file) {
+							await this.plugin.app.vault.delete(file);
+						}
+						void this.plugin.removeNoteReference(book, chapter, verse, noteRefs[0].noteType);
+						menu.remove();
+						await this.renderAndScrollToVerse(verse);
+						showToast('Note deleted');
+					})();
 				});
 			} else {
 				// Multiple notes - show delete option for each
@@ -8999,15 +9114,17 @@ class BibleView extends ItemView {
 					const deleteIcon = deleteNoteItem.createSpan({ cls: 'menu-icon' });
 					setIcon(deleteIcon, 'trash-2');
 					deleteNoteItem.createSpan({ text: `Delete ${noteTypeInfo?.label || 'Study'} note` });
-					deleteNoteItem.addEventListener('click', async () => {
-						const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
-						if (file) {
-							await this.plugin.app.vault.delete(file);
-						}
-						this.plugin.removeNoteReference(book, chapter, verse, note.noteType);
-						menu.remove();
-						await this.renderAndScrollToVerse(verse);
-						showToast(`${noteTypeInfo?.label} note deleted`);
+					deleteNoteItem.addEventListener('click', () => {
+						void (async () => {
+							const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
+							if (file) {
+								await this.plugin.app.vault.delete(file);
+							}
+							void this.plugin.removeNoteReference(book, chapter, verse, note.noteType);
+							menu.remove();
+							await this.renderAndScrollToVerse(verse);
+							showToast(`${noteTypeInfo?.label} note deleted`);
+						})();
 					});
 				});
 			}
@@ -9025,27 +9142,29 @@ class BibleView extends ItemView {
 				cls: 'bible-menu-item',
 				text: `⭐ Bookmark verses ${this.selectedVerseStart}-${this.selectedVerseEnd}`
 			});
-			bookmarkRangeItem.addEventListener('click', async () => {
+			bookmarkRangeItem.addEventListener('click', () => {
 				const targetVerse = this.selectedVerseStart!;
 				menu.remove();
-				await this.bookmarkSelectedRange();
-				// Scroll to verse after render
-				setTimeout(() => {
-					const verseEl = this.containerEl.querySelector(`.bible-verse[data-verse="${targetVerse}"]`) as HTMLElement;
-					if (verseEl) verseEl.scrollIntoView({ behavior: 'auto', block: 'center' });
-				}, 50);
+				void (async () => {
+					await this.bookmarkSelectedRange();
+					// Scroll to verse after render
+					setTimeout(() => {
+						const verseEl = this.containerEl.querySelector(`.bible-verse[data-verse="${targetVerse}"]`) as HTMLElement;
+						if (verseEl) verseEl.scrollIntoView({ behavior: 'auto', block: 'center' });
+					}, 50);
+				})();
 			});
 		} else if (isBookmarked) {
 			const removeBookmarkItem = menu.createEl('div', {
 				cls: 'bible-menu-item',
 				text: '⭐ Remove bookmark'
 			});
-			removeBookmarkItem.addEventListener('click', async () => {
+			removeBookmarkItem.addEventListener('click', () => {
 				const bookmark = this.plugin.getBookmarkForVerse(book, chapter, verse);
 				if (bookmark) {
-					this.plugin.removeBookmark(bookmark.id);
+					void this.plugin.removeBookmark(bookmark.id);
 					menu.remove();
-					await this.renderAndScrollToVerse(verse);
+					void this.renderAndScrollToVerse(verse);
 					showToast('Bookmark removed');
 				}
 			});
@@ -9054,38 +9173,40 @@ class BibleView extends ItemView {
 				cls: 'bible-menu-item',
 				text: '⭐ Bookmark verse'
 			});
-			addBookmarkItem.addEventListener('click', async () => {
+			addBookmarkItem.addEventListener('click', () => {
 				menu.remove();
-				const verseText = this.plugin.getVerseText(this.currentVersion, book, chapter, verse);
-				if (verseText) {
-					const defaultName = `${book} ${chapter}:${verse}`;
-					const name = await this.plugin.promptBookmarkName(defaultName);
-					if (name === null) return; // Cancelled
+				void (async () => {
+					const verseText = this.plugin.getVerseText(this.currentVersion, book, chapter, verse);
+					if (verseText) {
+						const defaultName = `${book} ${chapter}:${verse}`;
+						const name = await this.plugin.promptBookmarkName(defaultName);
+						if (name === null) return; // Cancelled
 
-					const bookmark: Bookmark = {
-						id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-						name,
-						book,
-						bookmarkLevel: 'verse',
-						chapter,
-						verse,
-						text: verseText,
-						createdAt: Date.now()
-					};
-					this.plugin.addBookmark(bookmark);
+						const bookmark: Bookmark = {
+							id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+							name,
+							book,
+							bookmarkLevel: 'verse',
+							chapter,
+							verse,
+							text: verseText,
+							createdAt: Date.now()
+						};
+						void this.plugin.addBookmark(bookmark);
 
-					// Render and scroll to verse
-					await this.renderAndScrollToVerse(verse);
+						// Render and scroll to verse
+						await this.renderAndScrollToVerse(verse);
 
-					// Trigger bookmark pop animation
-					const bookmarkIcon = this.containerEl.querySelector(`.bible-verse[data-verse="${verse}"] .bookmark-icon`);
-					if (bookmarkIcon) {
-						bookmarkIcon.addClass('just-added');
-						setTimeout(() => bookmarkIcon.removeClass('just-added'), 400);
+						// Trigger bookmark pop animation
+						const bookmarkIcon = this.containerEl.querySelector(`.bible-verse[data-verse="${verse}"] .bookmark-icon`);
+						if (bookmarkIcon) {
+							bookmarkIcon.addClass('just-added');
+							setTimeout(() => bookmarkIcon.removeClass('just-added'), 400);
+						}
+
+						showToast(`Bookmarked: ${name}`);
 					}
-
-					showToast(`Bookmarked: ${name}`);
-				}
+				})();
 			});
 		}
 
@@ -9099,33 +9220,35 @@ class BibleView extends ItemView {
 		const chapterBookmarkIcon = bookmarkChapterItem.createSpan({ cls: 'menu-icon' });
 		setIcon(chapterBookmarkIcon, chapterBookmarked ? 'bookmark-minus' : 'bookmark-plus');
 		bookmarkChapterItem.createSpan({ text: chapterBookmarked ? 'Remove chapter bookmark' : 'Bookmark chapter' });
-		bookmarkChapterItem.addEventListener('click', async () => {
+		bookmarkChapterItem.addEventListener('click', () => {
 			menu.remove();
-			if (chapterBookmarked) {
-				const bookmark = this.plugin.bookmarks.find(b =>
-					b.book === book && b.chapter === chapter && b.bookmarkLevel === 'chapter'
-				);
-				if (bookmark) {
-					this.plugin.removeBookmark(bookmark.id);
-					showToast('Chapter bookmark removed');
-				}
-			} else {
-				const defaultName = `${book} ${chapter}`;
-				const name = await this.plugin.promptBookmarkName(defaultName);
-				if (name === null) return; // Cancelled
+			void (async () => {
+				if (chapterBookmarked) {
+					const bookmark = this.plugin.bookmarks.find(b =>
+						b.book === book && b.chapter === chapter && b.bookmarkLevel === 'chapter'
+					);
+					if (bookmark) {
+						void this.plugin.removeBookmark(bookmark.id);
+						showToast('Chapter bookmark removed');
+					}
+				} else {
+					const defaultName = `${book} ${chapter}`;
+					const name = await this.plugin.promptBookmarkName(defaultName);
+					if (name === null) return; // Cancelled
 
-				const bookmark: Bookmark = {
-					id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-					name,
-					book,
-					bookmarkLevel: 'chapter',
-					chapter,
-					createdAt: Date.now()
-				};
-				this.plugin.addBookmark(bookmark);
-				showToast(`Bookmarked: ${name}`);
-			}
-			await this.renderAndScrollToVerse(verse);
+					const bookmark: Bookmark = {
+						id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+						name,
+						book,
+						bookmarkLevel: 'chapter',
+						chapter,
+						createdAt: Date.now()
+					};
+					void this.plugin.addBookmark(bookmark);
+					showToast(`Bookmarked: ${name}`);
+				}
+				await this.renderAndScrollToVerse(verse);
+			})();
 		});
 
 		// Bookmark book option
@@ -9138,35 +9261,37 @@ class BibleView extends ItemView {
 		const bookBookmarkIcon = bookmarkBookItem.createSpan({ cls: 'menu-icon' });
 		setIcon(bookBookmarkIcon, bookBookmarked ? 'book-minus' : 'book-plus');
 		bookmarkBookItem.createSpan({ text: bookBookmarked ? 'Remove book bookmark' : 'Bookmark book' });
-		bookmarkBookItem.addEventListener('click', async () => {
-			if (bookBookmarked) {
-				const bookmark = this.plugin.bookmarks.find(b =>
-					b.book === book && b.bookmarkLevel === 'book'
-				);
-				if (bookmark) {
-					this.plugin.removeBookmark(bookmark.id);
-					showToast('Book bookmark removed');
+		bookmarkBookItem.addEventListener('click', () => {
+			void (async () => {
+				if (bookBookmarked) {
+					const bookmark = this.plugin.bookmarks.find(b =>
+						b.book === book && b.bookmarkLevel === 'book'
+					);
+					if (bookmark) {
+						void this.plugin.removeBookmark(bookmark.id);
+						showToast('Book bookmark removed');
+					}
+				} else {
+					// Prompt for bookmark name
+					const defaultName = book;
+					const bookmarkName = await this.plugin.promptBookmarkName(defaultName);
+					if (bookmarkName === null) {
+						menu.remove();
+						return; // User cancelled
+					}
+					const bookmark: Bookmark = {
+						id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+						name: bookmarkName || undefined,
+						book,
+						bookmarkLevel: 'book',
+						createdAt: Date.now()
+					};
+					void this.plugin.addBookmark(bookmark);
+					showToast(`${book} bookmarked`);
 				}
-			} else {
-				// Prompt for bookmark name
-				const defaultName = book;
-				const bookmarkName = await this.plugin.promptBookmarkName(defaultName);
-				if (bookmarkName === null) {
-					menu.remove();
-					return; // User cancelled
-				}
-				const bookmark: Bookmark = {
-					id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-					name: bookmarkName || undefined,
-					book,
-					bookmarkLevel: 'book',
-					createdAt: Date.now()
-				};
-				this.plugin.addBookmark(bookmark);
-				showToast(`${book} bookmarked`);
-			}
-			menu.remove();
-			await this.renderAndScrollToVerse(verse);
+				menu.remove();
+				await this.renderAndScrollToVerse(verse);
+			})();
 		});
 
 		// Tags section
@@ -9189,11 +9314,11 @@ class BibleView extends ItemView {
 				const tagIcon = tagItem.createSpan({ cls: 'menu-icon' });
 				setIcon(tagIcon, 'tag');
 				tagItem.createSpan({ text: `${tag.tag} ✕` });
-				tagItem.addEventListener('click', async () => {
-					this.plugin.removeVerseTag(tag.id);
+				tagItem.addEventListener('click', () => {
+					void this.plugin.removeVerseTag(tag.id);
 					showToast(`Removed "${tag.tag}" tag`);
 					menu.remove();
-					await this.renderAndScrollToVerse(verse);
+					void this.renderAndScrollToVerse(verse);
 				});
 			});
 			menu.createEl('div', { cls: 'bible-menu-separator-light' });
@@ -9219,7 +9344,7 @@ class BibleView extends ItemView {
 					cls: 'bible-menu-item',
 					text: tagName
 				});
-				tagOption.addEventListener('click', async () => {
+				tagOption.addEventListener('click', () => {
 					const newTag: VerseTag = {
 						id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 						book,
@@ -9228,10 +9353,10 @@ class BibleView extends ItemView {
 						tag: tagName,
 						createdAt: Date.now()
 					};
-					this.plugin.addVerseTag(newTag);
+					void this.plugin.addVerseTag(newTag);
 					showToast(`Added "${tagName}" tag`);
 					menu.remove();
-					await this.renderAndScrollToVerse(verse);
+					void this.renderAndScrollToVerse(verse);
 				});
 			});
 
@@ -9246,7 +9371,7 @@ class BibleView extends ItemView {
 			cls: 'bible-menu-item'
 		});
 		const addNewIcon = addNewTagItem.createSpan({ cls: 'menu-icon' });
-		setIcon(addNewIcon, 'tag-plus' as any);
+		setIcon(addNewIcon, 'plus');
 		addNewTagItem.createSpan({ text: 'Add new tag...' });
 		addNewTagItem.addEventListener('click', () => {
 			menu.remove();
@@ -9267,11 +9392,11 @@ class BibleView extends ItemView {
 				const removeMemIcon = removeMemItem.createSpan({ cls: 'menu-icon' });
 				setIcon(removeMemIcon, 'brain');
 				removeMemItem.createSpan({ text: 'Remove from memorization' });
-				removeMemItem.addEventListener('click', async () => {
+				removeMemItem.addEventListener('click', () => {
 					this.plugin.settings.memorizationVerses = this.plugin.settings.memorizationVerses.filter(
 						v => v.reference !== verseRef
 					);
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					menu.remove();
 					showToast('Removed from memorization list');
 				});
@@ -9282,7 +9407,7 @@ class BibleView extends ItemView {
 				const addMemIcon = addMemItem.createSpan({ cls: 'menu-icon' });
 				setIcon(addMemIcon, 'brain');
 				addMemItem.createSpan({ text: 'Add to memorization' });
-				addMemItem.addEventListener('click', async () => {
+				addMemItem.addEventListener('click', () => {
 					const verseText = this.plugin.getVerseText(this.currentVersion, book, chapter, verse) || '';
 					const now = new Date().toISOString();
 					const newVerse: MemorizationVerse = {
@@ -9298,7 +9423,7 @@ class BibleView extends ItemView {
 						createdDate: now
 					};
 					this.plugin.settings.memorizationVerses.push(newVerse);
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					menu.remove();
 					showToast('Added to memorization list');
 				});
@@ -9327,7 +9452,7 @@ class BibleView extends ItemView {
 				: `🖼️ Export verse ${verse} as image`
 		});
 		exportItem.addEventListener('click', () => {
-			this.exportAsImage(book, chapter, verse, hasSelection);
+			void this.exportAsImage(book, chapter, verse, hasSelection);
 			menu.remove();
 		});
 
@@ -9401,8 +9526,8 @@ class BibleView extends ItemView {
 			let hoverTimeout: NodeJS.Timeout;
 			let previewEl: HTMLElement | null = null;
 
-			refLink.addEventListener('mouseenter', async () => {
-				hoverTimeout = setTimeout(async () => {
+			refLink.addEventListener('mouseenter', () => {
+				hoverTimeout = setTimeout(() => {
 					const verseText = this.getVerseFromReference(ref);
 					if (verseText && !previewEl) {
 						previewEl = refItem.createEl('div', { cls: 'cross-ref-preview-inline' });
@@ -9449,7 +9574,7 @@ class BibleView extends ItemView {
 		// Try full verse/passage reference first
 		const verseMatch = reference.match(/^(.+?)\s+(\d+):(\d+)(?:-(\d+))?$/);
 		if (verseMatch) {
-			const [, book, chapter, startVerse, endVerse] = verseMatch;
+			const [, book, chapter, startVerse] = verseMatch;
 			this.currentBook = book.trim();
 			this.currentChapter = parseInt(chapter);
 
@@ -9585,7 +9710,6 @@ class BibleView extends ItemView {
 	}
 
 	performSearch(query: string, scope: string) {
-		const startTime = performance.now();
 		const searchQuery = query.toLowerCase().trim();
 		const results: Array<{book: string, chapter: number, verse: number, text: string}> = [];
 
@@ -9639,8 +9763,6 @@ class BibleView extends ItemView {
 					});
 				}
 			}
-
-			const endTime = performance.now();
 		}
 
 		// Display search results
@@ -9697,7 +9819,7 @@ class BibleView extends ItemView {
 				batch.forEach(result => {
 					const resultItem = resultsList.createDiv('search-result-item');
 
-					const reference = resultItem.createEl('div', {
+					resultItem.createEl('div', {
 						text: `${result.book} ${result.chapter}:${result.verse}`,
 						cls: 'search-result-reference'
 					});
@@ -9758,7 +9880,6 @@ class BibleView extends ItemView {
 	}
 
 	async searchNotes(query: string) {
-		const startTime = performance.now();
 		const searchQuery = query.toLowerCase().trim();
 		const results: Array<{
 			reference: string;
@@ -9777,10 +9898,10 @@ class BibleView extends ItemView {
 		// Search through each note's content
 		for (const noteRef of allNotes) {
 			const file = this.plugin.app.vault.getAbstractFileByPath(noteRef.notePath);
-			if (!file) continue;
+			if (!(file instanceof TFile)) continue;
 
 			try {
-				const content = await this.plugin.app.vault.read(file as any);
+				const content = await this.plugin.app.vault.read(file);
 
 				// Split content into frontmatter and body
 				const parts = content.split('---');
@@ -9825,8 +9946,6 @@ class BibleView extends ItemView {
 				console.error(`Error reading note ${noteRef.notePath}:`, error);
 			}
 		}
-
-		const endTime = performance.now();
 
 		// Display note search results
 		this.displayNoteSearchResults(query, results);
@@ -9906,7 +10025,7 @@ class BibleView extends ItemView {
 				this.populateWithHighlightedText(contextEl, result.matchContext, query);
 
 				// Preview of note content
-				const previewEl = resultItem.createEl('div', {
+				resultItem.createEl('div', {
 					text: result.preview,
 					cls: 'search-result-preview'
 				});
@@ -9938,11 +10057,11 @@ class BibleView extends ItemView {
 				});
 
 				// Open note handler
-				openNoteBtn.addEventListener('click', async () => {
+				openNoteBtn.addEventListener('click', () => {
 					const file = this.plugin.app.vault.getAbstractFileByPath(result.notePath);
-					if (file) {
+					if (file instanceof TFile) {
 						const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-						await leaf.openFile(file as any);
+						void leaf.openFile(file);
 						overlay.remove();
 						showToast(`Opened note for ${result.reference}`);
 					}
@@ -9954,9 +10073,9 @@ class BibleView extends ItemView {
 					if ((e.target as HTMLElement).tagName === 'BUTTON') return;
 
 					const file = this.plugin.app.vault.getAbstractFileByPath(result.notePath);
-					if (file) {
+					if (file instanceof TFile) {
 						const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-						leaf.openFile(file as any);
+						void leaf.openFile(file);
 						overlay.remove();
 						showToast(`Opened note for ${result.reference}`);
 					}
@@ -9986,7 +10105,7 @@ class BibleView extends ItemView {
 		// Header
 		const header = container.createDiv('bookmarks-header');
 		header.createEl('h3', {
-			text: '⭐ My Bookmarks',
+			text: '⭐ My bookmarks',
 			cls: 'bookmarks-title'
 		});
 
@@ -10028,13 +10147,13 @@ class BibleView extends ItemView {
 					}
 				}
 
-				const reference = bookmarkItem.createEl('div', {
+				bookmarkItem.createEl('div', {
 					text: referenceText,
 					cls: 'bookmark-reference'
 				});
 
 				if (bookmark.text) {
-					const textPreview = bookmarkItem.createEl('div', {
+					bookmarkItem.createEl('div', {
 						text: bookmark.text.slice(0, 100) + (bookmark.text.length > 100 ? '...' : ''),
 						cls: 'bookmark-text'
 					});
@@ -10043,7 +10162,7 @@ class BibleView extends ItemView {
 				// Format date
 				const date = new Date(bookmark.createdAt);
 				const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-				const createdDate = bookmarkItem.createEl('div', {
+				bookmarkItem.createEl('div', {
 					text: `Added: ${dateStr}`,
 					cls: 'bookmark-date'
 				});
@@ -10057,11 +10176,11 @@ class BibleView extends ItemView {
 
 				deleteBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
-					this.plugin.removeBookmark(bookmark.id);
+					void this.plugin.removeBookmark(bookmark.id);
 					showToast('Bookmark removed');
 					// Refresh the bookmarks manager
 					overlay.remove();
-					this.showBookmarksManager();
+					void this.showBookmarksManager();
 				});
 
 				// Click to navigate
@@ -10117,12 +10236,12 @@ class BibleView extends ItemView {
 			if (selectedTag) {
 				// Back button
 				const backBtn = header.createEl('button', {
-					text: '← Back to Tags',
+					text: '← Back to tags',
 					cls: 'tags-back-btn'
 				});
 				backBtn.addEventListener('click', () => {
 					selectedTag = null;
-					renderTagBrowser();
+					void renderTagBrowser();
 				});
 
 				header.createEl('h3', {
@@ -10131,7 +10250,7 @@ class BibleView extends ItemView {
 				});
 			} else {
 				header.createEl('h3', {
-					text: '🏷️ All Tags',
+					text: '🏷️ All tags',
 					cls: 'tags-title'
 				});
 
@@ -10158,7 +10277,7 @@ class BibleView extends ItemView {
 				// Show all tags
 				this.renderTagsList(contentArea, allTags, (tag: string) => {
 					selectedTag = tag;
-					renderTagBrowser();
+					void renderTagBrowser();
 				});
 			}
 		};
@@ -10202,7 +10321,7 @@ class BibleView extends ItemView {
 				});
 
 				// Tag count badge
-				const tagCount = tagItem.createEl('div', {
+				tagItem.createEl('div', {
 					text: `${count}`,
 					cls: 'tag-count-badge',
 					attr: { title: `${count} note(s) with this tag` }
@@ -10302,25 +10421,25 @@ class BibleView extends ItemView {
 			});
 
 			// Open note handler
-			openNoteBtn.addEventListener('click', async () => {
+			openNoteBtn.addEventListener('click', () => {
 				const file = this.plugin.app.vault.getAbstractFileByPath(noteRef.notePath);
-				if (file) {
+				if (file instanceof TFile) {
 					const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-					await leaf.openFile(file as any);
+					void leaf.openFile(file);
 					overlay.remove();
 					showToast(`Opened note for ${reference}`);
 				}
 			});
 
 			// Click anywhere on item to open note
-			noteItem.addEventListener('click', async (e) => {
+			noteItem.addEventListener('click', (e) => {
 				// Don't trigger if clicking buttons
 				if ((e.target as HTMLElement).tagName === 'BUTTON') return;
 
 				const file = this.plugin.app.vault.getAbstractFileByPath(noteRef.notePath);
-				if (file) {
+				if (file instanceof TFile) {
 					const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-					await leaf.openFile(file as any);
+					void leaf.openFile(file);
 					overlay.remove();
 					showToast(`Opened note for ${reference}`);
 				}
@@ -10431,7 +10550,8 @@ class BibleView extends ItemView {
 
 		// Open in split pane to the right
 		const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-		await leaf.openFile(this.plugin.app.vault.getAbstractFileByPath(notePath) as any);
+		const noteFile = this.plugin.app.vault.getAbstractFileByPath(notePath);
+		if (noteFile instanceof TFile) await leaf.openFile(noteFile);
 
 		this.plugin.trackNoteCreated(); // Track for study session
 		await this.render();
@@ -10443,7 +10563,8 @@ class BibleView extends ItemView {
 
 		// Open in split pane to the right
 		const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-		await leaf.openFile(this.plugin.app.vault.getAbstractFileByPath(notePath) as any);
+		const noteFile = this.plugin.app.vault.getAbstractFileByPath(notePath);
+		if (noteFile instanceof TFile) await leaf.openFile(noteFile);
 
 		this.plugin.trackNoteCreated(); // Track for study session
 		await this.renderAndScrollToVerse(verse);
@@ -10456,7 +10577,8 @@ class BibleView extends ItemView {
 
 		// Open in split pane to the right
 		const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-		await leaf.openFile(this.plugin.app.vault.getAbstractFileByPath(notePath) as any);
+		const noteFile = this.plugin.app.vault.getAbstractFileByPath(notePath);
+		if (noteFile instanceof TFile) await leaf.openFile(noteFile);
 
 		this.plugin.trackNoteCreated(); // Track for study session
 		await this.renderAndScrollToVerse(startVerse);
@@ -10468,7 +10590,8 @@ class BibleView extends ItemView {
 
 		// Open in split pane to the right
 		const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-		await leaf.openFile(this.plugin.app.vault.getAbstractFileByPath(notePath) as any);
+		const noteFile = this.plugin.app.vault.getAbstractFileByPath(notePath);
+		if (noteFile instanceof TFile) await leaf.openFile(noteFile);
 
 		this.plugin.trackNoteCreated(); // Track for study session
 		await this.renderAndScrollToVerse(1);
@@ -10480,7 +10603,8 @@ class BibleView extends ItemView {
 
 		// Open in split pane to the right
 		const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-		await leaf.openFile(this.plugin.app.vault.getAbstractFileByPath(notePath) as any);
+		const noteFile = this.plugin.app.vault.getAbstractFileByPath(notePath);
+		if (noteFile instanceof TFile) await leaf.openFile(noteFile);
 
 		this.plugin.trackNoteCreated(); // Track for study session
 		await this.renderAndScrollToVerse(1);
@@ -10500,7 +10624,7 @@ class BibleView extends ItemView {
 		}
 
 		// Remove the reference
-		this.plugin.removeNoteReference(book, chapter, verse);
+		void this.plugin.removeNoteReference(book, chapter, verse);
 
 		// Re-render to update UI
 		await this.renderAndScrollToVerse(verse);
@@ -10545,10 +10669,10 @@ class BibleView extends ItemView {
 		this.selectedVerseEnd = null;
 
 		// Render and scroll to start verse
-		await this.renderAndScrollToVerse(startVerse!);
+		await this.renderAndScrollToVerse(startVerse);
 
 		// Trigger highlight sweep animation on all verses in range
-		for (let v = startVerse!; v <= endVerse!; v++) {
+		for (let v = startVerse; v <= endVerse; v++) {
 			const verseEl = this.containerEl.querySelector(`.bible-verse[data-verse="${v}"]`);
 			if (verseEl) {
 				verseEl.addClass('just-highlighted');
@@ -10587,7 +10711,7 @@ class BibleView extends ItemView {
 			createdAt: Date.now()
 		};
 
-		this.plugin.addBookmark(bookmark);
+		void this.plugin.addBookmark(bookmark);
 
 		// Store start verse before clearing
 		const startVerse = this.selectedVerseStart;
@@ -10597,7 +10721,7 @@ class BibleView extends ItemView {
 		this.selectedVerseEnd = null;
 
 		// Render and scroll to start verse
-		await this.renderAndScrollToVerse(startVerse!);
+		await this.renderAndScrollToVerse(startVerse);
 
 		// Trigger bookmark pop animation
 		const bookmarkIcon = this.containerEl.querySelector(`.bible-verse[data-verse="${startVerse}"] .bookmark-icon`);
@@ -10640,7 +10764,7 @@ class BibleView extends ItemView {
 			// Clear selection after copying
 			this.selectedVerseStart = null;
 			this.selectedVerseEnd = null;
-			this.renderAndScrollToVerse(startVerse!);
+			void this.renderAndScrollToVerse(startVerse);
 		} else {
 			// Copy single verse
 			const verseText = this.plugin.getVerseText(versionToUse, book, chapter, verse);
@@ -10664,7 +10788,7 @@ class BibleView extends ItemView {
 		});
 	}
 
-	async exportAsImage(book: string, chapter: number, verse: number, isRange: boolean) {
+	exportAsImage(book: string, chapter: number, verse: number, isRange: boolean) {
 		let textToExport = '';
 		let reference = '';
 
@@ -10691,7 +10815,7 @@ class BibleView extends ItemView {
 			// Clear selection after exporting
 			this.selectedVerseStart = null;
 			this.selectedVerseEnd = null;
-			this.renderAndScrollToVerse(startVerse!);
+			void this.renderAndScrollToVerse(startVerse);
 		} else {
 			// Export single verse
 			reference = `${book} ${chapter}:${verse}`;
@@ -10763,7 +10887,7 @@ class BibleView extends ItemView {
 		}
 
 		// Convert canvas to blob
-		canvas.toBlob(async (blob) => {
+		canvas.toBlob((blob) => {
 			if (!blob) {
 				showToast('Failed to create image');
 				return;
@@ -10777,24 +10901,26 @@ class BibleView extends ItemView {
 			const folder = this.plugin.settings.imageExportFolder;
 			const path = `${folder}/${filename}`;
 
-			try {
-				// Ensure folder exists
-				const folderExists = await this.app.vault.adapter.exists(folder);
-				if (!folderExists) {
-					await this.app.vault.createFolder(folder);
+			void (async () => {
+				try {
+					// Ensure folder exists
+					const folderExists = await this.app.vault.adapter.exists(folder);
+					if (!folderExists) {
+						await this.app.vault.createFolder(folder);
+					}
+
+					// Convert blob to array buffer
+					const arrayBuffer = await blob.arrayBuffer();
+
+					// Write file
+					await this.app.vault.adapter.writeBinary(path, arrayBuffer);
+
+					showToast(`Exported to ${path}`);
+				} catch (err) {
+					console.error('Failed to save image:', err);
+					showToast('Failed to save image');
 				}
-
-				// Convert blob to array buffer
-				const arrayBuffer = await blob.arrayBuffer();
-
-				// Write file
-				await this.app.vault.adapter.writeBinary(path, arrayBuffer);
-
-				showToast(`Exported to ${path}`);
-			} catch (err) {
-				console.error('Failed to save image:', err);
-				showToast('Failed to save image');
-			}
+			})();
 		}, 'image/jpeg', this.plugin.settings.imageExportQuality / 100);
 	}
 
@@ -10850,8 +10976,8 @@ class BibleView extends ItemView {
 				text: '+ Create note',
 				cls: 'note-preview-create-btn'
 			});
-			createBtn.addEventListener('click', async () => {
-				await this.createNoteForVerseWithType(
+			createBtn.addEventListener('click', () => {
+				void this.createNoteForVerseWithType(
 					this.currentBook,
 					this.currentChapter,
 					this.previewVerse!,
@@ -10872,7 +10998,7 @@ class BibleView extends ItemView {
 			const noteCard = content.createDiv({ cls: 'note-preview-card' });
 
 			// Note level badge
-			const levelBadge = noteCard.createEl('span', {
+			noteCard.createEl('span', {
 				text: note.noteLevel.charAt(0).toUpperCase() + note.noteLevel.slice(1),
 				cls: `note-preview-badge note-level-${note.noteLevel}`
 			});
@@ -10882,18 +11008,18 @@ class BibleView extends ItemView {
 			previewText.setText('Loading...');
 
 			// Load note content
-			this.loadNotePreview(note.notePath, previewText);
+			void this.loadNotePreview(note.notePath, previewText);
 
 			// Open button
 			const openBtn = noteCard.createEl('button', {
 				text: 'Open',
 				cls: 'note-preview-open-btn'
 			});
-			openBtn.addEventListener('click', async () => {
+			openBtn.addEventListener('click', () => {
 				const file = this.plugin.app.vault.getAbstractFileByPath(note.notePath);
-				if (file) {
+				if (file instanceof TFile) {
 					const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-					await leaf.openFile(file as any);
+					void leaf.openFile(file);
 				}
 			});
 		}
@@ -10903,8 +11029,8 @@ class BibleView extends ItemView {
 			text: '+ Add another note',
 			cls: 'note-preview-create-btn'
 		});
-		createBtn.addEventListener('click', async () => {
-			await this.createNoteForVerseWithType(
+		createBtn.addEventListener('click', () => {
+			void this.createNoteForVerseWithType(
 				this.currentBook,
 				this.currentChapter,
 				this.previewVerse!,
@@ -10959,8 +11085,8 @@ class BibleView extends ItemView {
 	async loadNotePreview(notePath: string, element: HTMLElement) {
 		try {
 			const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-			if (file) {
-				const content = await this.plugin.app.vault.read(file as any);
+			if (file instanceof TFile) {
+				const content = await this.plugin.app.vault.read(file);
 
 				// Extract just the Study Notes section content
 				let preview = '';
@@ -10979,7 +11105,7 @@ class BibleView extends ItemView {
 			} else {
 				element.setText('(Note not found)');
 			}
-		} catch (error) {
+		} catch {
 			element.setText('(Error loading note)');
 		}
 	}
@@ -11127,7 +11253,7 @@ class BibleView extends ItemView {
 	/**
 	 * Render a collapsible section in the Theographic sidebar
 	 */
-	renderTheographicSection<T>(
+	renderTheographicSection<T extends TheographicPerson | TheographicPlace | TheographicEvent>(
 		container: HTMLElement,
 		title: string,
 		items: T[],
@@ -11139,7 +11265,7 @@ class BibleView extends ItemView {
 
 		// Section header (clickable to collapse/expand)
 		const header = section.createDiv({ cls: 'theographic-section-header' });
-		const headerText = header.createEl('div', {
+		header.createEl('div', {
 			text: `${title} (${items.length})`,
 			cls: 'theographic-section-title'
 		});
@@ -11156,7 +11282,7 @@ class BibleView extends ItemView {
 		items.forEach(item => {
 			const itemEl = content.createDiv({ cls: 'theographic-item bp-clickable' });
 
-			const nameEl = itemEl.createDiv({
+			itemEl.createDiv({
 				text: getName(item),
 				cls: 'theographic-item-name'
 			});
@@ -11171,7 +11297,7 @@ class BibleView extends ItemView {
 
 			// Make clickable to show detail modal
 			itemEl.addEventListener('click', () => {
-				new TheographicDetailModal(this.plugin.app, type, item as any, this.plugin, this).open();
+				new TheographicDetailModal(this.plugin.app, type, item, this.plugin, this).open();
 			});
 		});
 
@@ -11585,7 +11711,7 @@ class BibleView extends ItemView {
 
 		const periodSelect = filterDiv.createEl('select', { cls: 'timeline-period-select' });
 		periodSelect.createEl('option', { value: 'all', text: 'All periods' });
-		periodSelect.createEl('option', { value: 'creation', text: 'Creation & Early History' });
+		periodSelect.createEl('option', { value: 'creation', text: 'Creation & early history' });
 		periodSelect.createEl('option', { value: 'patriarchs', text: 'Patriarchs (2000-1500 BC)' });
 		periodSelect.createEl('option', { value: 'exodus', text: 'Exodus & Conquest (1500-1000 BC)' });
 		periodSelect.createEl('option', { value: 'kingdom', text: 'United & Divided Kingdom (1000-586 BC)' });
@@ -11603,7 +11729,7 @@ class BibleView extends ItemView {
 			}
 
 			// Filter events
-			let filteredEvents = this.plugin.theographicData.events.filter(event => {
+			const filteredEvents = this.plugin.theographicData.events.filter(event => {
 				const title = event.fields.title || '';
 				const matchesSearch = title.toLowerCase().includes(searchFilter.toLowerCase());
 
@@ -11707,7 +11833,7 @@ class BibleView extends ItemView {
 					const content = await this.app.vault.read(file);
 					totalWordCount += content.split(/\s+/).filter(w => w.length > 0).length;
 				}
-			} catch (e) {
+			} catch {
 				// File might not exist
 			}
 		}
@@ -11741,7 +11867,7 @@ class BibleView extends ItemView {
 							count++;
 						}
 					}
-				} catch (e) {}
+				} catch {}
 			}
 			recentActivity.push({ date: dateStr, count });
 		}
@@ -11763,7 +11889,7 @@ class BibleView extends ItemView {
 							break;
 						}
 					}
-				} catch (e) {}
+				} catch {}
 			}
 
 			if (hasActivity) {
@@ -11785,7 +11911,6 @@ class BibleView extends ItemView {
 
 	renderNotesBrowserMode(container: HTMLElement) {
 		// Track selected note for preview panel
-		let selectedNote: NoteReference | null = null;
 
 		// Main container with class for styling
 		const mainContainer = container.createDiv({ cls: 'notes-browser' });
@@ -11798,43 +11923,45 @@ class BibleView extends ItemView {
 		// Action buttons
 		const actionsDiv = headerTop.createDiv({ cls: 'notes-actions' });
 
-		// Find Orphans button
+		// Find orphans button
 		const orphanBtn = actionsDiv.createEl('button', {
-			text: '🔍 Find Orphans',
+			text: '🔍 Find orphans',
 			cls: 'notes-action-btn',
 			attr: { title: 'Find notes with missing files' }
 		});
-		orphanBtn.addEventListener('click', async () => {
-			const orphanedNotes: NoteReference[] = [];
-			for (const noteRef of this.plugin.noteReferences) {
-				const file = this.app.vault.getAbstractFileByPath(noteRef.notePath);
-				if (!(file instanceof TFile)) {
-					orphanedNotes.push(noteRef);
-				}
-			}
-			if (orphanedNotes.length === 0) {
-				showToast('No orphaned notes found - all references are valid!');
-				return;
-			}
-			// Show confirmation to remove orphans
-			const orphanList = orphanedNotes.slice(0, 5).map(n => `• ${n.book} ${n.chapter}:${n.verse}`).join('\n');
-			const moreText = orphanedNotes.length > 5 ? `\n... and ${orphanedNotes.length - 5} more` : '';
-			const confirmRemove = await showConfirmModal(
-				this.plugin.app,
-				'Remove orphaned references',
-				`Found ${orphanedNotes.length} orphaned note reference${orphanedNotes.length > 1 ? 's' : ''} (files no longer exist):\n\n${orphanList}${moreText}\n\nRemove these orphaned references?`,
-				{ isDestructive: true, confirmText: 'Remove' }
-			);
-			if (confirmRemove) {
-				const validNotes = this.plugin.noteReferences.filter(noteRef => {
+		orphanBtn.addEventListener('click', () => {
+			void (async () => {
+				const orphanedNotes: NoteReference[] = [];
+				for (const noteRef of this.plugin.noteReferences) {
 					const file = this.app.vault.getAbstractFileByPath(noteRef.notePath);
-					return file instanceof TFile;
-				});
-				this.plugin.noteReferences = validNotes;
-				await this.plugin.saveHighlightsAndNotes();
-				showToast(`Removed ${orphanedNotes.length} orphaned reference${orphanedNotes.length > 1 ? 's' : ''}`);
-				await this.render();
-			}
+					if (!(file instanceof TFile)) {
+						orphanedNotes.push(noteRef);
+					}
+				}
+				if (orphanedNotes.length === 0) {
+					showToast('No orphaned notes found - all references are valid!');
+					return;
+				}
+				// Show confirmation to remove orphans
+				const orphanList = orphanedNotes.slice(0, 5).map(n => `• ${n.book} ${n.chapter}:${n.verse}`).join('\n');
+				const moreText = orphanedNotes.length > 5 ? `\n... and ${orphanedNotes.length - 5} more` : '';
+				const confirmRemove = await showConfirmModal(
+					this.plugin.app,
+					'Remove orphaned references',
+					`Found ${orphanedNotes.length} orphaned note reference${orphanedNotes.length > 1 ? 's' : ''} (files no longer exist):\n\n${orphanList}${moreText}\n\nRemove these orphaned references?`,
+					{ isDestructive: true, confirmText: 'Remove' }
+				);
+				if (confirmRemove) {
+					const validNotes = this.plugin.noteReferences.filter(noteRef => {
+						const file = this.app.vault.getAbstractFileByPath(noteRef.notePath);
+						return file instanceof TFile;
+					});
+					this.plugin.noteReferences = validNotes;
+					await this.plugin.saveHighlightsAndNotes();
+					showToast(`Removed ${orphanedNotes.length} orphaned reference${orphanedNotes.length > 1 ? 's' : ''}`);
+					await this.render();
+				}
+			})();
 		});
 
 		// Export button
@@ -11842,53 +11969,55 @@ class BibleView extends ItemView {
 			text: '📤 Export',
 			cls: 'notes-action-btn'
 		});
-		exportBtn.addEventListener('click', async () => {
-			if (this.plugin.noteReferences.length === 0) {
-				showToast('No notes to export');
-				return;
-			}
-			const notesWithContent: Array<{
-				book: string;
-				chapter: number;
-				verse: number;
-				endVerse?: number;
-				noteLevel: string;
-				noteType: string;
-				filename: string;
-				content: string;
-			}> = [];
-			for (const noteRef of this.plugin.noteReferences) {
-				const file = this.app.vault.getAbstractFileByPath(noteRef.notePath);
-				if (file instanceof TFile) {
-					const content = await this.app.vault.read(file);
-					// Generate filename from reference (without path)
-					const filename = noteRef.notePath.split('/').pop() || `${noteRef.book} ${noteRef.chapter}_${noteRef.verse} - ${noteRef.noteLevel} note.md`;
-					notesWithContent.push({
-						book: noteRef.book,
-						chapter: noteRef.chapter,
-						verse: noteRef.verse,
-						endVerse: noteRef.endVerse,
-						noteLevel: noteRef.noteLevel,
-						noteType: noteRef.noteType,
-						filename,
-						content
-					});
+		exportBtn.addEventListener('click', () => {
+			void (async () => {
+				if (this.plugin.noteReferences.length === 0) {
+					showToast('No notes to export');
+					return;
 				}
-			}
-			const exportData = {
-				exportDate: new Date().toISOString(),
-				version: '2.1',
-				noteCount: notesWithContent.length,
-				notes: notesWithContent
-			};
-			const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-			const url = URL.createObjectURL(blob);
-			const link = document.createElement('a');
-			link.href = url;
-			link.download = `bible-notes-${new Date().toISOString().split('T')[0]}.json`;
-			link.click();
-			URL.revokeObjectURL(url);
-			showToast(`Exported ${notesWithContent.length} notes`);
+				const notesWithContent: Array<{
+					book: string;
+					chapter: number;
+					verse: number;
+					endVerse?: number;
+					noteLevel: string;
+					noteType: string;
+					filename: string;
+					content: string;
+				}> = [];
+				for (const noteRef of this.plugin.noteReferences) {
+					const file = this.app.vault.getAbstractFileByPath(noteRef.notePath);
+					if (file instanceof TFile) {
+						const content = await this.app.vault.read(file);
+						// Generate filename from reference (without path)
+						const filename = noteRef.notePath.split('/').pop() || `${noteRef.book} ${noteRef.chapter}_${noteRef.verse} - ${noteRef.noteLevel} note.md`;
+						notesWithContent.push({
+							book: noteRef.book,
+							chapter: noteRef.chapter,
+							verse: noteRef.verse,
+							endVerse: noteRef.endVerse,
+							noteLevel: noteRef.noteLevel,
+							noteType: noteRef.noteType,
+							filename,
+							content
+						});
+					}
+				}
+				const exportData = {
+					exportDate: new Date().toISOString(),
+					version: '2.1',
+					noteCount: notesWithContent.length,
+					notes: notesWithContent
+				};
+				const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+				const url = URL.createObjectURL(blob);
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = `bible-notes-${new Date().toISOString().split('T')[0]}.json`;
+				link.click();
+				URL.revokeObjectURL(url);
+				showToast(`Exported ${notesWithContent.length} notes`);
+			})();
 		});
 
 		// Import button
@@ -11896,7 +12025,7 @@ class BibleView extends ItemView {
 			text: '📥 Import',
 			cls: 'notes-action-btn'
 		});
-		importBtn.addEventListener('click', async () => {
+		importBtn.addEventListener('click', () => {
 			const input = document.createElement('input');
 			input.type = 'file';
 			input.accept = '.json';
@@ -11906,14 +12035,19 @@ class BibleView extends ItemView {
 				if (!file) return;
 				try {
 					const text = await file.text();
-					const importData = JSON.parse(text);
+					const importData = JSON.parse(text) as {
+						version?: string;
+						notes?: ImportedNoteData[];
+						noteReferences?: ImportedNoteData[];
+					};
 					// Support v2.0 (with notePath), v2.1 (with filename), and legacy formats
 					const isV2Plus = (importData.version === '2.0' || importData.version === '2.1') && importData.notes;
-					const notesToImport = isV2Plus ? importData.notes : importData.noteReferences;
-					if (!notesToImport || !Array.isArray(notesToImport)) {
+					const rawNotesToImport = isV2Plus ? importData.notes : importData.noteReferences;
+					if (!rawNotesToImport || !Array.isArray(rawNotesToImport)) {
 						showToast('Invalid format');
 						return;
 					}
+					const notesToImport: ImportedNoteData[] = rawNotesToImport;
 
 					// Use settings folder for all imports
 					const notesFolder = this.plugin.settings.notesFolder || 'Bible Notes';
@@ -11971,7 +12105,7 @@ class BibleView extends ItemView {
 							verse: note.verse,
 							endVerse: note.endVerse,
 							noteLevel: note.noteLevel,
-							noteType: note.noteType,
+							noteType: note.noteType || 'personal',
 							notePath: fullPath
 						});
 						imported++;
@@ -11982,8 +12116,8 @@ class BibleView extends ItemView {
 					if (filesCreated > 0) msg += ` (${filesCreated} files created)`;
 					if (skipped > 0) msg += `, ${skipped} skipped`;
 					showToast(msg);
-				} catch (e) {
-					console.error('Import error:', e);
+				} catch (error) {
+					console.error('Import error:', error);
 					showToast('Import failed');
 				}
 			};
@@ -12032,9 +12166,9 @@ class BibleView extends ItemView {
 			// Two column layout for charts
 			const chartsRow = analyticsContent.createDiv({ cls: 'analytics-charts-row' });
 
-			// Left: Notes by Book (bar chart)
+			// Left: Notes by book (bar chart)
 			const bookChartSection = chartsRow.createDiv({ cls: 'analytics-chart-section' });
-			bookChartSection.createEl('h4', { text: 'Notes by Book' });
+			bookChartSection.createEl('h4', { text: 'Notes by book' });
 			const bookChart = bookChartSection.createDiv({ cls: 'analytics-bar-chart' });
 
 			// Sort by count and show top 10
@@ -12120,8 +12254,8 @@ class BibleView extends ItemView {
 
 		// Sort dropdown
 		const sortSelect = controlsBar.createEl('select', { cls: 'notes-filter-select' });
-		sortSelect.createEl('option', { value: 'book', text: 'Sort: Book Order' });
-		sortSelect.createEl('option', { value: 'recent', text: 'Sort: Recent First' });
+		sortSelect.createEl('option', { value: 'book', text: 'Sort: book order' });
+		sortSelect.createEl('option', { value: 'recent', text: 'Sort: recent first' });
 		sortSelect.createEl('option', { value: 'alpha', text: 'Sort: A-Z' });
 
 		// Random Note button (Phase 6)
@@ -12176,7 +12310,7 @@ class BibleView extends ItemView {
 			if (!bulkMode) {
 				selectedForBulk.clear();
 			}
-			renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+			void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 		});
 
 		// Update bulk delete button text
@@ -12211,7 +12345,7 @@ class BibleView extends ItemView {
 				currentView = view.id as typeof currentView;
 				viewBtnElements.forEach(b => b.removeClass('active'));
 				btn.addClass('active');
-				renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+				void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 			});
 		});
 
@@ -12230,17 +12364,19 @@ class BibleView extends ItemView {
 		});
 
 		// Random button handler (needs notesListContainer)
-		randomBtn.addEventListener('click', async () => {
-			if (this.plugin.noteReferences.length === 0) {
-				showToast('No notes to choose from');
-				return;
-			}
-			const randomIndex = Math.floor(Math.random() * this.plugin.noteReferences.length);
-			const randomNote = this.plugin.noteReferences[randomIndex];
-			const referenceText = `${randomNote.book} ${randomNote.chapter}:${randomNote.verse}${randomNote.endVerse && randomNote.endVerse !== randomNote.verse ? `-${randomNote.endVerse}` : ''}`;
-			notesListContainer.querySelectorAll('.notes-list-item, .notes-card-item').forEach(el => el.removeClass('selected'));
-			await renderPreview(randomNote, referenceText);
-			showToast(`Random note: ${referenceText}`);
+		randomBtn.addEventListener('click', () => {
+			void (async () => {
+				if (this.plugin.noteReferences.length === 0) {
+					showToast('No notes to choose from');
+					return;
+				}
+				const randomIndex = Math.floor(Math.random() * this.plugin.noteReferences.length);
+				const randomNote = this.plugin.noteReferences[randomIndex];
+				const referenceText = `${randomNote.book} ${randomNote.chapter}:${randomNote.verse}${randomNote.endVerse && randomNote.endVerse !== randomNote.verse ? `-${randomNote.endVerse}` : ''}`;
+				notesListContainer.querySelectorAll('.notes-list-item, .notes-card-item').forEach(el => el.removeClass('selected'));
+				await renderPreview(randomNote, referenceText);
+				showToast(`Random note: ${referenceText}`);
+			})();
 		});
 
 		// ===== RENDER NOTES LIST =====
@@ -12284,7 +12420,7 @@ class BibleView extends ItemView {
 							try {
 								content = await this.app.vault.read(file);
 								noteContentCache.set(note.notePath, content);
-							} catch (e) {
+							} catch {
 								content = '';
 							}
 						}
@@ -12358,7 +12494,6 @@ class BibleView extends ItemView {
 					el.removeClass('selected');
 				});
 				element.addClass('selected');
-				selectedNote = note;
 				await renderPreview(note, referenceText);
 			};
 
@@ -12366,7 +12501,7 @@ class BibleView extends ItemView {
 			const togglePin = async (note: NoteReference) => {
 				note.isPinned = !note.isPinned;
 				await this.plugin.saveHighlightsAndNotes();
-				renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+				void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 				showToast(note.isPinned ? 'Note pinned' : 'Note unpinned');
 			};
 
@@ -12393,7 +12528,7 @@ class BibleView extends ItemView {
 						const checkbox = itemContent.createEl('input', {
 							type: 'checkbox',
 							cls: 'bulk-checkbox'
-						}) as HTMLInputElement;
+						});
 						checkbox.checked = selectedForBulk.has(note.notePath);
 						checkbox.addEventListener('click', (e) => {
 							e.stopPropagation();
@@ -12418,7 +12553,7 @@ class BibleView extends ItemView {
 						setIcon(pinIcon, 'pin');
 						pinBtn.addEventListener('click', (e) => {
 							e.stopPropagation();
-							togglePin(note);
+							void togglePin(note);
 						});
 					}
 
@@ -12442,14 +12577,14 @@ class BibleView extends ItemView {
 								updateBulkDeleteBtn();
 							}
 						} else {
-							handleNoteClick(note, referenceText, noteItem);
+							void handleNoteClick(note, referenceText, noteItem);
 						}
 					});
-					noteItem.addEventListener('dblclick', async () => {
+					noteItem.addEventListener('dblclick', () => {
 						if (!bulkMode) {
 							const file = this.app.vault.getAbstractFileByPath(note.notePath);
 							if (file instanceof TFile) {
-								await this.app.workspace.getLeaf('split').openFile(file);
+								void this.app.workspace.getLeaf('split').openFile(file);
 								this.navigateToReference(referenceText);
 							}
 						}
@@ -12459,14 +12594,14 @@ class BibleView extends ItemView {
 				// Bulk select all handler
 				bulkSelectAllBtn.onclick = () => {
 					currentFilteredNotes.forEach(n => selectedForBulk.add(n.notePath));
-					renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+					void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 					updateBulkDeleteBtn();
 				};
 
 				// Bulk deselect handler
 				bulkDeselectBtn.onclick = () => {
 					selectedForBulk.clear();
-					renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+					void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 					updateBulkDeleteBtn();
 				};
 
@@ -12501,7 +12636,7 @@ class BibleView extends ItemView {
 					bulkMode = false;
 					bulkToggleBtn.removeClass('active');
 					bulkActionsDiv.addClass('hidden');
-					renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+					void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 					showToast(`Deleted ${count} note${count > 1 ? 's' : ''}`);
 				};
 
@@ -12529,7 +12664,7 @@ class BibleView extends ItemView {
 					setIcon(pinIcon, 'pin');
 					pinBtn.addEventListener('click', (e) => {
 						e.stopPropagation();
-						togglePin(note);
+						void togglePin(note);
 					});
 
 					cardHeader.createEl('span', { text: noteType?.icon || '📝', cls: 'card-icon' });
@@ -12553,7 +12688,7 @@ class BibleView extends ItemView {
 								cardContent.textContent = 'Empty note';
 							}
 						}
-					} catch (e) {
+					} catch {
 						cardContent.textContent = 'Unable to load preview';
 					}
 
@@ -12561,11 +12696,11 @@ class BibleView extends ItemView {
 					const cardFooter = card.createDiv({ cls: 'card-footer' });
 					cardFooter.createEl('span', { text: noteType?.label || 'Note', cls: 'card-type' });
 
-					card.addEventListener('click', () => handleNoteClick(note, referenceText, card));
-					card.addEventListener('dblclick', async () => {
+					card.addEventListener('click', () => void handleNoteClick(note, referenceText, card));
+					card.addEventListener('dblclick', () => {
 						const file = this.app.vault.getAbstractFileByPath(note.notePath);
 						if (file instanceof TFile) {
-							await this.app.workspace.getLeaf('split').openFile(file);
+							void this.app.workspace.getLeaf('split').openFile(file);
 							this.navigateToReference(referenceText);
 						}
 					});
@@ -12611,7 +12746,7 @@ class BibleView extends ItemView {
 						timelineItem.createEl('span', { text: noteType?.icon || '📝', cls: 'timeline-icon' });
 						timelineItem.createEl('span', { text: referenceText, cls: 'timeline-ref' });
 
-						timelineItem.addEventListener('click', () => handleNoteClick(note, referenceText, timelineItem));
+						timelineItem.addEventListener('click', () => void handleNoteClick(note, referenceText, timelineItem));
 					});
 				});
 
@@ -12662,7 +12797,7 @@ class BibleView extends ItemView {
 							currentView = 'list';
 							viewBtnElements.forEach(b => b.removeClass('active'));
 							viewBtnElements[0].addClass('active');
-							renderNotes(searchInput.value, 'all', book, sortSelect.value, contentSearchCheckbox.checked);
+							void renderNotes(searchInput.value, 'all', book, sortSelect.value, contentSearchCheckbox.checked);
 						});
 					});
 				};
@@ -12712,9 +12847,9 @@ class BibleView extends ItemView {
 				text: '📖 Go to verse',
 				cls: 'preview-action-btn'
 			});
-			goToVerseBtn.addEventListener('click', async () => {
+			goToVerseBtn.addEventListener('click', () => {
 				// Open note in new tab and navigate to verse
-				await this.app.workspace.getLeaf('split').openFile(file);
+				void this.app.workspace.getLeaf('split').openFile(file);
 				this.navigateToReference(referenceText);
 			});
 
@@ -12722,28 +12857,30 @@ class BibleView extends ItemView {
 				text: '✏️ Edit',
 				cls: 'preview-action-btn'
 			});
-			openEditorBtn.addEventListener('click', async () => {
-				await this.app.workspace.getLeaf('split').openFile(file);
+			openEditorBtn.addEventListener('click', () => {
+				void this.app.workspace.getLeaf('split').openFile(file);
 			});
 
 			const deleteBtn = previewActions.createEl('button', {
 				text: '🗑️ Delete',
 				cls: 'preview-action-btn danger'
 			});
-			deleteBtn.addEventListener('click', async () => {
-				const confirmed = await showConfirmModal(
-					this.plugin.app,
-					'Delete note',
-					`Delete note for ${referenceText}?`,
-					{ isDestructive: true, confirmText: 'Delete' }
-				);
-				if (confirmed) {
-					await this.app.vault.delete(file);
-					this.plugin.noteReferences = this.plugin.noteReferences.filter(n => n.notePath !== note.notePath);
-					await this.plugin.saveHighlightsAndNotes();
-					showToast('Note deleted');
-					await this.render();
-				}
+			deleteBtn.addEventListener('click', () => {
+				void (async () => {
+					const confirmed = await showConfirmModal(
+						this.plugin.app,
+						'Delete note',
+						`Delete note for ${referenceText}?`,
+						{ isDestructive: true, confirmText: 'Delete' }
+					);
+					if (confirmed) {
+						await this.app.vault.delete(file);
+						this.plugin.noteReferences = this.plugin.noteReferences.filter(n => n.notePath !== note.notePath);
+						await this.plugin.saveHighlightsAndNotes();
+						showToast('Note deleted');
+						await this.render();
+					}
+				})();
 			});
 
 			// Preview content
@@ -12757,7 +12894,7 @@ class BibleView extends ItemView {
 					note.notePath,
 					this
 				);
-			} catch (e) {
+			} catch {
 				previewContent.createEl('pre', { text: fileContent });
 			}
 
@@ -12781,17 +12918,17 @@ class BibleView extends ItemView {
 						relRef += `-${related.endVerse}`;
 					}
 					relatedItem.textContent = relRef;
-					relatedItem.addEventListener('click', async () => {
+					relatedItem.addEventListener('click', () => {
 						notesListContainer.querySelectorAll('.notes-list-item').forEach(el => el.removeClass('selected'));
-						await renderPreview(related, relRef);
+						void renderPreview(related, relRef);
 					});
 				});
 			}
 		};
 
 		// Initial render
-		renderNotes();
-		renderAnalytics(); // Load analytics on initial render
+		void renderNotes();
+		void renderAnalytics(); // Load analytics on initial render
 
 		// Event listeners for filters
 		// Debounce for content search (more expensive)
@@ -12800,18 +12937,18 @@ class BibleView extends ItemView {
 			if (searchTimeout) clearTimeout(searchTimeout);
 			const delay = contentSearchCheckbox.checked ? 300 : 50; // Longer delay for content search
 			searchTimeout = setTimeout(() => {
-				renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+				void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 			}, delay);
 		});
 		bookFilter.addEventListener('change', () => {
-			renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+			void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 		});
 		sortSelect.addEventListener('change', () => {
-			renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+			void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 		});
 		contentSearchCheckbox.addEventListener('change', () => {
 			if (searchInput.value) {
-				renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
+				void renderNotes(searchInput.value, 'all', bookFilter.value, sortSelect.value, contentSearchCheckbox.checked);
 			}
 		});
 
@@ -13267,10 +13404,10 @@ class BibleView extends ItemView {
 		const actionsDiv = secondaryControlsBar.createDiv({ cls: 'highlights-actions' });
 
 		const exportBtn = actionsDiv.createEl('button', { text: '📤 Export', cls: 'highlights-action-btn' });
-		exportBtn.addEventListener('click', async () => await this.exportHighlights());
+		exportBtn.addEventListener('click', () => void this.exportHighlights());
 
 		const importBtn = actionsDiv.createEl('button', { text: '📥 Import', cls: 'highlights-action-btn' });
-		importBtn.addEventListener('click', async () => await this.importHighlights());
+		importBtn.addEventListener('click', () => void this.importHighlights());
 
 		// Bulk action controls
 		const bulkActionsDiv = secondaryControlsBar.createDiv({ cls: 'highlights-bulk-actions bp-hidden' });
@@ -13307,19 +13444,21 @@ class BibleView extends ItemView {
 				menu.addItem((item) => {
 					item.setTitle(layer.name);
 					item.setIcon('folder');
-					item.onClick(async () => {
-						// Move all selected highlights to this layer
-						const selectedHighlights = this.plugin.highlights.filter(h => selectedHighlightIds.has(h.id));
-						for (const highlight of selectedHighlights) {
-							highlight.layer = layer.id;
-						}
-						await this.plugin.saveHighlightsAndNotes();
+					item.onClick(() => {
+						void (async () => {
+							// Move all selected highlights to this layer
+							const selectedHighlights = this.plugin.highlights.filter(h => selectedHighlightIds.has(h.id));
+							for (const highlight of selectedHighlights) {
+								highlight.layer = layer.id;
+							}
+							await this.plugin.saveHighlightsAndNotes();
 
-						selectedHighlightIds.clear();
-						selectionCount.textContent = '0 selected';
-						bulkActionsDiv.addClass('bp-hidden');
-						renderHighlightsList();
-						showToast(`Moved ${selectedHighlights.length} highlight${selectedHighlights.length !== 1 ? 's' : ''} to ${layer.name} layer`);
+							selectedHighlightIds.clear();
+							selectionCount.textContent = '0 selected';
+							bulkActionsDiv.addClass('bp-hidden');
+							renderHighlightsList();
+							showToast(`Moved ${selectedHighlights.length} highlight${selectedHighlights.length !== 1 ? 's' : ''} to ${layer.name} layer`);
+						})();
 					});
 				});
 			});
@@ -13328,44 +13467,48 @@ class BibleView extends ItemView {
 		});
 
 		const bulkDeleteBtn = bulkActionsDiv.createEl('button', { text: '🗑️ Delete selected', cls: 'bulk-action-btn bulk-danger' });
-		bulkDeleteBtn.addEventListener('click', async () => {
+		bulkDeleteBtn.addEventListener('click', () => {
 			if (selectedHighlightIds.size === 0) return;
 
-			const confirmed = await this.showBulkDeleteHighlightsConfirmation(selectedHighlightIds.size);
-			if (confirmed) {
-				await Promise.all(Array.from(selectedHighlightIds).map(id => this.plugin.removeHighlight(id)));
-				selectedHighlightIds.clear();
-				selectionCount.textContent = '0 selected';
-				bulkActionsDiv.addClass('bp-hidden');
-				renderHighlightsList();
-				showToast(`Deleted highlights`);
-			}
+			void (async () => {
+				const confirmed = await this.showBulkDeleteHighlightsConfirmation(selectedHighlightIds.size);
+				if (confirmed) {
+					await Promise.all(Array.from(selectedHighlightIds).map(id => this.plugin.removeHighlight(id)));
+					selectedHighlightIds.clear();
+					selectionCount.textContent = '0 selected';
+					bulkActionsDiv.addClass('bp-hidden');
+					renderHighlightsList();
+					showToast(`Deleted highlights`);
+				}
+			})();
 		});
 
 		const clearAllBtn = actionsDiv.createEl('button', { text: '🗑️ Clear all', cls: 'highlights-action-btn danger' });
-		clearAllBtn.addEventListener('click', async () => {
-			const visibleLayers = this.plugin.settings.visibleAnnotationLayers;
-			const visibleHighlights = this.plugin.highlights.filter(h => {
-				const highlightLayer = h.layer || 'personal';
-				return visibleLayers.includes(highlightLayer);
-			});
-
-			if (visibleHighlights.length === 0) {
-				showToast('No visible highlights to clear');
-				return;
-			}
-
-			const confirmed = await this.showClearAllHighlightsConfirmation(visibleHighlights.length);
-			if (confirmed) {
-				// Delete only highlights from visible layers
-				this.plugin.highlights = this.plugin.highlights.filter(h => {
+		clearAllBtn.addEventListener('click', () => {
+			void (async () => {
+				const visibleLayers = this.plugin.settings.visibleAnnotationLayers;
+				const visibleHighlights = this.plugin.highlights.filter(h => {
 					const highlightLayer = h.layer || 'personal';
-					return !visibleLayers.includes(highlightLayer);
+					return visibleLayers.includes(highlightLayer);
 				});
-				await this.plugin.saveHighlightsAndNotes();
-				await this.render();
-				showToast(`Cleared ${visibleHighlights.length} highlights from visible layers`);
-			}
+
+				if (visibleHighlights.length === 0) {
+					showToast('No visible highlights to clear');
+					return;
+				}
+
+				const confirmed = await this.showClearAllHighlightsConfirmation(visibleHighlights.length);
+				if (confirmed) {
+					// Delete only highlights from visible layers
+					this.plugin.highlights = this.plugin.highlights.filter(h => {
+						const highlightLayer = h.layer || 'personal';
+						return !visibleLayers.includes(highlightLayer);
+					});
+					await this.plugin.saveHighlightsAndNotes();
+					await this.render();
+					showToast(`Cleared ${visibleHighlights.length} highlights from visible layers`);
+				}
+			})();
 		});
 
 		// ===== MAIN CONTENT AREA (Two columns) =====
@@ -13394,7 +13537,7 @@ class BibleView extends ItemView {
 			const colorIndicator = colorPickerContainer.createDiv({ cls: 'preview-color-indicator' });
 			colorIndicator.style.backgroundColor = highlight.color;
 			const currentColorName = this.plugin.settings.highlightColors.find(c => c.color === highlight.color)?.name || 'Custom';
-			const colorLabel = colorPickerContainer.createSpan({ text: currentColorName, cls: 'preview-color-label' });
+			colorPickerContainer.createSpan({ text: currentColorName, cls: 'preview-color-label' });
 			colorPickerContainer.setAttribute('title', 'Click to change color');
 
 			// Make entire container clickable
@@ -13407,15 +13550,17 @@ class BibleView extends ItemView {
 						if (color.color === highlight.color) {
 							item.setChecked(true);
 						}
-						item.onClick(async () => {
-							const highlightToUpdate = this.plugin.highlights.find(h => h.id === highlight.id);
-							if (highlightToUpdate) {
-								highlightToUpdate.color = color.color;
-								await this.plugin.saveHighlightsAndNotes();
-								renderHighlightsList();
-								renderPreview(highlightToUpdate);
-								showToast(`Changed to ${color.name}`);
-							}
+						item.onClick(() => {
+							void (async () => {
+								const highlightToUpdate = this.plugin.highlights.find(h => h.id === highlight.id);
+								if (highlightToUpdate) {
+									highlightToUpdate.color = color.color;
+									await this.plugin.saveHighlightsAndNotes();
+									renderHighlightsList();
+									renderPreview(highlightToUpdate);
+									showToast(`Changed to ${color.name}`);
+								}
+							})();
 						});
 					});
 				});
@@ -13432,13 +13577,13 @@ class BibleView extends ItemView {
 				if (layer.id === currentLayerId) option.selected = true;
 			});
 
-			layerSelect.addEventListener('change', async (e) => {
+			layerSelect.addEventListener('change', (e) => {
 				const newLayerId = (e.target as HTMLSelectElement).value;
 				const newLayer = this.plugin.settings.annotationLayers.find(l => l.id === newLayerId);
 
 				// Update highlight layer
 				highlight.layer = newLayerId;
-				await this.plugin.saveHighlightsAndNotes();
+				void this.plugin.saveHighlightsAndNotes();
 
 				showToast(`Moved to ${newLayer?.name || 'Unknown'} layer`);
 
@@ -13502,7 +13647,7 @@ class BibleView extends ItemView {
 				});
 
 				if (relatedHighlights.length > 5) {
-					const moreText = relatedList.createDiv({
+					relatedList.createDiv({
 						cls: 'preview-related-more',
 						text: `+${relatedHighlights.length - 5} more`
 					});
@@ -13522,15 +13667,17 @@ class BibleView extends ItemView {
 			});
 
 			const deleteBtn = actionsDiv.createEl('button', { text: '🗑️ Delete', cls: 'preview-action-btn danger' });
-			deleteBtn.addEventListener('click', async () => {
-				const confirmed = await this.showDeleteHighlightConfirmation(referenceText);
-				if (confirmed) {
-					await this.plugin.removeHighlight(highlight.id);
-					selectedHighlight = null;
-					renderHighlightsList();
-					renderPreview(null);
-					showToast('Highlight deleted');
-				}
+			deleteBtn.addEventListener('click', () => {
+				void (async () => {
+					const confirmed = await this.showDeleteHighlightConfirmation(referenceText);
+					if (confirmed) {
+						await this.plugin.removeHighlight(highlight.id);
+						selectedHighlight = null;
+						renderHighlightsList();
+						renderPreview(null);
+						showToast('Highlight deleted');
+					}
+				})();
 			});
 
 			// Keyboard hints
@@ -13556,7 +13703,7 @@ class BibleView extends ItemView {
 			const bookFilter = bookSelect.value;
 			const visibleLayers = this.plugin.settings.visibleAnnotationLayers;
 
-			let filteredHighlights = this.plugin.highlights.filter(highlight => {
+			const filteredHighlights = this.plugin.highlights.filter(highlight => {
 				// Filter by visible layers (highlights without layer default to 'personal')
 				const highlightLayer = highlight.layer || 'personal';
 				if (!visibleLayers.includes(highlightLayer)) return false;
@@ -13661,14 +13808,14 @@ class BibleView extends ItemView {
 							if (l.id === layerId) option.selected = true;
 						});
 
-						layerDropdown.addEventListener('change', async (e) => {
+						layerDropdown.addEventListener('change', (e) => {
 							e.stopPropagation(); // Prevent triggering list item click
 							const newLayerId = (e.target as HTMLSelectElement).value;
 							const newLayer = this.plugin.settings.annotationLayers.find(l => l.id === newLayerId);
 
 							// Update highlight layer
 							highlight.layer = newLayerId;
-							await this.plugin.saveHighlightsAndNotes();
+							void this.plugin.saveHighlightsAndNotes();
 
 							// Update badge color
 							layerBadge.style.backgroundColor = newLayer?.color || '#888888';
@@ -13733,7 +13880,7 @@ class BibleView extends ItemView {
 		// Heatmap View
 		const renderHeatmapView = (highlights: Highlight[]) => {
 			const heatmapContainer = listPanel.createDiv({ cls: 'highlights-heatmap-container' });
-			heatmapContainer.createEl('h3', { text: 'Highlights by Book' });
+			heatmapContainer.createEl('h3', { text: 'Highlights by book' });
 
 			const highlightsByBook = new Map<string, number>();
 			highlights.forEach(h => {
@@ -13882,7 +14029,7 @@ class BibleView extends ItemView {
 				cls: 'warning-text'
 			});
 			content.createEl('p', {
-				text: 'This action is PERMANENT and CANNOT be undone.',
+				text: 'This action cannot be undone.',
 				cls: 'warning-text-strong'
 			});
 
@@ -13924,7 +14071,7 @@ class BibleView extends ItemView {
 				cls: 'warning-text'
 			});
 			content.createEl('p', {
-				text: 'This action is PERMANENT and CANNOT be undone.',
+				text: 'This action cannot be undone.',
 				cls: 'warning-text-strong'
 			});
 
@@ -13966,7 +14113,7 @@ class BibleView extends ItemView {
 				cls: 'warning-text'
 			});
 			content.createEl('p', {
-				text: 'This action is PERMANENT and CANNOT be undone.',
+				text: 'This action cannot be undone.',
 				cls: 'warning-text-strong'
 			});
 			content.createEl('p', {
@@ -14013,7 +14160,7 @@ class BibleView extends ItemView {
 			const levelCounts = { book: 0, chapter: 0, verse: 0 };
 			bookmarks.forEach(b => {
 				if (b.bookmarkLevel in levelCounts) {
-					levelCounts[b.bookmarkLevel as keyof typeof levelCounts]++;
+					levelCounts[b.bookmarkLevel]++;
 				}
 			});
 
@@ -14186,24 +14333,26 @@ class BibleView extends ItemView {
 		const actionsDiv = controlsBar.createDiv({ cls: 'bookmarks-actions' });
 
 		const exportBtn = actionsDiv.createEl('button', { text: '📤 Export', cls: 'bookmarks-action-btn' });
-		exportBtn.addEventListener('click', async () => await this.exportBookmarks());
+		exportBtn.addEventListener('click', () => void this.exportBookmarks());
 
 		const importBtn = actionsDiv.createEl('button', { text: '📥 Import', cls: 'bookmarks-action-btn' });
-		importBtn.addEventListener('click', async () => await this.importBookmarks());
+		importBtn.addEventListener('click', () => void this.importBookmarks());
 
 		const clearAllBtn = actionsDiv.createEl('button', { text: '🗑️ Clear all', cls: 'bookmarks-action-btn danger' });
-		clearAllBtn.addEventListener('click', async () => {
-			if (this.plugin.bookmarks.length === 0) {
-				showToast('No bookmarks to clear');
-				return;
-			}
-			const confirmed = await this.showClearAllBookmarksConfirmation();
-			if (confirmed) {
-				this.plugin.bookmarks = [];
-				await this.plugin.saveHighlightsAndNotes();
-				await this.render();
-				showToast('All bookmarks cleared');
-			}
+		clearAllBtn.addEventListener('click', () => {
+			void (async () => {
+				if (this.plugin.bookmarks.length === 0) {
+					showToast('No bookmarks to clear');
+					return;
+				}
+				const confirmed = await this.showClearAllBookmarksConfirmation();
+				if (confirmed) {
+					this.plugin.bookmarks = [];
+					await this.plugin.saveHighlightsAndNotes();
+					await this.render();
+					showToast('All bookmarks cleared');
+				}
+			})();
 		});
 
 		// ===== MAIN CONTENT AREA (Two columns) =====
@@ -14280,28 +14429,32 @@ class BibleView extends ItemView {
 
 			// Rename button
 			const renameBtn = actionsDiv.createEl('button', { text: '✏️ Rename', cls: 'preview-action-btn' });
-			renameBtn.addEventListener('click', async () => {
-				const currentName = bookmark.name || referenceText;
-				const newName = await this.plugin.promptBookmarkName(currentName);
-				if (newName !== null) {
-					bookmark.name = newName || undefined;
-					await this.plugin.saveSettings();
-					renderBookmarksList();
-					renderPreview(bookmark);
-					showToast(newName ? `Renamed to "${newName}"` : 'Name cleared');
-				}
+			renameBtn.addEventListener('click', () => {
+				void (async () => {
+					const currentName = bookmark.name || referenceText;
+					const newName = await this.plugin.promptBookmarkName(currentName);
+					if (newName !== null) {
+						bookmark.name = newName || undefined;
+						await this.plugin.saveSettings();
+						renderBookmarksList();
+						renderPreview(bookmark);
+						showToast(newName ? `Renamed to "${newName}"` : 'Name cleared');
+					}
+				})();
 			});
 
 			const deleteBtn = actionsDiv.createEl('button', { text: '🗑️ Delete', cls: 'preview-action-btn danger' });
-			deleteBtn.addEventListener('click', async () => {
-				const confirmed = await this.showDeleteBookmarkConfirmation(referenceText);
-				if (confirmed) {
-					this.plugin.removeBookmark(bookmark.id);
-					selectedBookmark = null;
-					renderBookmarksList();
-					renderPreview(null);
-					showToast('Bookmark deleted');
-				}
+			deleteBtn.addEventListener('click', () => {
+				void (async () => {
+					const confirmed = await this.showDeleteBookmarkConfirmation(referenceText);
+					if (confirmed) {
+						void this.plugin.removeBookmark(bookmark.id);
+						selectedBookmark = null;
+						renderBookmarksList();
+						renderPreview(null);
+						showToast('Bookmark deleted');
+					}
+				})();
 			});
 		};
 
@@ -14313,7 +14466,7 @@ class BibleView extends ItemView {
 			const levelFilter = levelSelect.value;
 			const bookFilter = bookSelect.value;
 
-			let filteredBookmarks = this.plugin.bookmarks.filter(bookmark => {
+			const filteredBookmarks = this.plugin.bookmarks.filter(bookmark => {
 				const matchesSearch = searchFilter === '' ||
 					bookmark.book.toLowerCase().includes(searchFilter) ||
 					(bookmark.note && bookmark.note.toLowerCase().includes(searchFilter));
@@ -14413,43 +14566,46 @@ class BibleView extends ItemView {
 
 						const menu = document.createElement('div');
 						menu.className = 'bookmark-context-menu';
-						menu.style.position = 'fixed';
-						menu.style.left = `${e.clientX}px`;
-						menu.style.top = `${e.clientY}px`;
+						menu.style.setProperty('--bp-pos-left', `${e.clientX}px`);
+						menu.style.setProperty('--bp-pos-top', `${e.clientY}px`);
 
 						// Rename option
 						const renameItem = menu.createDiv({ cls: 'context-menu-item' });
 						renameItem.textContent = '✏️ Rename';
-						renameItem.addEventListener('click', async () => {
+						renameItem.addEventListener('click', () => {
 							menu.remove();
-							const currentName = bookmark.name || refText;
-							const newName = await this.plugin.promptBookmarkName(currentName);
-							if (newName !== null) {
-								bookmark.name = newName || undefined;
-								await this.plugin.saveSettings();
-								renderBookmarksList();
-								if (selectedBookmark?.id === bookmark.id) {
-									renderPreview(bookmark);
+							void (async () => {
+								const currentName = bookmark.name || refText;
+								const newName = await this.plugin.promptBookmarkName(currentName);
+								if (newName !== null) {
+									bookmark.name = newName || undefined;
+									await this.plugin.saveSettings();
+									renderBookmarksList();
+									if (selectedBookmark?.id === bookmark.id) {
+										renderPreview(bookmark);
+									}
+									showToast(newName ? `Renamed to "${newName}"` : 'Name cleared');
 								}
-								showToast(newName ? `Renamed to "${newName}"` : 'Name cleared');
-							}
+							})();
 						});
 
 						// Delete option
 						const deleteItem = menu.createDiv({ cls: 'context-menu-item danger' });
 						deleteItem.textContent = '🗑️ Delete';
-						deleteItem.addEventListener('click', async () => {
+						deleteItem.addEventListener('click', () => {
 							menu.remove();
-							const confirmed = await this.showDeleteBookmarkConfirmation(refText);
-							if (confirmed) {
-								this.plugin.removeBookmark(bookmark.id);
-								if (selectedBookmark?.id === bookmark.id) {
-									selectedBookmark = null;
-									renderPreview(null);
+							void (async () => {
+								const confirmed = await this.showDeleteBookmarkConfirmation(refText);
+								if (confirmed) {
+									void this.plugin.removeBookmark(bookmark.id);
+									if (selectedBookmark?.id === bookmark.id) {
+										selectedBookmark = null;
+										renderPreview(null);
+									}
+									renderBookmarksList();
+									showToast('Bookmark deleted');
 								}
-								renderBookmarksList();
-								showToast('Bookmark deleted');
-							}
+							})();
 						});
 
 						document.body.appendChild(menu);
@@ -14523,7 +14679,7 @@ class BibleView extends ItemView {
 		// Heatmap View
 		const renderHeatmapView = (bookmarks: Bookmark[]) => {
 			const heatmapContainer = listPanel.createDiv({ cls: 'bookmarks-heatmap-container' });
-			heatmapContainer.createEl('h3', { text: 'Bookmarks by Book' });
+			heatmapContainer.createEl('h3', { text: 'Bookmarks by book' });
 
 			const bookmarksByBook = new Map<string, number>();
 			bookmarks.forEach(b => {
@@ -14629,7 +14785,7 @@ class BibleView extends ItemView {
 		if (!this.plugin.concordanceData) {
 			const noConcordanceDiv = container.createDiv({ cls: 'concordance-empty-state' });
 			noConcordanceDiv.createEl('p', {
-				text: 'Concordance not yet built. Build a word index from your Bible text to enable word searches.',
+				text: 'Concordance not yet built',
 				cls: 'concordance-info'
 			});
 
@@ -14643,24 +14799,26 @@ class BibleView extends ItemView {
 				text: 'Build concordance',
 				cls: 'mod-cta'
 			});
-			buildBtn.addEventListener('click', async () => {
+			buildBtn.addEventListener('click', () => {
 				buildBtn.disabled = true;
 				buildBtn.addClass('bp-hidden');
 				progressContainer.removeClass('bp-hidden');
 
-				const success = await this.plugin.buildConcordanceFromBible((book, current, total) => {
-					const percent = Math.round((current / total) * 100);
-					progressText.textContent = `Processing ${book}... (${current}/${total} books)`;
-					progressBarInner.style.width = `${percent}%`;
-				});
+				void (async () => {
+					const success = await this.plugin.buildConcordanceFromBible((book, current, total) => {
+						const percent = Math.round((current / total) * 100);
+						progressText.textContent = `Processing ${book}... (${current}/${total} books)`;
+						progressBarInner.style.width = `${percent}%`;
+					});
 
-				if (success) {
-					this.render(); // Re-render to show concordance
-				} else {
-					buildBtn.disabled = false;
-					buildBtn.removeClass('bp-hidden');
-					progressContainer.addClass('bp-hidden');
-				}
+					if (success) {
+						void this.render(); // Re-render to show concordance
+					} else {
+						buildBtn.disabled = false;
+						buildBtn.removeClass('bp-hidden');
+						progressContainer.addClass('bp-hidden');
+					}
+				})();
 			});
 			return;
 		}
@@ -14746,12 +14904,12 @@ class BibleView extends ItemView {
 				const refs = this.plugin.concordanceData!.words[word];
 				const wordItem = wordListDiv.createDiv({ cls: 'concordance-word-item' });
 
-				const wordSpan = wordItem.createEl('span', {
+				wordItem.createEl('span', {
 					text: word,
 					cls: 'concordance-word'
 				});
 
-				const countSpan = wordItem.createEl('span', {
+				wordItem.createEl('span', {
 					text: `(${refs.length})`,
 					cls: 'concordance-count'
 				});
@@ -14817,7 +14975,7 @@ class BibleView extends ItemView {
 				const bookRefs = byBook[book];
 				const bookSection = versesContent.createDiv({ cls: 'verses-book-section' });
 
-				const bookHeader = bookSection.createEl('div', {
+				bookSection.createEl('div', {
 					text: `${book} (${bookRefs.length})`,
 					cls: 'verses-book-header'
 				});
@@ -14869,12 +15027,10 @@ class BibleView extends ItemView {
 			}, 300);
 		});
 	}
-
 	/**
 	 * Render the Tags Browser view mode
 	 */
 	renderTagsBrowserMode(container: HTMLElement) {
-		const books = this.plugin.getBooksArray(this.currentVersion);
 		const allTags = this.plugin.getAllTagNames();
 		let currentView: 'list' | 'cloud' | 'heatmap' = 'list';
 		let selectedTag: string | null = null;
@@ -15000,9 +15156,8 @@ class BibleView extends ItemView {
 
 			sortedBooks.forEach(([book, tags]) => {
 				const barItem = barChart.createDiv({ cls: 'tag-book-bar-item' });
-				const bar = barItem.createDiv({ cls: 'tag-book-bar' });
-				bar.style.width = `${(tags.size / maxBookTags) * 100}%`;
-				bar.style.backgroundColor = '#10b981';
+				const bar = barItem.createDiv({ cls: 'tag-book-bar bp-dynamic-bar' });
+				bar.style.setProperty('--bp-bar-width', `${(tags.size / maxBookTags) * 100}%`);
 				barItem.createDiv({ cls: 'tag-book-bar-label', text: `${book}: ${tags.size} tags` });
 			});
 		}
@@ -15055,7 +15210,7 @@ class BibleView extends ItemView {
 		});
 
 		const exportBtn = actionsDiv.createEl('button', { text: '📤 Export', cls: 'tags-action-btn' });
-		exportBtn.addEventListener('click', async () => {
+		exportBtn.addEventListener('click', () => {
 			if (this.plugin.verseTags.length === 0) {
 				new Notice('No tags to export');
 				return;
@@ -15085,7 +15240,7 @@ class BibleView extends ItemView {
 		});
 
 		const importBtn = actionsDiv.createEl('button', { text: '📥 Import', cls: 'tags-action-btn' });
-		importBtn.addEventListener('click', async () => {
+		importBtn.addEventListener('click', () => {
 			const input = document.createElement('input');
 			input.type = 'file';
 			input.accept = '.json';
@@ -15095,7 +15250,7 @@ class BibleView extends ItemView {
 
 				try {
 					const text = await file.text();
-					const importData = JSON.parse(text);
+					const importData = JSON.parse(text) as ImportedTagsData;
 
 					// Validate format
 					if (!importData.tags || !Array.isArray(importData.tags)) {
@@ -15121,18 +15276,26 @@ class BibleView extends ItemView {
 								t.tag === importTag.tag
 						);
 						if (!exists) {
-							this.plugin.verseTags.push(importTag);
+							this.plugin.verseTags.push({
+								id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+								book: importTag.book,
+								chapter: importTag.chapter,
+								verse: importTag.verse,
+								tag: importTag.tag,
+								createdAt: Date.now()
+							});
 							added++;
 						}
 					}
 
+					const existingData = await this.plugin.loadData() as PersistedPluginData | null;
 					await this.plugin.saveData({
-						...await this.plugin.loadData(),
+						...existingData,
 						verseTags: this.plugin.verseTags
 					});
 
 					new Notice(`✅ Imported ${added} new tags (${importData.tags.length - added} duplicates skipped)`);
-					this.render(); // Refresh to show new tags
+					void this.render(); // Refresh to show new tags
 				} catch (error) {
 					console.error('Error importing tags:', error);
 					new Notice('Error importing tags file. Make sure it is valid JSON.');
@@ -15247,7 +15410,7 @@ class BibleView extends ItemView {
 									item.setTitle('Remove tag')
 										.setIcon('x')
 										.onClick(() => {
-											this.plugin.removeVerseTag(vt.id);
+											void this.plugin.removeVerseTag(vt.id);
 											showToast(`Removed "${tagName}" from ${vt.book} ${vt.chapter}:${vt.verse}`);
 											renderPreview(tagName);
 											renderTagsList();
@@ -15525,7 +15688,7 @@ class BibleView extends ItemView {
 			text: 'Create',
 			cls: 'mod-cta'
 		});
-		createBtn.addEventListener('click', async () => {
+		createBtn.addEventListener('click', () => {
 			const tagName = input.value.trim();
 			if (tagName) {
 				// Check if tag already exists (either in verseTags or registeredTags)
@@ -15540,7 +15703,7 @@ class BibleView extends ItemView {
 					this.plugin.settings.registeredTags = [];
 				}
 				this.plugin.settings.registeredTags.push(tagName);
-				await this.plugin.saveSettings();
+				void this.plugin.saveSettings();
 
 				showToast(`Tag "${tagName}" created. Apply it to verses using the context menu.`);
 				modal.close();
@@ -15621,10 +15784,10 @@ class BibleView extends ItemView {
 					tag: tagName,
 					createdAt: Date.now()
 				};
-				this.plugin.addVerseTag(newTag);
+				void this.plugin.addVerseTag(newTag);
 				showToast(`Added "${tagName}" tag to ${book} ${chapter}:${verse}`);
 				modal.close();
-				this.renderAndScrollToVerse(verse);
+				void this.renderAndScrollToVerse(verse);
 			}
 		});
 
@@ -15721,7 +15884,7 @@ class BibleView extends ItemView {
 	/**
 	 * Export bookmarks to a JSON file
 	 */
-	async exportBookmarks() {
+	exportBookmarks() {
 		try {
 			const bookmarks = this.plugin.bookmarks;
 
@@ -15765,7 +15928,7 @@ class BibleView extends ItemView {
 	/**
 	 * Import bookmarks from a JSON file
 	 */
-	async importBookmarks() {
+	importBookmarks() {
 		try {
 			// Create file input
 			const input = document.createElement('input');
@@ -15781,7 +15944,7 @@ class BibleView extends ItemView {
 				try {
 					// Read file
 					const text = await file.text();
-					const importData = JSON.parse(text);
+					const importData = JSON.parse(text) as ImportedBookmarksData;
 
 					// Validate structure
 					if (!importData.bookmarks || !Array.isArray(importData.bookmarks)) {
@@ -15932,7 +16095,7 @@ class BibleView extends ItemView {
 				cls: 'warning-text'
 			});
 			content.createEl('p', {
-				text: 'This action is PERMANENT and CANNOT be undone.',
+				text: 'This action cannot be undone.',
 				cls: 'warning-text-strong'
 			});
 
@@ -15974,7 +16137,7 @@ class BibleView extends ItemView {
 				cls: 'warning-text'
 			});
 			content.createEl('p', {
-				text: 'This action is PERMANENT and CANNOT be undone.',
+				text: 'This action cannot be undone.',
 				cls: 'warning-text-strong'
 			});
 			content.createEl('p', {
@@ -16009,7 +16172,7 @@ class BibleView extends ItemView {
 	/**
 	 * Export highlights to a JSON file
 	 */
-	async exportHighlights() {
+	exportHighlights() {
 		try {
 			const highlights = this.plugin.highlights;
 
@@ -16053,7 +16216,7 @@ class BibleView extends ItemView {
 	/**
 	 * Import highlights from a JSON file
 	 */
-	async importHighlights() {
+	importHighlights() {
 		try {
 			// Create file input
 			const input = document.createElement('input');
@@ -16069,7 +16232,7 @@ class BibleView extends ItemView {
 				try {
 					// Read file
 					const text = await file.text();
-					const importData = JSON.parse(text);
+					const importData = JSON.parse(text) as ImportedHighlightsData;
 
 					// Validate structure
 					if (!importData.highlights || !Array.isArray(importData.highlights)) {
@@ -16162,7 +16325,7 @@ class BibleView extends ItemView {
 			const buttonContainer = content.createDiv({ cls: 'import-mode-buttons' });
 
 			const mergeBtn = buttonContainer.createEl('button', {
-				text: 'Merge (Add new, skip duplicates)',
+				text: 'Merge (add new, skip duplicates)',
 				cls: 'mod-cta'
 			});
 			mergeBtn.addEventListener('click', () => {
@@ -16171,7 +16334,7 @@ class BibleView extends ItemView {
 			});
 
 			const replaceBtn = buttonContainer.createEl('button', {
-				text: 'Replace (Delete existing)',
+				text: 'Replace (delete existing)',
 				cls: 'mod-warning'
 			});
 			replaceBtn.addEventListener('click', () => {
@@ -16279,7 +16442,7 @@ class BibleView extends ItemView {
 				infoDiv.createEl('span', { text: achievement.description, cls: 'achievement-desc' });
 
 				// Rarity badge
-				const rarityBadge = card.createEl('span', {
+				card.createEl('span', {
 					text: achievement.rarity.charAt(0).toUpperCase() + achievement.rarity.slice(1),
 					cls: `rarity-badge rarity-${achievement.rarity}`
 				});
@@ -16329,12 +16492,14 @@ class BibleView extends ItemView {
 			const toggleLabel = toggleRow.createEl('label', { cls: 'plan-toggle-label' });
 			const checkbox = toggleLabel.createEl('input', { type: 'checkbox' });
 			checkbox.checked = isActive;
-			checkbox.addEventListener('change', async () => {
-				await this.plugin.toggleReadingPlan(p.id);
-				await this.render();
-				showToast(checkbox.checked ? `Started ${p.name}!` : `Paused ${p.name}`);
+			checkbox.addEventListener('change', () => {
+				void (async () => {
+					await this.plugin.toggleReadingPlan(p.id);
+					await this.render();
+					showToast(checkbox.checked ? `Started ${p.name}!` : `Paused ${p.name}`);
+				})();
 			});
-			const toggleSlider = toggleLabel.createSpan({ cls: 'plan-toggle-slider' });
+			toggleLabel.createSpan({ cls: 'plan-toggle-slider' });
 
 			const planIcon = planCard.createDiv({ cls: 'plan-card-icon' });
 			setIcon(planIcon, isActive ? 'book-open-check' : 'book-open');
@@ -16375,11 +16540,13 @@ class BibleView extends ItemView {
 				modeCard.createDiv({ text: mode.label, cls: 'mode-label' });
 				modeCard.createDiv({ text: mode.desc, cls: 'mode-desc' });
 
-				modeCard.addEventListener('click', async () => {
-					this.plugin.settings.readingPlanMode = mode.id;
-					await this.plugin.saveSettings();
-					await this.render();
-					showToast(`Switched to ${mode.label} mode`);
+				modeCard.addEventListener('click', () => {
+					void (async () => {
+						this.plugin.settings.readingPlanMode = mode.id;
+						await this.plugin.saveSettings();
+						await this.render();
+						showToast(`Switched to ${mode.label} mode`);
+					})();
 				});
 			});
 		}
@@ -16387,7 +16554,7 @@ class BibleView extends ItemView {
 		// Today's reading section - show all active plans' readings
 		if (todaysReadings.length > 0) {
 			const todaySection = container.createDiv({ cls: 'reading-plan-today-section' });
-			todaySection.createEl('h3', { text: "📅 Today's Readings" });
+			todaySection.createEl('h3', { text: "📅 Today's readings" });
 
 			todaysReadings.forEach(reading => {
 				const todayCard = todaySection.createDiv({ cls: 'today-reading-card' });
@@ -16431,10 +16598,12 @@ class BibleView extends ItemView {
 					const btnIcon = markCompleteBtn.createSpan({ cls: 'btn-icon' });
 					setIcon(btnIcon, 'check');
 					markCompleteBtn.createSpan({ text: 'Mark as Complete' });
-					markCompleteBtn.addEventListener('click', async () => {
-						await this.plugin.markReadingComplete(reading.day, reading.plan.id);
-						await this.render();
-						showToast(`${reading.plan.name} Day ${reading.day} complete! 🎉`);
+					markCompleteBtn.addEventListener('click', () => {
+						void (async () => {
+							await this.plugin.markReadingComplete(reading.day, reading.plan.id);
+							await this.render();
+							showToast(`${reading.plan.name} Day ${reading.day} complete! 🎉`);
+						})();
 					});
 				}
 			});
@@ -16815,7 +16984,7 @@ class BibleView extends ItemView {
 
 			// Verse text display - load all verses in the group
 			const verseTextDiv = verseCard.createDiv({ cls: 'collection-verse-text' });
-			this.loadVerseTextForCard(displayRef, verseTextDiv);
+			void this.loadVerseTextForCard(displayRef, verseTextDiv);
 
 			// Description textarea (optional) - use first verse's description
 			const descInput = verseCard.createEl('textarea', {
@@ -16911,7 +17080,7 @@ class BibleView extends ItemView {
 		this.registerDomEvent(importBtn, 'click', async () => {
 			try {
 				const clipboardText = await navigator.clipboard.readText();
-				const imported = JSON.parse(clipboardText);
+				const imported = JSON.parse(clipboardText) as CollectionVerse[] | { verses: CollectionVerse[] };
 
 				// Validate it's an array of verses or a collection object
 				let versesToImport: CollectionVerse[] = [];
@@ -16955,7 +17124,7 @@ class BibleView extends ItemView {
 				} else {
 					showToast('All verses already in collection', 'warning');
 				}
-			} catch (e) {
+			} catch {
 				showToast('Failed to import: invalid JSON in clipboard', 'error');
 			}
 		});
@@ -17042,7 +17211,7 @@ class BibleView extends ItemView {
 	/**
 	 * Load verse text for a collection card
 	 */
-	async loadVerseTextForCard(reference: string, container: HTMLElement) {
+	loadVerseTextForCard(reference: string, container: HTMLElement) {
 		const parsed = this.parseVerseReference(reference) || this.parsePassageReference(reference);
 		if (!parsed) {
 			container.createEl('em', { text: 'Could not load verse text', cls: 'verse-text-error' });
@@ -17185,20 +17354,22 @@ class BibleView extends ItemView {
 					// Delete button
 					const deleteBtn = verseCard.createEl('button', { cls: 'verse-delete-btn' });
 					setIcon(deleteBtn, 'trash-2');
-					this.registerDomEvent(deleteBtn, 'click', async (e) => {
+					this.registerDomEvent(deleteBtn, 'click', (e) => {
 						e.stopPropagation();
-						const confirmed = await showConfirmModal(
-							this.plugin.app,
-							'Remove verse',
-							`Remove "${verse.reference}" from memorization?`,
-							{ isDestructive: true, confirmText: 'Remove' }
-						);
-						if (confirmed) {
-							this.plugin.settings.memorizationVerses = verses.filter(v => v.reference !== verse.reference);
-							await this.plugin.saveSettings();
-							await this.render();
-							showToast('Verse removed from memorization');
-						}
+						void (async () => {
+							const confirmed = await showConfirmModal(
+								this.plugin.app,
+								'Remove verse',
+								`Remove "${verse.reference}" from memorization?`,
+								{ isDestructive: true, confirmText: 'Remove' }
+							);
+							if (confirmed) {
+								this.plugin.settings.memorizationVerses = verses.filter(v => v.reference !== verse.reference);
+								await this.plugin.saveSettings();
+								await this.render();
+								showToast('Verse removed from memorization');
+							}
+						})();
 					});
 				});
 			});
@@ -17343,18 +17514,20 @@ class BibleView extends ItemView {
 
 		// Rating button handlers - already have direct references from creation
 		ratingButtons.querySelectorAll('.rating-btn').forEach(btn => {
-			btn.addEventListener('click', async () => {
-				const rating = parseInt(btn.getAttribute('data-rating') || '0');
-				await this.processMemorizationRating(card, rating);
+			btn.addEventListener('click', () => {
+				void (async () => {
+					const rating = parseInt(btn.getAttribute('data-rating') || '0');
+					await this.processMemorizationRating(card, rating);
 
-				if (index + 1 < cards.length) {
-					modal.remove();
-					this.showFlashcardModal(cards, index + 1);
-				} else {
-					modal.remove();
-					showToast(`Session complete! ${cards.length} cards reviewed.`);
-					void this.render();
-				}
+					if (index + 1 < cards.length) {
+						modal.remove();
+						this.showFlashcardModal(cards, index + 1);
+					} else {
+						modal.remove();
+						showToast(`Session complete! ${cards.length} cards reviewed.`);
+						void this.render();
+					}
+				})();
 			});
 		});
 	}
@@ -17487,7 +17660,7 @@ class BibleView extends ItemView {
 			}
 		});
 
-		addBtn.addEventListener('click', async () => {
+		addBtn.addEventListener('click', () => {
 			const reference = refInput.value.trim();
 			const version = versionSelect.value;
 			const text = textInput.value.trim();
@@ -17517,9 +17690,9 @@ class BibleView extends ItemView {
 			};
 
 			this.plugin.settings.memorizationVerses.push(newVerse);
-			await this.plugin.saveSettings();
+			void this.plugin.saveSettings();
 			modal.remove();
-			await this.render();
+			void this.render();
 			showToast(`Added "${reference}" to memorization`);
 		});
 	}
@@ -17535,10 +17708,10 @@ class BibleView extends ItemView {
 
 		const closeBtn = header.createEl('button', { cls: 'context-sidebar-close' });
 		setIcon(closeBtn, 'x');
-		this.registerDomEvent(closeBtn, 'click', async () => {
+		this.registerDomEvent(closeBtn, 'click', () => {
 			this.plugin.settings.showContextSidebar = false;
-			await this.plugin.saveSettings();
-			await this.render();
+			void this.plugin.saveSettings();
+			void this.render();
 		});
 
 		// Tab bar
@@ -17614,18 +17787,20 @@ class BibleView extends ItemView {
 				text: 'Download commentary',
 				cls: 'mod-cta'
 			});
-			downloadBtn.addEventListener('click', async () => {
+			downloadBtn.addEventListener('click', () => {
 				downloadBtn.disabled = true;
 				downloadBtn.textContent = 'Downloading...';
-				await this.plugin.downloadCommentaryData();
-				// Refresh the view after download
-				if (this.plugin.commentaryData) {
-					container.empty();
-					this.renderContextSidebar(container);
-				} else {
-					downloadBtn.disabled = false;
-					downloadBtn.textContent = 'Download commentary';
-				}
+				void (async () => {
+					await this.plugin.downloadCommentaryData();
+					// Refresh the view after download
+					if (this.plugin.commentaryData) {
+						container.empty();
+						this.renderContextSidebar(container);
+					} else {
+						downloadBtn.disabled = false;
+						downloadBtn.textContent = 'Download commentary';
+					}
+				})();
 			});
 
 			return;
@@ -17698,7 +17873,7 @@ class BibleView extends ItemView {
 			}
 
 			// Commentary text - strip the leading verse marker
-			let cleanedText = commentary.replace(/^[,\-]\d+\s+/, '');
+			const cleanedText = commentary.replace(/^[,\-]\d+\s+/, '');
 
 			// Commentary text
 			const textDiv = section.createDiv({ cls: 'commentary-text' });
@@ -17826,7 +18001,7 @@ class BibleView extends ItemView {
 		const chapter = this.plugin.getChapter(this.currentVersion, this.currentBook, this.currentChapter);
 
 		if (chapter) {
-			for (const [verseNum, verseData] of Object.entries(chapter.verses)) {
+			for (const [_verseNum, verseData] of Object.entries(chapter.verses)) {
 				if (typeof verseData !== 'string' && verseData.strongs) {
 					for (const sw of verseData.strongs) {
 						if (sw.number) {
@@ -17954,7 +18129,7 @@ class BibleView extends ItemView {
 			placeholder.createEl('p', { text: 'Download to see people, places, and events mentioned in Scripture.', cls: 'text-muted' });
 
 			const downloadBtn = placeholder.createEl('button', {
-				text: 'Download Theographic',
+				text: 'Download theographic data',
 				cls: 'sidebar-download-btn'
 			});
 			this.registerDomEvent(downloadBtn, 'click', async () => {
@@ -18213,13 +18388,13 @@ class BibleView extends ItemView {
 			const content = this.plugin.app.metadataCache.getFileCache(file);
 			if (!content?.frontmatter) continue;
 
-			const fm = content.frontmatter;
+			const fm = content.frontmatter as Record<string, unknown>;
 			if (fm.book === this.currentBook && fm.chapter === this.currentChapter) {
 				chapterNotes.push({
 					path: file.path,
-					level: fm.level || 'verse',
-					verse: fm.verse,
-					endVerse: fm.endVerse
+					level: (fm.level as string) || 'verse',
+					verse: fm.verse as number | undefined,
+					endVerse: fm.endVerse as number | undefined
 				});
 			}
 		}
@@ -18239,7 +18414,7 @@ class BibleView extends ItemView {
 		this.registerDomEvent(createBtn, 'click', () => {
 			// Create note for selected verse or verse 1
 			const targetVerse = this.selectedVerseStart || 1;
-			this.createNoteForVerse(this.currentBook, this.currentChapter, targetVerse);
+			void this.createNoteForVerse(this.currentBook, this.currentChapter, targetVerse);
 		});
 
 		// Preview panel (shows selected note content) - at the TOP
@@ -18258,7 +18433,7 @@ class BibleView extends ItemView {
 			previewPanel.empty();
 
 			const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-			if (!file) return;
+			if (!(file instanceof TFile)) return;
 
 			// Preview header
 			const previewHeader = previewPanel.createDiv({ cls: 'preview-header' });
@@ -18270,12 +18445,12 @@ class BibleView extends ItemView {
 			setIcon(openBtn, 'external-link');
 			this.registerDomEvent(openBtn, 'click', async () => {
 				const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-				await leaf.openFile(file as any);
+				await leaf.openFile(file);
 			});
 
 			// Preview content (rendered markdown) - show only Study Notes section
 			const previewContent = previewPanel.createDiv({ cls: 'preview-content' });
-			const content = await this.plugin.app.vault.read(file as any);
+			const content = await this.plugin.app.vault.read(file);
 
 			// Extract just the Study Notes section
 			let previewText = '';
@@ -18333,22 +18508,22 @@ class BibleView extends ItemView {
 					// Highlight selected item
 					notesList.querySelectorAll('.notes-tab-item').forEach(el => el.removeClass('selected'));
 					noteItem.addClass('selected');
-					showNotePreview(note.path, refText);
+					void showNotePreview(note.path, refText);
 				});
 
 				// Double-click to open in editor
 				this.registerDomEvent(noteItem, 'dblclick', async () => {
 					const noteFile = this.plugin.app.vault.getAbstractFileByPath(note.path);
-					if (noteFile) {
+					if (noteFile instanceof TFile) {
 						const leaf = this.plugin.app.workspace.getLeaf('split', 'vertical');
-						await leaf.openFile(noteFile as any);
+						await leaf.openFile(noteFile);
 					}
 				});
 
 				// Auto-select if this note matches the selected verse
 				if (selectedVerseNote && selectedVerseNote.path === note.path) {
 					noteItem.addClass('selected');
-					showNotePreview(note.path, refText);
+					void showNotePreview(note.path, refText);
 				}
 			}
 		}
@@ -18491,7 +18666,7 @@ class BibleView extends ItemView {
 				});
 				entryHeader.createSpan({ text: dateStr, cls: 'journal-entry-date' });
 
-				const typeBadge = entryHeader.createSpan({
+				entryHeader.createSpan({
 					text: entry.type === 'session' ? 'Study session' : 'Reflection',
 					cls: `journal-entry-type ${entry.type}`
 				});
@@ -18554,22 +18729,24 @@ class BibleView extends ItemView {
 				const deleteIcon = deleteBtn.createSpan();
 				setIcon(deleteIcon, 'trash-2');
 
-				deleteBtn.addEventListener('click', async () => {
-					const confirmed = await showConfirmModal(
-						this.plugin.app,
-						'Delete entry',
-						'Are you sure you want to delete this entry?',
-						{ isDestructive: true, confirmText: 'Delete' }
-					);
-					if (confirmed) {
-						const index = this.plugin.settings.journalEntries.findIndex(e => e.id === entry.id);
-						if (index !== -1) {
-							this.plugin.settings.journalEntries.splice(index, 1);
-							await this.plugin.saveSettings();
-							showToast('Entry deleted');
-							await this.render();
+				deleteBtn.addEventListener('click', () => {
+					void (async () => {
+						const confirmed = await showConfirmModal(
+							this.plugin.app,
+							'Delete entry',
+							'Are you sure you want to delete this entry?',
+							{ isDestructive: true, confirmText: 'Delete' }
+						);
+						if (confirmed) {
+							const index = this.plugin.settings.journalEntries.findIndex(e => e.id === entry.id);
+							if (index !== -1) {
+								this.plugin.settings.journalEntries.splice(index, 1);
+								await this.plugin.saveSettings();
+								showToast('Entry deleted');
+								await this.render();
+							}
 						}
-					}
+					})();
 				});
 			});
 		}
@@ -18577,7 +18754,7 @@ class BibleView extends ItemView {
 		// Export button
 		const exportSection = container.createDiv({ cls: 'insights-export-section' });
 		const exportBtn = exportSection.createEl('button', { text: 'Export study report', cls: 'insights-export-btn' });
-		exportBtn.addEventListener('click', async () => {
+		exportBtn.addEventListener('click', () => {
 			let report = '# Study Insights Report\n\n';
 			report += `Generated: ${new Date().toLocaleDateString()}\n\n`;
 			report += `## Summary\n`;
@@ -18593,7 +18770,7 @@ class BibleView extends ItemView {
 				});
 			}
 
-			await navigator.clipboard.writeText(report);
+			void navigator.clipboard.writeText(report);
 			showToast('Report exported to clipboard');
 		});
 	}
@@ -18652,7 +18829,7 @@ class BibleView extends ItemView {
 		// Results container
 		const resultsContainer = container.createDiv({ cls: 'comparison-results' });
 
-		compareBtn.addEventListener('click', async () => {
+		compareBtn.addEventListener('click', () => {
 			const passage = passageInput.value.trim();
 			if (!passage) {
 				showToast('Enter a passage to compare');
@@ -18706,7 +18883,7 @@ class BibleView extends ItemView {
 
 			// Export button
 			const exportBtn = resultsContainer.createEl('button', { text: 'Copy as markdown table', cls: 'comparison-export-btn' });
-			exportBtn.addEventListener('click', async () => {
+			exportBtn.addEventListener('click', () => {
 				let md = `| Verse | ${versions.join(' | ')} |\n`;
 				md += `| --- | ${versions.map(() => '---').join(' | ')} |\n`;
 
@@ -18718,7 +18895,7 @@ class BibleView extends ItemView {
 					md += `| ${book} ${chapter}:${verseNum} | ${texts.join(' | ')} |\n`;
 				}
 
-				await navigator.clipboard.writeText(md);
+				void navigator.clipboard.writeText(md);
 				showToast('Copied to clipboard as Markdown table');
 			});
 		});
@@ -18761,7 +18938,7 @@ class BibleReferenceSuggest extends EditorSuggest<BibleReferenceSuggestion> {
 	 * Determine if suggestions should be triggered
 	 * Called on every keystroke/cursor movement
 	 */
-	onTrigger(cursor: EditorPosition, editor: Editor, file: TFile | null): EditorSuggestTriggerInfo | null {
+	onTrigger(cursor: EditorPosition, editor: Editor, _file: TFile | null): EditorSuggestTriggerInfo | null {
 		// Quick bail if feature disabled
 		if (!this.plugin.settings.enableReferenceInsert) return null;
 
@@ -19126,7 +19303,7 @@ class BibleReferenceSuggest extends EditorSuggest<BibleReferenceSuggestion> {
 	/**
 	 * Handle suggestion selection
 	 */
-	selectSuggestion(suggestion: BibleReferenceSuggestion, evt: MouseEvent | KeyboardEvent): void {
+	selectSuggestion(suggestion: BibleReferenceSuggestion, _evt: MouseEvent | KeyboardEvent): void {
 		if (!this.context) return;
 		const { editor, start, end } = this.context;
 
@@ -19258,7 +19435,7 @@ class BibleReferenceSuggest extends EditorSuggest<BibleReferenceSuggestion> {
 			if (startChapter && startChapter.verses) {
 				const verseNums = Object.keys(startChapter.verses).map(n => parseInt(n)).sort((a, b) => a - b);
 				for (const num of verseNums) {
-					if (num >= parsed.startVerse!) {
+					if (num >= parsed.startVerse) {
 						const verseData = startChapter.verses[num.toString()];
 						const text = typeof verseData === 'string' ? verseData : verseData.text;
 						results.push({ verse: num, text });
@@ -19299,7 +19476,7 @@ class BibleReferenceSuggest extends EditorSuggest<BibleReferenceSuggestion> {
 		const chapter = this.plugin.getChapter(version, bookName, parsed.chapter);
 		if (!chapter || !chapter.verses) return results;
 
-		const startVerse = parsed.startVerse!;
+		const startVerse = parsed.startVerse;
 		const endVerse = parsed.endVerse || startVerse;
 
 		for (let v = startVerse; v <= endVerse; v++) {
@@ -19366,7 +19543,7 @@ class BibleReferenceSuggest extends EditorSuggest<BibleReferenceSuggestion> {
 		this.plugin.settings.recentInsertedReferences = filtered.slice(0, 10);
 
 		// Save (async, don't await)
-		this.plugin.saveSettings();
+		void this.plugin.saveSettings();
 	}
 }
 
@@ -19390,7 +19567,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		try {
 			this.renderSettings(containerEl);
 		} catch (error) {
-			console.error('Bible Portal: Error rendering settings:', error);
+			console.error('Bible portal: Error rendering settings:', error);
 			containerEl.empty();
 			
 			containerEl.createEl('p', { text: 'Error loading settings. Please try reloading Obsidian.' });
@@ -19427,12 +19604,12 @@ class BiblePortalSettingTab extends PluginSettingTab {
 			id: 'bible-versions',
 			icon: 'book-open',
 			title: 'Bible Versions & Reading',
-			purpose: 'Choose which Bible translations to use and how text is displayed. The default version loads first when you open Bible Portal.',
+			purpose: 'Choose which Bible translations to use and how text is displayed. The default version loads first when you open Bible portal.',
 			content: (content) => {
 				// Default version dropdown
 				new Setting(content)
 					.setName('Default Bible version')
-					.setDesc('The translation that loads automatically when you open Bible Portal')
+					.setDesc('The translation that loads automatically when you open Bible portal')
 					.addDropdown(dropdown => {
 						this.plugin.settings.bibleVersions.forEach(version => {
 							dropdown.addOption(version, version);
@@ -19448,7 +19625,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				// Installed versions display
 				if (this.plugin.settings.bibleVersions.length > 0) {
 					const versionsStatus = content.createDiv({ cls: 'bp-settings-status' });
-					const statusIcon = versionsStatus.createSpan({ cls: 'status-icon success' });
+					versionsStatus.createSpan({ cls: 'status-icon success' });
 					versionsStatus.createSpan({
 						text: `${this.plugin.settings.bibleVersions.length} translation${this.plugin.settings.bibleVersions.length !== 1 ? 's' : ''} installed: ${this.plugin.settings.bibleVersions.join(', ')}`,
 						cls: 'status-text'
@@ -19473,9 +19650,11 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					.addText(text => text
 						.setPlaceholder('John 3:16')
 						.setValue(this.plugin.settings.homeVerse)
-						.onChange(async (value) => {
-							this.plugin.settings.homeVerse = value;
-							await this.plugin.saveSettings();
+						.onChange((value) => {
+							void (async () => {
+								this.plugin.settings.homeVerse = value;
+								await this.plugin.saveSettings();
+							})();
 						}));
 			}
 		});
@@ -19494,7 +19673,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				themeGroup.createEl('div', { text: 'Banner theme', cls: 'bp-settings-group-title' });
 
 				const themePreview = themeGroup.createDiv({ cls: 'bp-settings-preview-row' });
-				const themes = [
+				const themes: Array<{ id: BiblePortalSettings['bannerTheme']; name: string; desc: string }> = [
 					{ id: 'parchment', name: 'Parchment', desc: 'Aged manuscript' },
 					{ id: 'holy-light', name: 'Holy light', desc: 'Gold & white' },
 					{ id: 'royal', name: 'Royal', desc: 'Deep purple' },
@@ -19508,11 +19687,13 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					});
 					item.createDiv({ cls: `preview-swatch theme-preview-${theme.id}` });
 					item.createDiv({ text: theme.name, cls: 'preview-label' });
-					item.addEventListener('click', async () => {
-						this.plugin.settings.bannerTheme = theme.id as any;
-						await this.plugin.saveSettings();
-						this.plugin.refreshView();
-						this.display();
+					item.addEventListener('click', () => {
+						void (async () => {
+							this.plugin.settings.bannerTheme = theme.id;
+							await this.plugin.saveSettings();
+							this.plugin.refreshView();
+							this.display();
+						})();
 					});
 				});
 
@@ -19534,11 +19715,13 @@ class BiblePortalSettingTab extends PluginSettingTab {
 								value: this.plugin.settings.bannerColor,
 								cls: 'bp-color-input'
 							});
-							colorInput.addEventListener('change', async () => {
-								this.plugin.settings.bannerColor = colorInput.value;
-								await this.plugin.saveSettings();
-								this.plugin.refreshView();
-								this.display();
+							colorInput.addEventListener('change', () => {
+								void (async () => {
+									this.plugin.settings.bannerColor = colorInput.value;
+									await this.plugin.saveSettings();
+									this.plugin.refreshView();
+									this.display();
+								})();
 							});
 						});
 				}
@@ -19588,8 +19771,8 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					.setName('Font style')
 					.setDesc('Serif fonts have a classic book feel; sans-serif is modern')
 					.addDropdown(dropdown => dropdown
-						.addOption('sans-serif', 'Sans-serif (Modern)')
-						.addOption('serif', 'Serif (Classic)')
+						.addOption('sans-serif', 'Sans-serif (modern)')
+						.addOption('serif', 'Serif (classic)')
 						.setValue(this.plugin.settings.fontStyle)
 						.onChange(async (value: 'sans-serif' | 'serif') => {
 							this.plugin.settings.fontStyle = value;
@@ -19618,11 +19801,11 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					.setName('Verse number style')
 					.setDesc('How verse numbers appear in the text')
 					.addDropdown(dropdown => dropdown
-						.addOption('default', 'Default (Bold, colored)')
-						.addOption('superscript', 'Superscript (Small, raised)')
-						.addOption('badge', 'Badge (Pill-shaped)')
-						.addOption('margin', 'Margin (Left-aligned)')
-						.addOption('subtle', 'Subtle (Dimmed)')
+						.addOption('default', 'Default (bold, colored)')
+						.addOption('superscript', 'Superscript (small, raised)')
+						.addOption('badge', 'Badge (pill-shaped)')
+						.addOption('margin', 'Margin (left-aligned)')
+						.addOption('subtle', 'Subtle (dimmed)')
 						.setValue(this.plugin.settings.verseNumberStyle || 'default')
 						.onChange(async (value: 'default' | 'superscript' | 'badge' | 'margin' | 'subtle') => {
 							this.plugin.settings.verseNumberStyle = value;
@@ -19677,9 +19860,11 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						.addOption('gradient', 'Gradient (fade effect)')
 						.addOption('solid', 'Solid (uniform color)')
 						.setValue(this.plugin.settings.highlightStyle || 'handdrawn')
-						.onChange(async (value: 'solid' | 'gradient' | 'handdrawn') => {
-							this.plugin.settings.highlightStyle = value;
-							await this.plugin.saveSettings();
+						.onChange((value: 'solid' | 'gradient' | 'handdrawn') => {
+							void (async () => {
+								this.plugin.settings.highlightStyle = value;
+								await this.plugin.saveSettings();
+							})();
 						}));
 
 				// Color palette display
@@ -19693,7 +19878,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				});
 
 				const colorPalette = colorGroup.createDiv({ cls: 'bp-settings-color-palette' });
-				this.plugin.settings.highlightColors.forEach((colorDef, index) => {
+				this.plugin.settings.highlightColors.forEach((colorDef, _index) => {
 					const chip = colorPalette.createDiv({ cls: 'bp-settings-color-chip' });
 					const dot = chip.createSpan({ cls: 'color-dot' });
 					dot.style.backgroundColor = colorDef.color;
@@ -19705,7 +19890,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Edit colors
 				this.plugin.settings.highlightColors.forEach((colorDef, index) => {
-					const setting = new Setting(content)
+					new Setting(content)
 						.setName(`${colorDef.name}`)
 						.addText(text => text
 							.setPlaceholder('Name')
@@ -19720,10 +19905,12 @@ class BiblePortalSettingTab extends PluginSettingTab {
 								value: colorDef.color.startsWith('#') ? colorDef.color : '#ffeb3b',
 								cls: 'bp-color-input'
 							});
-							colorInput.addEventListener('change', async () => {
-								this.plugin.settings.highlightColors[index].color = colorInput.value;
-								await this.plugin.saveSettings();
-								this.display();
+							colorInput.addEventListener('change', () => {
+								void (async () => {
+									this.plugin.settings.highlightColors[index].color = colorInput.value;
+									await this.plugin.saveSettings();
+									this.display();
+								})();
 							});
 						})
 						.addButton(button => button
@@ -19739,9 +19926,9 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				// Add color button
 				const colorActions = content.createDiv({ cls: 'bp-settings-actions' });
 				const addColorBtn = colorActions.createEl('button', { text: '+ Add color', cls: 'action-secondary' });
-				addColorBtn.addEventListener('click', async () => {
+				addColorBtn.addEventListener('click', () => {
 					this.plugin.settings.highlightColors.push({ name: 'New color', color: '#ffeb3b' });
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.display();
 				});
 
@@ -19776,30 +19963,36 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					// Color picker
 					const colorInput = item.createEl('input', { type: 'color', cls: 'layer-color' });
 					colorInput.value = layer.color;
-					colorInput.addEventListener('change', async () => {
-						this.plugin.settings.annotationLayers[index].color = colorInput.value;
-						await this.plugin.saveSettings();
+					colorInput.addEventListener('change', () => {
+						void (async () => {
+							this.plugin.settings.annotationLayers[index].color = colorInput.value;
+							await this.plugin.saveSettings();
+						})();
 					});
 
 					// Visibility toggle
 					const isVisible = this.plugin.settings.visibleAnnotationLayers.includes(layer.id);
 					const visBtn = item.createEl('button', { cls: `layer-visibility ${isVisible ? 'visible' : ''}` });
 					setIcon(visBtn, isVisible ? 'eye' : 'eye-off');
-					visBtn.addEventListener('click', async () => {
-						if (isVisible) {
-							this.plugin.settings.visibleAnnotationLayers = this.plugin.settings.visibleAnnotationLayers.filter(id => id !== layer.id);
-						} else {
-							this.plugin.settings.visibleAnnotationLayers.push(layer.id);
-						}
-						await this.plugin.saveSettings();
-						this.display();
+					visBtn.addEventListener('click', () => {
+						void (async () => {
+							if (isVisible) {
+								this.plugin.settings.visibleAnnotationLayers = this.plugin.settings.visibleAnnotationLayers.filter(id => id !== layer.id);
+							} else {
+								this.plugin.settings.visibleAnnotationLayers.push(layer.id);
+							}
+							await this.plugin.saveSettings();
+							this.display();
+						})();
 					});
 
 					// Name input
 					const nameInput = item.createEl('input', { type: 'text', cls: 'layer-name', value: layer.name });
-					nameInput.addEventListener('change', async () => {
-						this.plugin.settings.annotationLayers[index].name = nameInput.value;
-						await this.plugin.saveSettings();
+					nameInput.addEventListener('change', () => {
+						void (async () => {
+							this.plugin.settings.annotationLayers[index].name = nameInput.value;
+							await this.plugin.saveSettings();
+						})();
 					});
 
 					// Active badge
@@ -19811,22 +20004,24 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					if (!layer.isDefault) {
 						const deleteBtn = item.createEl('button', { cls: 'layer-delete' });
 						setIcon(deleteBtn, 'trash-2');
-						deleteBtn.addEventListener('click', async () => {
-							const confirmed = await showConfirmModal(
-								this.app,
-								'Delete layer',
-								`Delete layer "${layer.name}"?`,
-								{ isDestructive: true, confirmText: 'Delete' }
-							);
-							if (confirmed) {
-								this.plugin.settings.annotationLayers.splice(index, 1);
-								this.plugin.settings.visibleAnnotationLayers = this.plugin.settings.visibleAnnotationLayers.filter(id => id !== layer.id);
-								if (this.plugin.settings.activeAnnotationLayer === layer.id) {
-									this.plugin.settings.activeAnnotationLayer = 'personal';
+						deleteBtn.addEventListener('click', () => {
+							void (async () => {
+								const confirmed = await showConfirmModal(
+									this.app,
+									'Delete layer',
+									`Delete layer "${layer.name}"?`,
+									{ isDestructive: true, confirmText: 'Delete' }
+								);
+								if (confirmed) {
+									this.plugin.settings.annotationLayers.splice(index, 1);
+									this.plugin.settings.visibleAnnotationLayers = this.plugin.settings.visibleAnnotationLayers.filter(id => id !== layer.id);
+									if (this.plugin.settings.activeAnnotationLayer === layer.id) {
+										this.plugin.settings.activeAnnotationLayer = 'personal';
+									}
+									await this.plugin.saveSettings();
+									this.display();
 								}
-								await this.plugin.saveSettings();
-								this.display();
-							}
+							})();
 						});
 					}
 				});
@@ -19834,7 +20029,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				// Add layer button
 				const layerActions = content.createDiv({ cls: 'bp-settings-actions' });
 				const addLayerBtn = layerActions.createEl('button', { text: '+ Add layer', cls: 'action-secondary' });
-				addLayerBtn.addEventListener('click', async () => {
+				addLayerBtn.addEventListener('click', () => {
 					const newLayer: AnnotationLayer = {
 						id: `layer-${Date.now()}`,
 						name: 'New layer',
@@ -19844,7 +20039,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					};
 					this.plugin.settings.annotationLayers.push(newLayer);
 					this.plugin.settings.visibleAnnotationLayers.push(newLayer.id);
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.display();
 				});
 			}
@@ -19863,7 +20058,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					.setName('Notes folder')
 					.setDesc('Where Bible study notes are saved in your vault')
 					.addText(text => text
-						.setPlaceholder('Bible Portal/Notes')
+						.setPlaceholder('Bible portal/Notes')
 						.setValue(this.plugin.settings.notesFolder)
 						.onChange(async (value) => {
 							this.plugin.settings.notesFolder = value;
@@ -19915,7 +20110,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					.setName('Image export folder')
 					.setDesc('Where verse images are saved')
 					.addText(text => text
-						.setPlaceholder('Bible Portal/Images')
+						.setPlaceholder('Bible portal/Images')
 						.setValue(this.plugin.settings.imageExportFolder)
 						.onChange(async (value) => {
 							this.plugin.settings.imageExportFolder = value;
@@ -20008,11 +20203,10 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						cls: 'status-text'
 					});
 					const downloadBtn = crossRefStatus.createEl('button', { text: 'Download', cls: 'action-primary action-inline' });
-					downloadBtn.addEventListener('click', async () => {
+					downloadBtn.addEventListener('click', () => {
 						downloadBtn.disabled = true;
 						downloadBtn.textContent = 'Downloading...';
-						await this.plugin.downloadCrossReferences();
-						this.display();
+						void this.plugin.downloadCrossReferences().then(() => this.display());
 					});
 				}
 
@@ -20034,11 +20228,10 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						cls: 'status-text'
 					});
 					const downloadBtn = strongsStatus.createEl('button', { text: 'Download', cls: 'action-primary action-inline' });
-					downloadBtn.addEventListener('click', async () => {
+					downloadBtn.addEventListener('click', () => {
 						downloadBtn.disabled = true;
 						downloadBtn.textContent = 'Downloading...';
-						await this.plugin.downloadStrongsDictionaries();
-						this.display();
+						void this.plugin.downloadStrongsDictionaries().then(() => this.display());
 					});
 				}
 
@@ -20060,11 +20253,10 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						cls: 'status-text'
 					});
 					const downloadBtn = theographicStatus.createEl('button', { text: 'Download', cls: 'action-primary action-inline' });
-					downloadBtn.addEventListener('click', async () => {
+					downloadBtn.addEventListener('click', () => {
 						downloadBtn.disabled = true;
 						downloadBtn.textContent = 'Downloading...';
-						await this.plugin.downloadTheographicData();
-						this.display();
+						void this.plugin.downloadTheographicData().then(() => this.display());
 					});
 				}
 
@@ -20086,11 +20278,10 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						cls: 'status-text'
 					});
 					const downloadBtn = commentaryStatus.createEl('button', { text: 'Download', cls: 'action-primary action-inline' });
-					downloadBtn.addEventListener('click', async () => {
+					downloadBtn.addEventListener('click', () => {
 						downloadBtn.disabled = true;
 						downloadBtn.textContent = 'Downloading...';
-						await this.plugin.downloadCommentaryData();
-						this.display();
+						void this.plugin.downloadCommentaryData().then(() => this.display());
 					});
 				}
 
@@ -20124,7 +20315,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Verse of the Day
 				const votdGroup = content.createDiv({ cls: 'bp-settings-group' });
-				votdGroup.createEl('div', { text: 'Verse of the Day', cls: 'bp-settings-group-title' });
+				votdGroup.createEl('div', { text: 'Verse of the day', cls: 'bp-settings-group-title' });
 
 				new Setting(content)
 					.setName('Enable verse of the day')
@@ -20138,38 +20329,42 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				const votdActions = content.createDiv({ cls: 'bp-settings-actions' });
 				const regenerateBtn = votdActions.createEl('button', { text: 'Regenerate mapping', cls: 'action-secondary' });
-				regenerateBtn.addEventListener('click', async () => {
-					const confirmed = await showConfirmModal(
-						this.app,
-						'Regenerate mapping',
-						'Generate a new random verse mapping? This overwrites the existing mapping.',
-						{ confirmText: 'Regenerate' }
-					);
-					if (confirmed) {
-						const success = await this.plugin.generateVOTDMapping();
-						if (success) {
-							new Notice('✅ Verse mapping regenerated!');
+				regenerateBtn.addEventListener('click', () => {
+					void (async () => {
+						const confirmed = await showConfirmModal(
+							this.app,
+							'Regenerate mapping',
+							'Generate a new random verse mapping? This overwrites the existing mapping.',
+							{ confirmText: 'Regenerate' }
+						);
+						if (confirmed) {
+							const success = await this.plugin.generateVOTDMapping();
+							if (success) {
+								new Notice('✅ Verse mapping regenerated!');
+							}
 						}
-					}
+					})();
 				});
 
 				const exportVotdBtn = votdActions.createEl('button', { text: 'Export', cls: 'action-secondary' });
-				exportVotdBtn.addEventListener('click', async () => {
-					const votdPath = `${this.plugin.getPluginDataPath()}/verse-of-the-day.json`;
-					const adapter = this.app.vault.adapter;
-					if (!(await adapter.exists(votdPath))) {
-						new Notice('No VOTD mapping found');
-						return;
-					}
-					const json = await adapter.read(votdPath);
-					const blob = new Blob([json], { type: 'application/json' });
-					const url = URL.createObjectURL(blob);
-					const a = document.createElement('a');
-					a.href = url;
-					a.download = 'bible-portal-votd.json';
-					a.click();
-					URL.revokeObjectURL(url);
-					new Notice('✅ Exported!');
+				exportVotdBtn.addEventListener('click', () => {
+					void (async () => {
+						const votdPath = `${this.plugin.getPluginDataPath()}/verse-of-the-day.json`;
+						const adapter = this.app.vault.adapter;
+						if (!(await adapter.exists(votdPath))) {
+							new Notice('No VOTD mapping found');
+							return;
+						}
+						const json = await adapter.read(votdPath);
+						const blob = new Blob([json], { type: 'application/json' });
+						const url = URL.createObjectURL(blob);
+						const a = document.createElement('a');
+						a.href = url;
+						a.download = 'bible-portal-votd.json';
+						a.click();
+						URL.revokeObjectURL(url);
+						new Notice('✅ Exported!');
+					})();
 				});
 
 				// Search settings
@@ -20192,7 +20387,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		});
 
 		// ═══════════════════════════════════════════════════════════════
-		// SECTION 6: Reading Plans
+		// SECTION 6: Reading plans
 		// ═══════════════════════════════════════════════════════════════
 		const activePlans = this.plugin.getActiveReadingPlans();
 		this.createSection(containerEl, {
@@ -20216,7 +20411,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				new Setting(content)
 					.setName('Show reading plan reminder')
-					.setDesc('Remind you to read when opening Bible Portal')
+					.setDesc('Remind you to read when opening Bible portal')
 					.addToggle(toggle => toggle
 						.setValue(this.plugin.settings.readingPlanReminder)
 						.onChange(async (value) => {
@@ -20248,9 +20443,11 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						// Toggle switch
 						const toggle = card.createEl('input', { type: 'checkbox', cls: 'bp-toggle-input' });
 						toggle.checked = isActive;
-						toggle.addEventListener('change', async () => {
-							await this.plugin.toggleReadingPlan(plan.id);
-							this.display();
+						toggle.addEventListener('change', () => {
+							void (async () => {
+								await this.plugin.toggleReadingPlan(plan.id);
+								this.display();
+							})();
 						});
 					});
 
@@ -20396,20 +20593,22 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					// Reset button
 					const actions = content.createDiv({ cls: 'bp-settings-actions' });
 					const resetBtn = actions.createEl('button', { text: 'Reset achievements', cls: 'action-danger' });
-					resetBtn.addEventListener('click', async () => {
-						const confirmed = await showConfirmModal(
-							this.app,
-							'Reset achievements',
-							'Reset ALL achievements and stats? This cannot be undone.',
-							{ isDestructive: true, confirmText: 'Reset' }
-						);
-						if (confirmed) {
-							this.plugin.settings.unlockedAchievements = [];
-							this.plugin.settings.achievementStats = { ...DEFAULT_ACHIEVEMENT_STATS };
-							await this.plugin.saveSettings();
-							new Notice('Achievements reset');
-							this.display();
-						}
+					resetBtn.addEventListener('click', () => {
+						void (async () => {
+							const confirmed = await showConfirmModal(
+								this.app,
+								'Reset achievements',
+								'Reset ALL achievements and stats? This cannot be undone.',
+								{ isDestructive: true, confirmText: 'Reset' }
+							);
+							if (confirmed) {
+								this.plugin.settings.unlockedAchievements = [];
+								this.plugin.settings.achievementStats = { ...DEFAULT_ACHIEVEMENT_STATS };
+								await this.plugin.saveSettings();
+								new Notice('Achievements reset');
+								this.display();
+							}
+						})();
 					});
 				}
 			}
@@ -20469,19 +20668,19 @@ class BiblePortalSettingTab extends PluginSettingTab {
 			id: 'data-management',
 			icon: 'database',
 			title: 'Data management',
-			purpose: 'Download Bible translations, convert markdown files, and manage your study data.',
+			purpose: 'Download Bible versions, convert markdown files, and manage your study data.',
 			content: (content) => {
 				// Bible Downloader
 				const downloadGroup = content.createDiv({ cls: 'bp-settings-group' });
 				downloadGroup.createEl('div', { text: 'Download translations', cls: 'bp-settings-group-title' });
 
 				const downloadPurpose = downloadGroup.createDiv({ cls: 'bp-settings-purpose' });
-				downloadPurpose.textContent = 'Download Bible translations from the Bolls Life API. Choose from 50+ translations in multiple languages.';
+				downloadPurpose.textContent = 'Download Bible versions from the Bolls Life API. Choose from 50+ translations in multiple languages.';
 
 				const downloadActions = content.createDiv({ cls: 'bp-settings-actions' });
 				const downloadBtn = downloadActions.createEl('button', { text: 'Download Bible', cls: 'action-primary' });
-				downloadBtn.addEventListener('click', async () => {
-					await this.plugin.downloadBibleTranslation((step, message, percent) => {
+				downloadBtn.addEventListener('click', () => {
+					void this.plugin.downloadBibleTranslation((step, message, _percent) => {
 						if (step === 'complete') {
 							new Notice('✅ Bible downloaded!');
 							this.display();
@@ -20501,7 +20700,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				const importExportActions = content.createDiv({ cls: 'bp-settings-actions' });
 
 				const exportColorsBtn = importExportActions.createEl('button', { text: 'Export colors', cls: 'action-secondary' });
-				exportColorsBtn.addEventListener('click', async () => {
+				exportColorsBtn.addEventListener('click', () => {
 					const exportData = {
 						exportDate: new Date().toISOString(),
 						version: '1.0',
@@ -20519,7 +20718,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				});
 
 				const importColorsBtn = importExportActions.createEl('button', { text: 'Import colors', cls: 'action-secondary' });
-				importColorsBtn.addEventListener('click', async () => {
+				importColorsBtn.addEventListener('click', () => {
 					const input = document.createElement('input');
 					input.type = 'file';
 					input.accept = '.json';
@@ -20529,7 +20728,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						if (!file) return;
 						try {
 							const text = await file.text();
-							const importData = JSON.parse(text);
+							const importData = JSON.parse(text) as ImportedColorsData;
 							if (!importData.highlightColors || !Array.isArray(importData.highlightColors)) {
 								new Notice('Invalid file format');
 								return;
@@ -20538,7 +20737,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 							this.display();
 							new Notice(`Imported ${importData.highlightColors.length} colors`);
-						} catch (error) {
+						} catch {
 							new Notice('Failed to import');
 						}
 					};
@@ -20553,13 +20752,13 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		this.createSection(containerEl, {
 			id: 'about',
 			icon: 'info',
-			title: 'About Bible Portal',
+			title: 'About Bible portal',
 			purpose: '',
 			content: (content) => {
 				const about = content.createDiv({ cls: 'bp-settings-about' });
 
 				about.createDiv({ text: '📖', cls: 'about-logo' });
-				about.createEl('h3', { text: 'Bible Portal', cls: 'about-title' });
+				new Setting(about).setName("Bible portal").setHeading();
 				about.createEl('p', { text: 'Version 1.5.0', cls: 'about-version' });
 				about.createEl('p', {
 					text: 'A comprehensive Bible study plugin for Obsidian with multi-version support, cross-references, Strong\'s Concordance, and contextual metadata.',
@@ -20641,7 +20840,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		setIcon(iconDiv, options.icon);
 
 		const titleGroup = header.createDiv({ cls: 'section-title-group' });
-		const titleEl = titleGroup.createEl('span', { text: options.title, cls: 'section-title' });
+		titleGroup.createEl('span', { text: options.title, cls: 'section-title' });
 
 		if (options.badge) {
 			titleGroup.createEl('span', { text: options.badge, cls: 'section-badge' });
@@ -20708,7 +20907,7 @@ class DownloadProgressModal extends Modal {
 		// Progress bar container
 		this.progressBar = contentEl.createDiv({ cls: 'download-progress-bar' });
 		this.progressFill = this.progressBar.createDiv({ cls: 'download-progress-fill' });
-		this.progressFill.style.width = '0%';
+		this.progressFill.style.setProperty('--bp-download-progress', '0%');
 
 		// Status text
 		this.statusEl = contentEl.createEl('p', { text: 'Starting download...', cls: 'download-status' });
@@ -20719,7 +20918,7 @@ class DownloadProgressModal extends Modal {
 	}
 
 	setProgress(percent: number) {
-		this.progressFill.style.width = `${percent}%`;
+		this.progressFill.style.setProperty('--bp-download-progress', `${percent}%`);
 	}
 
 	setStatus(message: string) {
@@ -20727,7 +20926,7 @@ class DownloadProgressModal extends Modal {
 	}
 
 	setComplete(message: string) {
-		this.progressFill.style.width = '100%';
+		this.progressFill.style.setProperty('--bp-download-progress', '100%');
 		this.progressFill.addClass('complete');
 		this.statusEl.textContent = message;
 		this.closeBtn.removeClass('bp-hidden');

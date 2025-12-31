@@ -2451,6 +2451,10 @@
 
 /* Custom verse menu */
 .bible-verse-menu {
+	position: absolute;
+	left: var(--bp-pos-left, 0);
+	top: var(--bp-pos-top, 0);
+	z-index: var(--bp-pos-z, 1000);
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -4421,6 +4425,9 @@ input,
 /* Strong's hover tooltip */
 .strongs-tooltip {
 	position: fixed;
+	left: var(--bp-tooltip-left, 0);
+	top: var(--bp-tooltip-top, 0);
+	transform: var(--bp-tooltip-transform, none);
 	background: var(--background-primary);
 	border: 2px solid var(--interactive-accent);
 	border-radius: 12px;
@@ -9353,6 +9360,9 @@ input,
 
 /* Bookmark Context Menu */
 .bookmark-context-menu {
+	position: fixed;
+	left: var(--bp-pos-left, 0);
+	top: var(--bp-pos-top, 0);
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
