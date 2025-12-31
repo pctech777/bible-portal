@@ -1047,7 +1047,6 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     if (this.currentSession && this.settings.enableSessionTracking) {
       this.saveSessionToJournal();
     }
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_BIBLE);
   }
   async activateBibleView() {
     console.debug("\u{1F680} activateBibleView() called");
@@ -1608,11 +1607,16 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
   /**
    * Get the path to the plugin's bundled data folder
    * This folder stores large datasets bundled with the plugin (cross-references, Strong's, interlinear, etc.)
-   * Location: .obsidian/plugins/bible-portal/data/
+   * Uses configDir instead of hardcoded .obsidian for portability
    */
   getPluginDataPath() {
-    const pluginDir = this.manifest.dir;
-    return `${pluginDir}/data`;
+    return `${this.app.vault.configDir}/plugins/${this.manifest.id}/data`;
+  }
+  /**
+   * Get the plugin's installation directory
+   */
+  getPluginDir() {
+    return `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
   }
   /**
    * Read JSON file from plugin data folder
@@ -1673,7 +1677,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     try {
       const adapter = this.app.vault.adapter;
       const discoveredVersions = [];
-      const bibleDataFolder = ".obsidian/plugins/bible-portal/data/bibles";
+      const bibleDataFolder = `${this.getPluginDataPath()}/bibles`;
       const folderExists = await adapter.exists(bibleDataFolder);
       if (!folderExists) {
         console.warn(`\u26A0\uFE0F Bible data folder does not exist: ${bibleDataFolder}`);
@@ -1857,7 +1861,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
       });
       if (onProgress)
         onProgress("save", `Saving ${versionCode}...`, 95);
-      const bibleDataFolder = ".obsidian/plugins/bible-portal/data/bibles";
+      const bibleDataFolder = `${this.getPluginDataPath()}/bibles`;
       const outputPath = `${bibleDataFolder}/${versionCode.toLowerCase()}.json`;
       const jsonContent = JSON.stringify(bibleData, null, 2);
       const adapter = this.app.vault.adapter;
@@ -2241,8 +2245,8 @@ Saved to: ${outputPath}`, 8e3);
         return;
       }
       this.strongsDictionary = {
-        greek: greekData || null,
-        hebrew: hebrewData || null
+        greek: greekData,
+        hebrew: hebrewData
       };
       const greekCount = greekData ? Object.keys(greekData).length : 0;
       const hebrewCount = hebrewData ? Object.keys(hebrewData).length : 0;
@@ -3000,7 +3004,7 @@ Saved to: ${outputPath}`, 8e3);
   async loadVOTDMapping() {
     try {
       const adapter = this.app.vault.adapter;
-      const votdPath = ".obsidian/plugins/bible-portal/data/verse-of-the-day.json";
+      const votdPath = `${this.getPluginDataPath()}/verse-of-the-day.json`;
       if (await adapter.exists(votdPath)) {
         const votdJson = await adapter.read(votdPath);
         this.votdMapping = JSON.parse(votdJson);
@@ -3021,7 +3025,7 @@ Saved to: ${outputPath}`, 8e3);
     }
     try {
       const adapter = this.app.vault.adapter;
-      const jesusWordsPath = ".obsidian/plugins/bible-portal/src/data/jesus-words-complete.json";
+      const jesusWordsPath = `${this.getPluginDir()}/src/data/jesus-words-complete.json`;
       console.debug("\u{1F4C2} Looking for Jesus Words at:", jesusWordsPath);
       const startTime = performance.now();
       if (await adapter.exists(jesusWordsPath)) {
@@ -3090,7 +3094,7 @@ Saved to: ${outputPath}`, 8e3);
   async generateVOTDMapping() {
     try {
       const adapter = this.app.vault.adapter;
-      const votdPath = ".obsidian/plugins/bible-portal/data/verse-of-the-day.json";
+      const votdPath = `${this.getPluginDataPath()}/verse-of-the-day.json`;
       const fileExists = await adapter.exists(votdPath);
       if (fileExists) {
         new import_obsidian.Notice("Regenerating verse of the day mapping...");
@@ -5495,9 +5499,9 @@ ${disputedInfo.manuscriptInfo}`);
             const jesusSpan = verseTextSpan.createEl("span", {
               cls: "jesus-words"
             });
-            jesusSpan.innerHTML = verseTextSpan.innerHTML;
-            verseTextSpan.empty();
-            verseTextSpan.appendChild(jesusSpan);
+            while (verseTextSpan.firstChild && verseTextSpan.firstChild !== jesusSpan) {
+              jesusSpan.appendChild(verseTextSpan.firstChild);
+            }
             jesusSpan.style.color = this.plugin.settings.jesusWordsColor;
           }
         }
@@ -6264,7 +6268,7 @@ ${disputedInfo.manuscriptInfo}`);
           if (name === null)
             return;
           const bookmark = {
-            id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             name,
             book,
             bookmarkLevel: "verse",
@@ -6309,7 +6313,7 @@ ${disputedInfo.manuscriptInfo}`);
         if (name === null)
           return;
         const bookmark = {
-          id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           name,
           book,
           bookmarkLevel: "chapter",
@@ -6347,7 +6351,7 @@ ${disputedInfo.manuscriptInfo}`);
           return;
         }
         const bookmark = {
-          id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           name: bookmarkName || void 0,
           book,
           bookmarkLevel: "book",
@@ -6401,7 +6405,7 @@ ${disputedInfo.manuscriptInfo}`);
         });
         tagOption.addEventListener("click", async () => {
           const newTag = {
-            id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             book,
             chapter,
             verse,
@@ -6545,7 +6549,7 @@ ${disputedInfo.manuscriptInfo}`);
           const verseText = this.getVerseFromReference(ref);
           if (verseText && !previewEl) {
             previewEl = refItem.createEl("div", { cls: "cross-ref-preview-inline" });
-            previewEl.innerHTML = `<em>${verseText}</em>`;
+            previewEl.createEl("em", { text: verseText });
           }
         }, 300);
       });
@@ -6766,9 +6770,8 @@ ${disputedInfo.manuscriptInfo}`);
             text: `${result.book} ${result.chapter}:${result.verse}`,
             cls: "search-result-reference"
           });
-          const highlightedText = this.highlightSearchTerm(result.text, query);
           const textDiv = resultItem.createDiv("search-result-text");
-          textDiv.innerHTML = highlightedText;
+          this.populateWithHighlightedText(textDiv, result.text, query);
           resultItem.addEventListener("click", () => {
             this.currentBook = result.book;
             this.currentChapter = result.chapter;
@@ -6901,9 +6904,7 @@ ${disputedInfo.manuscriptInfo}`);
         const contextEl = resultItem.createEl("div", {
           cls: "search-result-context"
         });
-        const regex = new RegExp(`(${query})`, "gi");
-        const highlightedContext = result.matchContext.replace(regex, "<mark>$1</mark>");
-        contextEl.innerHTML = highlightedContext;
+        this.populateWithHighlightedText(contextEl, result.matchContext, query);
         const previewEl = resultItem.createEl("div", {
           text: result.preview,
           cls: "search-result-preview"
@@ -7227,6 +7228,27 @@ ${disputedInfo.manuscriptInfo}`);
     const regex = new RegExp(`(${query})`, "gi");
     return text.replace(regex, "<mark>$1</mark>");
   }
+  /**
+   * Populate an element with text that has search terms highlighted using DOM APIs
+   * This is safer than innerHTML for user-provided content
+   */
+  populateWithHighlightedText(container, text, query) {
+    container.empty();
+    if (!query) {
+      container.textContent = text;
+      return;
+    }
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`(${escapedQuery})`, "gi");
+    const parts = text.split(regex);
+    parts.forEach((part) => {
+      if (part.toLowerCase() === query.toLowerCase()) {
+        container.createEl("mark", { text: part });
+      } else if (part) {
+        container.appendText(part);
+      }
+    });
+  }
   jumpToPassage(reference) {
     const match = reference.match(/^(.+?)\s+(\d+)(?::(\d+))?(?:-(\d+))?$/);
     if (!match) {
@@ -7390,7 +7412,7 @@ ${disputedInfo.manuscriptInfo}`);
       }
     }
     const bookmark = {
-      id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       book: this.currentBook,
       bookmarkLevel: "verse",
       chapter: this.currentChapter,
@@ -8473,11 +8495,15 @@ ${disputedInfo.manuscriptInfo}`);
         showToast("No orphaned notes found - all references are valid!");
         return;
       }
-      const confirmRemove = confirm(
+      const orphanList = orphanedNotes.slice(0, 5).map((n) => `\u2022 ${n.book} ${n.chapter}:${n.verse}`).join("\n") + (orphanedNotes.length > 5 ? `
+... and ${orphanedNotes.length - 5} more` : "");
+      const confirmRemove = await showConfirmModal(
+        this.app,
+        "Remove orphaned references?",
         `Found ${orphanedNotes.length} orphaned note reference${orphanedNotes.length > 1 ? "s" : ""} (files no longer exist):
 
-` + orphanedNotes.slice(0, 5).map((n) => `\u2022 ${n.book} ${n.chapter}:${n.verse}`).join("\n") + (orphanedNotes.length > 5 ? `
-... and ${orphanedNotes.length - 5} more` : "") + "\n\nRemove these orphaned references?"
+${orphanList}`,
+        { confirmText: "Remove", isDestructive: true }
       );
       if (confirmRemove) {
         const validNotes = this.plugin.noteReferences.filter((noteRef) => {
@@ -8618,7 +8644,7 @@ ${disputedInfo.manuscriptInfo}`);
     const analyticsHeader = analyticsDashboard.createDiv({ cls: "analytics-header" });
     analyticsHeader.createEl("h3", { text: "\u{1F4CA} Notes Analytics" });
     const toggleAnalyticsBtn = analyticsHeader.createEl("button", { cls: "analytics-toggle-btn" });
-    toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    (0, import_obsidian.setIcon)(toggleAnalyticsBtn, "chevron-down");
     const analyticsContent = analyticsDashboard.createDiv({ cls: "analytics-content" });
     toggleAnalyticsBtn.addEventListener("click", () => {
       showAnalytics = !showAnalytics;
@@ -8982,7 +9008,12 @@ ${disputedInfo.manuscriptInfo}`);
           if (selectedForBulk.size === 0)
             return;
           const count = selectedForBulk.size;
-          const confirmed = confirm(`Delete ${count} note${count > 1 ? "s" : ""}? This will also delete the note files.`);
+          const confirmed = await showConfirmModal(
+            this.app,
+            "Delete notes?",
+            `Delete ${count} note${count > 1 ? "s" : ""}? This will also delete the note files.`,
+            { confirmText: "Delete", isDestructive: true }
+          );
           if (!confirmed)
             return;
           for (const notePath of selectedForBulk) {
@@ -9173,7 +9204,13 @@ ${disputedInfo.manuscriptInfo}`);
         cls: "preview-action-btn danger"
       });
       deleteBtn.addEventListener("click", async () => {
-        if (confirm(`Delete note for ${referenceText}?`)) {
+        const confirmed = await showConfirmModal(
+          this.app,
+          "Delete note?",
+          `Delete note for ${referenceText}?`,
+          { confirmText: "Delete", isDestructive: true }
+        );
+        if (confirmed) {
           await this.app.vault.delete(file);
           this.plugin.noteReferences = this.plugin.noteReferences.filter((n) => n.notePath !== note.notePath);
           await this.plugin.saveHighlightsAndNotes();
@@ -9291,7 +9328,7 @@ ${disputedInfo.manuscriptInfo}`);
     const analyticsHeader = analyticsDashboard.createDiv({ cls: "analytics-header" });
     analyticsHeader.createEl("h3", { text: "\u{1F4CA} Highlights Analytics" });
     const toggleAnalyticsBtn = analyticsHeader.createEl("button", { cls: "analytics-toggle-btn" });
-    toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    (0, import_obsidian.setIcon)(toggleAnalyticsBtn, "chevron-down");
     const analyticsContent = analyticsDashboard.createDiv({ cls: "analytics-content" });
     toggleAnalyticsBtn.addEventListener("click", () => {
       showAnalytics = !showAnalytics;
@@ -9794,10 +9831,12 @@ ${disputedInfo.manuscriptInfo}`);
         }
       });
       const keyboardHints = previewPanel.createDiv({ cls: "preview-keyboard-hints" });
-      keyboardHints.innerHTML = `
-				<span class="keyboard-hint"><kbd>/</kbd> Search</span>
-				<span class="keyboard-hint"><kbd>Esc</kbd> Clear selection</span>
-			`;
+      const searchHint = keyboardHints.createSpan({ cls: "keyboard-hint" });
+      searchHint.createEl("kbd", { text: "/" });
+      searchHint.appendText(" Search");
+      const escHint = keyboardHints.createSpan({ cls: "keyboard-hint" });
+      escHint.createEl("kbd", { text: "Esc" });
+      escHint.appendText(" Clear selection");
     };
     const renderHighlightsList = () => {
       renderLayerDistribution();
@@ -10249,7 +10288,7 @@ ${disputedInfo.manuscriptInfo}`);
     const analyticsHeader = analyticsDashboard.createDiv({ cls: "analytics-header" });
     analyticsHeader.createEl("h3", { text: "\u{1F4CA} Bookmarks Analytics" });
     const toggleAnalyticsBtn = analyticsHeader.createEl("button", { cls: "analytics-toggle-btn" });
-    toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    (0, import_obsidian.setIcon)(toggleAnalyticsBtn, "chevron-down");
     const analyticsContent = analyticsDashboard.createDiv({ cls: "analytics-content" });
     toggleAnalyticsBtn.addEventListener("click", () => {
       showAnalytics = !showAnalytics;
@@ -10539,7 +10578,7 @@ ${disputedInfo.manuscriptInfo}`);
             menu.style.left = `${e.clientX}px`;
             menu.style.top = `${e.clientY}px`;
             const renameItem = menu.createDiv({ cls: "context-menu-item" });
-            renameItem.innerHTML = "\u270F\uFE0F Rename";
+            renameItem.textContent = "\u270F\uFE0F Rename";
             renameItem.addEventListener("click", async () => {
               menu.remove();
               const currentName = bookmark.name || refText;
@@ -10555,7 +10594,7 @@ ${disputedInfo.manuscriptInfo}`);
               }
             });
             const deleteItem = menu.createDiv({ cls: "context-menu-item danger" });
-            deleteItem.innerHTML = "\u{1F5D1}\uFE0F Delete";
+            deleteItem.textContent = "\u{1F5D1}\uFE0F Delete";
             deleteItem.addEventListener("click", async () => {
               menu.remove();
               const confirmed = await this.showDeleteBookmarkConfirmation(refText);
@@ -10986,7 +11025,7 @@ ${disputedInfo.manuscriptInfo}`);
     const analyticsHeader = analyticsDashboard.createDiv({ cls: "analytics-header" });
     analyticsHeader.createEl("h3", { text: "\u{1F4CA} Tags Analytics" });
     const toggleAnalyticsBtn = analyticsHeader.createEl("button", { cls: "analytics-toggle-btn" });
-    toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    (0, import_obsidian.setIcon)(toggleAnalyticsBtn, "chevron-down");
     const analyticsContent = analyticsDashboard.createDiv({ cls: "analytics-content" });
     toggleAnalyticsBtn.addEventListener("click", () => {
       showAnalytics = !showAnalytics;
@@ -11573,7 +11612,7 @@ ${disputedInfo.manuscriptInfo}`);
           return;
         }
         const newTag = {
-          id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           book,
           chapter,
           verse,
@@ -11728,7 +11767,7 @@ ${disputedInfo.manuscriptInfo}`);
                 (b) => b.book === bookmark.book && b.chapter === bookmark.chapter && b.verse === bookmark.verse
               );
               if (!exists) {
-                bookmark.id = `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                bookmark.id = `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
                 this.plugin.bookmarks.push(bookmark);
                 imported++;
               } else {
@@ -11954,7 +11993,7 @@ ${disputedInfo.manuscriptInfo}`);
                 (h) => h.book === highlight.book && h.chapter === highlight.chapter && h.verse === highlight.verse && h.text === highlight.text
               );
               if (!exists) {
-                highlight.id = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                highlight.id = `highlight-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
                 this.plugin.highlights.push(highlight);
                 imported++;
               } else {
@@ -12372,7 +12411,13 @@ ${disputedInfo.manuscriptInfo}`);
         const deleteIcon = deleteBtn.createSpan();
         (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
         deleteBtn.addEventListener("click", async () => {
-          if (confirm("Are you sure you want to delete this journal entry?")) {
+          const confirmed = await showConfirmModal(
+            this.app,
+            "Delete entry?",
+            "Are you sure you want to delete this journal entry?",
+            { confirmText: "Delete", isDestructive: true }
+          );
+          if (confirmed) {
             const index = this.plugin.settings.journalEntries.findIndex((e) => e.id === entry.id);
             if (index !== -1) {
               this.plugin.settings.journalEntries.splice(index, 1);
@@ -12560,7 +12605,13 @@ ${disputedInfo.manuscriptInfo}`);
     const deleteIcon = deleteBtn.createSpan();
     (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
     this.registerDomEvent(deleteBtn, "click", async () => {
-      if (confirm(`Delete collection "${collection.name}"?`)) {
+      const confirmed = await showConfirmModal(
+        this.app,
+        "Delete collection?",
+        `Delete collection "${collection.name}"?`,
+        { confirmText: "Delete", isDestructive: true }
+      );
+      if (confirmed) {
         const idx = this.plugin.settings.collections.findIndex((c) => c.id === collection.id);
         if (idx !== -1) {
           this.plugin.settings.collections.splice(idx, 1);
@@ -12734,7 +12785,13 @@ ${disputedInfo.manuscriptInfo}`);
           (0, import_obsidian.setIcon)(deleteBtn, "trash-2");
           this.registerDomEvent(deleteBtn, "click", async (e) => {
             e.stopPropagation();
-            if (confirm(`Remove "${verse.reference}" from memorization?`)) {
+            const confirmed = await showConfirmModal(
+              this.app,
+              "Remove verse?",
+              `Remove "${verse.reference}" from memorization?`,
+              { confirmText: "Remove", isDestructive: true }
+            );
+            if (confirmed) {
               this.plugin.settings.memorizationVerses = verses.filter((v) => v.reference !== verse.reference);
               await this.plugin.saveSettings();
               this.render();
@@ -12770,7 +12827,10 @@ ${disputedInfo.manuscriptInfo}`);
     modalContent.className = "flashcard-modal";
     const progressDiv = document.createElement("div");
     progressDiv.className = "flashcard-progress";
-    progressDiv.innerHTML = `<div class="flashcard-progress-bar" style="width: ${(index + 1) / cards.length * 100}%"></div>`;
+    const progressBar = document.createElement("div");
+    progressBar.className = "flashcard-progress-bar";
+    progressBar.style.width = `${(index + 1) / cards.length * 100}%`;
+    progressDiv.appendChild(progressBar);
     const progressText = document.createElement("span");
     progressText.className = "flashcard-progress-text";
     progressText.textContent = `${index + 1} / ${cards.length}`;
@@ -12780,41 +12840,73 @@ ${disputedInfo.manuscriptInfo}`);
     cardContainer.className = "flashcard-container";
     const front = document.createElement("div");
     front.className = "flashcard-front";
-    front.innerHTML = `
-			<div class="flashcard-reference">${card.reference}</div>
-			<div class="flashcard-instruction">Can you recite this verse?</div>
-			<button class="flashcard-reveal-btn">Show Answer</button>
-		`;
+    const frontRef = document.createElement("div");
+    frontRef.className = "flashcard-reference";
+    frontRef.textContent = card.reference;
+    front.appendChild(frontRef);
+    const frontInstruction = document.createElement("div");
+    frontInstruction.className = "flashcard-instruction";
+    frontInstruction.textContent = "Can you recite this verse?";
+    front.appendChild(frontInstruction);
+    const revealBtn = document.createElement("button");
+    revealBtn.className = "flashcard-reveal-btn";
+    revealBtn.textContent = "Show Answer";
+    front.appendChild(revealBtn);
     cardContainer.appendChild(front);
     const back = document.createElement("div");
     back.className = "flashcard-back hidden";
+    const backRef = document.createElement("div");
+    backRef.className = "flashcard-reference";
+    backRef.textContent = card.reference;
+    back.appendChild(backRef);
     const hintText = this.plugin.settings.memorizationSettings.showHints ? card.text.split(" ").map((w) => w[0] + "_".repeat(w.length - 1)).join(" ") : "";
-    back.innerHTML = `
-			<div class="flashcard-reference">${card.reference}</div>
-			${hintText ? `<div class="flashcard-hint">${hintText}</div>` : ""}
-			<div class="flashcard-verse-text">${card.text}</div>
-			<div class="flashcard-version">${card.version}</div>
-			<div class="flashcard-rating">
-				<span class="rating-label">How well did you remember?</span>
-				<div class="rating-buttons">
-					<button class="rating-btn forgot" data-rating="0">Forgot</button>
-					<button class="rating-btn hard" data-rating="1">Hard</button>
-					<button class="rating-btn good" data-rating="2">Good</button>
-					<button class="rating-btn easy" data-rating="3">Easy</button>
-				</div>
-			</div>
-		`;
+    if (hintText) {
+      const hintDiv = document.createElement("div");
+      hintDiv.className = "flashcard-hint";
+      hintDiv.textContent = hintText;
+      back.appendChild(hintDiv);
+    }
+    const verseTextDiv = document.createElement("div");
+    verseTextDiv.className = "flashcard-verse-text";
+    verseTextDiv.textContent = card.text;
+    back.appendChild(verseTextDiv);
+    const versionDiv = document.createElement("div");
+    versionDiv.className = "flashcard-version";
+    versionDiv.textContent = card.version;
+    back.appendChild(versionDiv);
+    const ratingDiv = document.createElement("div");
+    ratingDiv.className = "flashcard-rating";
+    const ratingLabel = document.createElement("span");
+    ratingLabel.className = "rating-label";
+    ratingLabel.textContent = "How well did you remember?";
+    ratingDiv.appendChild(ratingLabel);
+    const ratingButtons = document.createElement("div");
+    ratingButtons.className = "rating-buttons";
+    const ratings = [
+      { cls: "forgot", rating: "0", text: "Forgot" },
+      { cls: "hard", rating: "1", text: "Hard" },
+      { cls: "good", rating: "2", text: "Good" },
+      { cls: "easy", rating: "3", text: "Easy" }
+    ];
+    ratings.forEach((r) => {
+      const btn = document.createElement("button");
+      btn.className = `rating-btn ${r.cls}`;
+      btn.setAttribute("data-rating", r.rating);
+      btn.textContent = r.text;
+      ratingButtons.appendChild(btn);
+    });
+    ratingDiv.appendChild(ratingButtons);
+    back.appendChild(ratingDiv);
     cardContainer.appendChild(back);
     modalContent.appendChild(cardContainer);
     const closeBtn = document.createElement("button");
     closeBtn.className = "flashcard-close-btn";
-    closeBtn.innerHTML = "\xD7";
+    closeBtn.textContent = "\xD7";
     closeBtn.addEventListener("click", () => modal.remove());
     modalContent.appendChild(closeBtn);
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
-    const revealBtn = front.querySelector(".flashcard-reveal-btn");
-    revealBtn == null ? void 0 : revealBtn.addEventListener("click", () => {
+    revealBtn.addEventListener("click", () => {
       front.classList.add("hidden");
       back.classList.remove("hidden");
     });
@@ -12874,45 +12966,73 @@ ${disputedInfo.manuscriptInfo}`);
     modal.className = "add-memorization-modal-overlay";
     const modalContent = document.createElement("div");
     modalContent.className = "add-memorization-modal";
-    modalContent.innerHTML = `
-			<h3>Add Verse to Memorize</h3>
-			<div class="add-verse-form">
-				<div class="form-group">
-					<label>Reference (e.g., John 3:16)</label>
-					<input type="text" class="verse-reference-input" placeholder="John 3:16">
-				</div>
-				<div class="form-group">
-					<label>Version</label>
-					<select class="verse-version-select">
-						${this.plugin.settings.bibleVersions.map((v) => `<option value="${v}">${v}</option>`).join("")}
-					</select>
-				</div>
-				<div class="form-group">
-					<label>Verse Text (auto-fills if found)</label>
-					<textarea class="verse-text-input" rows="4" placeholder="Enter verse text..."></textarea>
-				</div>
-				<div class="form-actions">
-					<button class="cancel-btn">Cancel</button>
-					<button class="lookup-btn">Lookup</button>
-					<button class="add-btn primary">Add Verse</button>
-				</div>
-			</div>
-		`;
+    const title = document.createElement("h3");
+    title.textContent = "Add verse to memorize";
+    modalContent.appendChild(title);
+    const form = document.createElement("div");
+    form.className = "add-verse-form";
+    const refGroup = document.createElement("div");
+    refGroup.className = "form-group";
+    const refLabel = document.createElement("label");
+    refLabel.textContent = "Reference (e.g., John 3:16)";
+    refGroup.appendChild(refLabel);
+    const refInput = document.createElement("input");
+    refInput.type = "text";
+    refInput.className = "verse-reference-input";
+    refInput.placeholder = "John 3:16";
+    refGroup.appendChild(refInput);
+    form.appendChild(refGroup);
+    const versionGroup = document.createElement("div");
+    versionGroup.className = "form-group";
+    const versionLabel = document.createElement("label");
+    versionLabel.textContent = "Version";
+    versionGroup.appendChild(versionLabel);
+    const versionSelect = document.createElement("select");
+    versionSelect.className = "verse-version-select";
+    this.plugin.settings.bibleVersions.forEach((v) => {
+      const option = document.createElement("option");
+      option.value = v;
+      option.textContent = v;
+      versionSelect.appendChild(option);
+    });
+    versionGroup.appendChild(versionSelect);
+    form.appendChild(versionGroup);
+    const textGroup = document.createElement("div");
+    textGroup.className = "form-group";
+    const textLabel = document.createElement("label");
+    textLabel.textContent = "Verse text (auto-fills if found)";
+    textGroup.appendChild(textLabel);
+    const textInput = document.createElement("textarea");
+    textInput.className = "verse-text-input";
+    textInput.rows = 4;
+    textInput.placeholder = "Enter verse text...";
+    textGroup.appendChild(textInput);
+    form.appendChild(textGroup);
+    const actions = document.createElement("div");
+    actions.className = "form-actions";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "cancel-btn";
+    cancelBtn.textContent = "Cancel";
+    actions.appendChild(cancelBtn);
+    const lookupBtn = document.createElement("button");
+    lookupBtn.className = "lookup-btn";
+    lookupBtn.textContent = "Lookup";
+    actions.appendChild(lookupBtn);
+    const addBtn = document.createElement("button");
+    addBtn.className = "add-btn primary";
+    addBtn.textContent = "Add verse";
+    actions.appendChild(addBtn);
+    form.appendChild(actions);
+    modalContent.appendChild(form);
     const closeBtn = document.createElement("button");
     closeBtn.className = "modal-close-btn";
-    closeBtn.innerHTML = "\xD7";
+    closeBtn.textContent = "\xD7";
     closeBtn.addEventListener("click", () => modal.remove());
     modalContent.appendChild(closeBtn);
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
-    const refInput = modalContent.querySelector(".verse-reference-input");
-    const versionSelect = modalContent.querySelector(".verse-version-select");
-    const textInput = modalContent.querySelector(".verse-text-input");
-    const cancelBtn = modalContent.querySelector(".cancel-btn");
-    const lookupBtn = modalContent.querySelector(".lookup-btn");
-    const addBtn = modalContent.querySelector(".add-btn");
-    cancelBtn == null ? void 0 : cancelBtn.addEventListener("click", () => modal.remove());
-    lookupBtn == null ? void 0 : lookupBtn.addEventListener("click", () => {
+    cancelBtn.addEventListener("click", () => modal.remove());
+    lookupBtn.addEventListener("click", () => {
       const ref = refInput.value.trim();
       const version = versionSelect.value;
       const match = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
@@ -12932,7 +13052,7 @@ ${disputedInfo.manuscriptInfo}`);
         showToast('Invalid reference format. Use "Book Chapter:Verse" (e.g., John 3:16)');
       }
     });
-    addBtn == null ? void 0 : addBtn.addEventListener("click", async () => {
+    addBtn.addEventListener("click", async () => {
       const reference = refInput.value.trim();
       const version = versionSelect.value;
       const text = textInput.value.trim();
@@ -14150,7 +14270,13 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
             const deleteBtn = item.createEl("button", { cls: "layer-delete" });
             (0, import_obsidian.setIcon)(deleteBtn, "trash-2");
             deleteBtn.addEventListener("click", async () => {
-              if (confirm(`Delete layer "${layer.name}"?`)) {
+              const confirmed = await showConfirmModal(
+                this.app,
+                "Delete layer?",
+                `Delete layer "${layer.name}"?`,
+                { confirmText: "Delete", isDestructive: true }
+              );
+              if (confirmed) {
                 this.plugin.settings.annotationLayers.splice(index, 1);
                 this.plugin.settings.visibleAnnotationLayers = this.plugin.settings.visibleAnnotationLayers.filter((id) => id !== layer.id);
                 if (this.plugin.settings.activeAnnotationLayer === layer.id) {
@@ -14345,7 +14471,13 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         const votdActions = content.createDiv({ cls: "bp-settings-actions" });
         const regenerateBtn = votdActions.createEl("button", { text: "Regenerate mapping", cls: "action-secondary" });
         regenerateBtn.addEventListener("click", async () => {
-          if (confirm("Generate a new random verse mapping? This overwrites the existing mapping.")) {
+          const confirmed = await showConfirmModal(
+            this.app,
+            "Regenerate mapping?",
+            "Generate a new random verse mapping? This overwrites the existing mapping.",
+            { confirmText: "Regenerate", isDestructive: false }
+          );
+          if (confirmed) {
             const success = await this.plugin.generateVOTDMapping();
             if (success) {
               new import_obsidian.Notice("\u2705 Verse mapping regenerated!");
@@ -14354,7 +14486,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         });
         const exportVotdBtn = votdActions.createEl("button", { text: "Export", cls: "action-secondary" });
         exportVotdBtn.addEventListener("click", async () => {
-          const votdPath = ".obsidian/plugins/bible-portal/data/verse-of-the-day.json";
+          const votdPath = `${this.plugin.getPluginDataPath()}/verse-of-the-day.json`;
           const adapter = this.app.vault.adapter;
           if (!await adapter.exists(votdPath)) {
             new import_obsidian.Notice("No VOTD mapping found");
@@ -14513,7 +14645,13 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           const actions = content.createDiv({ cls: "bp-settings-actions" });
           const resetBtn = actions.createEl("button", { text: "Reset achievements", cls: "action-danger" });
           resetBtn.addEventListener("click", async () => {
-            if (confirm("Reset ALL achievements and stats? This cannot be undone.")) {
+            const confirmed = await showConfirmModal(
+              this.app,
+              "Reset achievements?",
+              "Reset ALL achievements and stats? This cannot be undone.",
+              { confirmText: "Reset", isDestructive: true }
+            );
+            if (confirmed) {
               this.plugin.settings.unlockedAchievements = [];
               this.plugin.settings.achievementStats = { ...DEFAULT_ACHIEVEMENT_STATS };
               await this.plugin.saveSettings();
@@ -14732,6 +14870,56 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
     });
   }
 };
+var ConfirmModal = class extends import_obsidian.Modal {
+  constructor(app, options) {
+    super(app);
+    this.title = options.title;
+    this.message = options.message;
+    this.confirmText = options.confirmText || "Confirm";
+    this.cancelText = options.cancelText || "Cancel";
+    this.isDestructive = options.isDestructive || false;
+    this.onConfirm = options.onConfirm;
+    this.onCancel = options.onCancel;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("confirm-modal");
+    contentEl.createEl("h3", { text: this.title });
+    contentEl.createEl("p", { text: this.message });
+    const buttonContainer = contentEl.createDiv({ cls: "confirm-modal-buttons" });
+    const cancelBtn = buttonContainer.createEl("button", { text: this.cancelText });
+    cancelBtn.addEventListener("click", () => {
+      this.close();
+      this.onCancel();
+    });
+    const confirmBtn = buttonContainer.createEl("button", {
+      text: this.confirmText,
+      cls: this.isDestructive ? "mod-warning" : "mod-cta"
+    });
+    confirmBtn.addEventListener("click", () => {
+      this.close();
+      this.onConfirm();
+    });
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+function showConfirmModal(app, title, message, options) {
+  return new Promise((resolve) => {
+    new ConfirmModal(app, {
+      title,
+      message,
+      confirmText: options == null ? void 0 : options.confirmText,
+      cancelText: options == null ? void 0 : options.cancelText,
+      isDestructive: options == null ? void 0 : options.isDestructive,
+      onConfirm: () => resolve(true),
+      onCancel: () => resolve(false)
+    }).open();
+  });
+}
 var DownloadProgressModal = class extends import_obsidian.Modal {
   constructor(app, title) {
     super(app);
