@@ -1,7 +1,7 @@
 {
 	"id": "bible-portal",
 	"name": "Bible Portal",
-	"version": "1.5.1",
+	"version": "1.6.0",
 	"minAppVersion": "1.0.0",
 	"description": "Comprehensive Bible study environment with multi-version support, cross-references, Strong's Concordance, notes, highlighting, and study tools.",
 	"author": "Stephen",
