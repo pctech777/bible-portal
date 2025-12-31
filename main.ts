@@ -3489,7 +3489,7 @@ export default class BiblePortalPlugin extends Plugin {
 	 * Download Strong's dictionaries and interlinear data from GitHub
 	 */
 	async downloadStrongsDictionaries() {
-		const modal = new DownloadProgressModal(this.app, "Downloading Strong's Concordance & Interlinear Data");
+		const modal = new DownloadProgressModal(this.app, "Downloading Strong's concordance & interlinear data");
 		modal.open();
 
 		try {
@@ -3581,7 +3581,7 @@ export default class BiblePortalPlugin extends Plugin {
 	 * Download Theographic metadata from GitHub
 	 */
 	async downloadTheographicData() {
-		const modal = new DownloadProgressModal(this.app, 'Downloading Theographic Data');
+		const modal = new DownloadProgressModal(this.app, 'Downloading Theographic data');
 		modal.open();
 
 		try {
@@ -5631,7 +5631,7 @@ class BibleView extends ItemView {
 
 		// Always show Strong's Lookup if dictionary is loaded (not controlled by enableStrongs checkbox)
 		if (this.plugin.strongsDictionary) {
-			modes.push({ icon: 'search', mode: ViewMode.STRONGS, title: 'Strong\'s Lookup' });
+			modes.push({ icon: 'search', mode: ViewMode.STRONGS, title: 'Strong\'s lookup' });
 		}
 
 		if (this.plugin.settings.enableTheographic && this.plugin.theographicData.loaded) {
@@ -7127,7 +7127,7 @@ class BibleView extends ItemView {
 			this.navigateForward();
 		});
 
-		lookupControls.createEl('h2', { text: "Strong's Concordance Lookup", cls: 'strongs-lookup-title' });
+		lookupControls.createEl('h2', { text: "Strong's concordance lookup", cls: 'strongs-lookup-title' });
 		lookupControls.createEl('p', {
 			text: 'Enter a Strong\'s number (e.g., H430 for Hebrew or G25 for Greek)',
 			cls: 'strongs-lookup-description'
@@ -17547,7 +17547,7 @@ class BibleView extends ItemView {
 			{ id: 'commentary', label: 'Commentary', icon: 'book-open' },
 			{ id: 'word-study', label: 'Words', icon: 'languages' },
 			{ id: 'context', label: 'Context', icon: 'map-pin' },
-			{ id: 'parallels', label: 'Cross-Refs', icon: 'git-compare' },
+			{ id: 'parallels', label: 'Cross-refs', icon: 'git-compare' },
 			{ id: 'notes', label: 'Notes', icon: 'file-text' }
 		];
 
@@ -17805,9 +17805,9 @@ class BibleView extends ItemView {
 					kjvDiv.appendText(entry.kjv_def);
 				}
 
-				// View in Strong's Lookup button
+				// View in Strong's lookup button
 				const lookupBtn = selectedCard.createEl('button', {
-					text: 'View in Strong\'s Lookup →',
+					text: 'View in Strong\'s lookup →',
 					cls: 'view-in-lookup-btn'
 				});
 				this.registerDomEvent(lookupBtn, 'click', () => {
@@ -19888,7 +19888,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Copy settings group
 				const copyGroup = content.createDiv({ cls: 'bp-settings-group' });
-				copyGroup.createEl('div', { text: 'Copy & Export', cls: 'bp-settings-group-title' });
+				copyGroup.createEl('div', { text: 'Copy & export', cls: 'bp-settings-group-title' });
 
 				new Setting(content)
 					.setName('Include reference when copying')
@@ -20258,7 +20258,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					const todaysReadings = this.plugin.getTodaysReadings();
 					if (todaysReadings.length > 0) {
 						const todayGroup = content.createDiv({ cls: 'bp-settings-group' });
-						todayGroup.createEl('div', { text: "Today's Readings", cls: 'bp-settings-group-title' });
+						todayGroup.createEl('div', { text: "Today's readings", cls: 'bp-settings-group-title' });
 
 						todaysReadings.forEach(reading => {
 							const readingDiv = todayGroup.createDiv({ cls: 'bp-settings-status' });
@@ -20371,7 +20371,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				if (this.plugin.settings.enableAchievements) {
 					// Progress bar
 					const progressSection = content.createDiv();
-					progressSection.createDiv({ text: `${achievementProgress.percentage}% Complete`, cls: 'bp-settings-group-title' });
+					progressSection.createDiv({ text: `${achievementProgress.percentage}% complete`, cls: 'bp-settings-group-title' });
 					const progressBar = progressSection.createDiv({ cls: 'bp-settings-progress' });
 					const progressFill = progressBar.createDiv({ cls: 'bp-settings-progress-bar' });
 					progressFill.style.width = `${achievementProgress.percentage}%`;
@@ -20493,7 +20493,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Import/Export
 				const importExportGroup = content.createDiv({ cls: 'bp-settings-group' });
-				importExportGroup.createEl('div', { text: 'Import & Export', cls: 'bp-settings-group-title' });
+				importExportGroup.createEl('div', { text: 'Import & export', cls: 'bp-settings-group-title' });
 
 				const importExportPurpose = importExportGroup.createDiv({ cls: 'bp-settings-purpose' });
 				importExportPurpose.textContent = 'Backup your highlight colors or transfer them to another vault.';

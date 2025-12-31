@@ -12,7 +12,7 @@ Tracking fixes required for Obsidian Community Plugin submission.
 | confirm() usage | 9 | ✅ Fixed |
 | innerHTML usage | 17 | ✅ Fixed |
 | Unexpected any type | 7 | ✅ Fixed |
-| Sentence case for UI text | ~20 fixed | ⏳ In Progress |
+| Sentence case for UI text | ~30 fixed | ✅ Complete |
 | Promises must be awaited/caught/voided | 165 | ✅ Fixed |
 | Avoid element.style.* - use CSS classes | 88 remaining (dynamic) | ✅ Maximally Fixed |
 
@@ -61,19 +61,13 @@ Converted all static inline styles to CSS classes. Remaining 88 are genuinely dy
 
 **These cannot be converted to CSS classes as they're computed at runtime.**
 
-### ⏳ Sentence Case (172 instances)
+### ✅ Sentence Case (complete)
 
-All UI text needs review:
-- Button labels
-- Menu items
-- Setting names/descriptions
-- Tab names
-- Modal headings
-
-**Example conversions needed:**
-- "Show Answer" → "Show answer"
-- "Delete Note" → "Delete note"
-- "Cross-References" → "Cross-references"
+Fixed all user-facing UI text. Remaining Title Case items are intentional:
+- **Product names:** Bible Portal, Theographic
+- **Proper nouns:** Bible, Old Testament, New Testament, Matthew Henry, Strong's
+- **Feature names:** Verse of the Day (established name)
+- **Achievement names:** Styled as titles (First Steps, Dedicated Reader, etc.)
 
 ### ✅ Promise Handling (165 instances) - COMPLETED
 
@@ -120,4 +114,13 @@ All floating promises now properly handled:
 - Fixed tooltip: "Open Bible Portal settings"
 - Fixed message text: "Add verse" reference
 - Note: Many Title Case items are intentional (proper nouns like "Bible Portal", "Matthew Henry", "Strong's", "Theographic", "Verse of the Day")
+
+### 2025-12-30 (additional sentence case fixes)
+- Fixed sidebar mode: "Strong's lookup"
+- Fixed heading: "Strong's concordance lookup"
+- Fixed button: "View in Strong's lookup →"
+- Fixed download modals: "Downloading Theographic data", "Downloading Strong's concordance & interlinear data"
+- Fixed settings group titles: "Copy & export", "Today's readings", "% complete", "Import & export"
+- Fixed tab label: "Cross-refs"
+- All UI text now follows sentence case (except proper nouns and achievement names)
 
