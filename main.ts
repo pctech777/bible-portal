@@ -1859,11 +1859,11 @@ export default class BiblePortalPlugin extends Plugin {
 
 		if (!book || chapter <= 0) {
 			this.statusBarItem.setText('');
-			this.statusBarItem.style.display = 'none';
+			this.statusBarItem.addClass('bp-hidden');
 			return;
 		}
 
-		this.statusBarItem.style.display = '';
+		this.statusBarItem.removeClass('bp-hidden');
 		const reference = verse
 			? `📖 ${book} ${chapter}:${verse}`
 			: `📖 ${book} ${chapter}`;
@@ -1994,7 +1994,7 @@ export default class BiblePortalPlugin extends Plugin {
 		const chapters = this.currentSession.chaptersVisited.size;
 
 		this.statusBarItem.setText(`📖 Study: ${timeStr} | ${chapters} ch`);
-		this.statusBarItem.style.display = '';
+		this.statusBarItem.removeClass('bp-hidden');
 	}
 
 	/**
@@ -11164,8 +11164,7 @@ class BibleView extends ItemView {
 		});
 
 		// Section content
-		const content = section.createDiv({ cls: 'theographic-section-content' });
-		content.style.display = 'none'; // Start collapsed
+		const content = section.createDiv({ cls: 'theographic-section-content bp-hidden' });
 
 		// Populate items
 		items.forEach(item => {
@@ -11194,7 +11193,7 @@ class BibleView extends ItemView {
 		let isExpanded = false; // Start collapsed
 		header.addEventListener('click', () => {
 			isExpanded = !isExpanded;
-			content.style.display = isExpanded ? 'block' : 'none';
+			content.toggleClass('bp-hidden', !isExpanded);
 			toggleIcon.textContent = isExpanded ? '▼' : '▶';
 		});
 	}
@@ -20702,11 +20701,8 @@ class BiblePortalSettingTab extends PluginSettingTab {
 		const sections = container.querySelectorAll('.bp-settings-section');
 		sections.forEach(section => {
 			const text = section.textContent?.toLowerCase() || '';
-			if (query === '' || text.includes(query)) {
-				(section as HTMLElement).style.display = '';
-			} else {
-				(section as HTMLElement).style.display = 'none';
-			}
+			const shouldHide = query !== '' && !text.includes(query);
+			(section as HTMLElement).toggleClass('bp-hidden', shouldHide);
 		});
 	}
 }
@@ -20743,8 +20739,7 @@ class DownloadProgressModal extends Modal {
 		this.statusEl = contentEl.createEl('p', { text: 'Starting download...', cls: 'download-status' });
 
 		// Close button (hidden initially)
-		this.closeBtn = contentEl.createEl('button', { text: 'Close', cls: 'download-close-btn' });
-		this.closeBtn.style.display = 'none';
+		this.closeBtn = contentEl.createEl('button', { text: 'Close', cls: 'download-close-btn bp-hidden' });
 		this.closeBtn.addEventListener('click', () => this.close());
 	}
 
@@ -20760,14 +20755,14 @@ class DownloadProgressModal extends Modal {
 		this.progressFill.style.width = '100%';
 		this.progressFill.addClass('complete');
 		this.statusEl.textContent = message;
-		this.closeBtn.style.display = 'block';
+		this.closeBtn.removeClass('bp-hidden');
 	}
 
 	setError(message: string) {
 		this.progressFill.addClass('error');
 		this.statusEl.textContent = message;
 		this.statusEl.addClass('error');
-		this.closeBtn.style.display = 'block';
+		this.closeBtn.removeClass('bp-hidden');
 	}
 
 	onClose() {

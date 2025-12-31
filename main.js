@@ -1139,10 +1139,10 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
       return;
     if (!book || chapter <= 0) {
       this.statusBarItem.setText("");
-      this.statusBarItem.style.display = "none";
+      this.statusBarItem.addClass("bp-hidden");
       return;
     }
-    this.statusBarItem.style.display = "";
+    this.statusBarItem.removeClass("bp-hidden");
     const reference = verse ? `\u{1F4D6} ${book} ${chapter}:${verse}` : `\u{1F4D6} ${book} ${chapter}`;
     this.statusBarItem.setText(reference);
   }
@@ -1243,7 +1243,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
     const chapters = this.currentSession.chaptersVisited.size;
     this.statusBarItem.setText(`\u{1F4D6} Study: ${timeStr} | ${chapters} ch`);
-    this.statusBarItem.style.display = "";
+    this.statusBarItem.removeClass("bp-hidden");
   }
   /**
    * Track chapter visit in current session
@@ -8732,8 +8732,7 @@ ${disputedInfo.manuscriptInfo}`);
       text: "\u25B6",
       cls: "theographic-toggle-icon"
     });
-    const content = section.createDiv({ cls: "theographic-section-content" });
-    content.style.display = "none";
+    const content = section.createDiv({ cls: "theographic-section-content bp-hidden" });
     items.forEach((item) => {
       const itemEl = content.createDiv({ cls: "theographic-item bp-clickable" });
       const nameEl = itemEl.createDiv({
@@ -8754,7 +8753,7 @@ ${disputedInfo.manuscriptInfo}`);
     let isExpanded = false;
     header.addEventListener("click", () => {
       isExpanded = !isExpanded;
-      content.style.display = isExpanded ? "block" : "none";
+      content.toggleClass("bp-hidden", !isExpanded);
       toggleIcon.textContent = isExpanded ? "\u25BC" : "\u25B6";
     });
   }
@@ -16395,11 +16394,8 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
     sections.forEach((section) => {
       var _a;
       const text = ((_a = section.textContent) == null ? void 0 : _a.toLowerCase()) || "";
-      if (query === "" || text.includes(query)) {
-        section.style.display = "";
-      } else {
-        section.style.display = "none";
-      }
+      const shouldHide = query !== "" && !text.includes(query);
+      section.toggleClass("bp-hidden", shouldHide);
     });
   }
 };
@@ -16417,8 +16413,7 @@ var DownloadProgressModal = class extends import_obsidian.Modal {
     this.progressFill = this.progressBar.createDiv({ cls: "download-progress-fill" });
     this.progressFill.style.width = "0%";
     this.statusEl = contentEl.createEl("p", { text: "Starting download...", cls: "download-status" });
-    this.closeBtn = contentEl.createEl("button", { text: "Close", cls: "download-close-btn" });
-    this.closeBtn.style.display = "none";
+    this.closeBtn = contentEl.createEl("button", { text: "Close", cls: "download-close-btn bp-hidden" });
     this.closeBtn.addEventListener("click", () => this.close());
   }
   setProgress(percent) {
@@ -16431,13 +16426,13 @@ var DownloadProgressModal = class extends import_obsidian.Modal {
     this.progressFill.style.width = "100%";
     this.progressFill.addClass("complete");
     this.statusEl.textContent = message;
-    this.closeBtn.style.display = "block";
+    this.closeBtn.removeClass("bp-hidden");
   }
   setError(message) {
     this.progressFill.addClass("error");
     this.statusEl.textContent = message;
     this.statusEl.addClass("error");
-    this.closeBtn.style.display = "block";
+    this.closeBtn.removeClass("bp-hidden");
   }
   onClose() {
     const { contentEl } = this;
