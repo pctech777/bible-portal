@@ -24,6 +24,10 @@ Thumbs.db
 # Backup files
 *.bak
 *~
+main.ts.backup
+
+# Project tracking (development only)
+.project/
 
 # Local development paths in scripts
 # (package.json has hardcoded local paths - that's fine for personal use)
