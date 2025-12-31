@@ -12,7 +12,7 @@ Tracking fixes required for Obsidian Community Plugin submission.
 | confirm() usage | 9 | ✅ Fixed |
 | innerHTML usage | 17 | ✅ Fixed |
 | Unexpected any type | 7 | ✅ Fixed |
-| Sentence case for UI text | 172 | ⏳ Pending |
+| Sentence case for UI text | ~20 fixed | ⏳ In Progress |
 | Promises must be awaited/caught/voided | 165 | ✅ Fixed |
 | Avoid element.style.* - use CSS classes | 88 remaining (dynamic) | ✅ Maximally Fixed |
 
@@ -112,4 +112,12 @@ All floating promises now properly handled:
 - ✅ Converted credits list styling (1 instance)
 - Inline styles reduced from 136 to 88 (all remaining are dynamic values)
 - Build passes successfully
+
+### 2025-12-30 (sentence case fixes)
+- Fixed modal titles: "Select Bible translation", "Delete highlight", "Delete multiple highlights", "Clear all visible highlights", "Delete bookmark", "Clear all bookmarks"
+- Fixed button labels: "Move to layer", "Go to verse", "Go to location", "Open note", "Create note", "Add another note", "Copy all references", "Download Bible translation"
+- Fixed search result titles: "Search results for...", "Note search results for..."
+- Fixed tooltip: "Open Bible Portal settings"
+- Fixed message text: "Add verse" reference
+- Note: Many Title Case items are intentional (proper nouns like "Bible Portal", "Matthew Henry", "Strong's", "Theographic", "Verse of the Day")
 

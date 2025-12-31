@@ -2984,7 +2984,7 @@ export default class BiblePortalPlugin extends Plugin {
 			let selectedTranslation: {short_name: string, full_name: string} | null = null;
 
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('Select Bible Translation');
+			modal.titleEl.setText('Select Bible translation');
 
 			const contentEl = modal.contentEl;
 			contentEl.empty();
@@ -5845,7 +5845,7 @@ class BibleView extends ItemView {
 		const sidebarFooter = sidebar.createDiv({ cls: 'sidebar-footer' });
 		const settingsBtn = sidebarFooter.createEl('button', {
 			cls: 'sidebar-mode-btn sidebar-settings-btn',
-			attr: { 'aria-label': 'Settings', title: 'Open Bible Portal Settings' }
+			attr: { 'aria-label': 'Settings', title: 'Open Bible Portal settings' }
 		});
 		const settingsIcon = settingsBtn.createSpan({ cls: 'sidebar-mode-icon' });
 		setIcon(settingsIcon, 'settings');
@@ -6599,7 +6599,7 @@ class BibleView extends ItemView {
 
 		// Download button
 		const downloadBtn = emptyState.createEl('button', {
-			text: '📥 Download Bible Translation',
+			text: '📥 Download Bible translation',
 			cls: 'bible-download-btn mod-cta'
 		});
 
@@ -8870,7 +8870,7 @@ class BibleView extends ItemView {
 			// Submenu header
 			const moveToLayerHeader = menu.createEl('div', {
 				cls: 'bible-menu-subheader',
-				text: '📁 Move to Layer'
+				text: '📁 Move to layer'
 			});
 
 			// Show each layer as an option
@@ -9424,7 +9424,7 @@ class BibleView extends ItemView {
 		const buttonContainer = contentEl.createEl('div', { cls: 'cross-ref-button-container bp-btn-container' });
 
 		const copyButton = buttonContainer.createEl('button', {
-			text: '📋 Copy All References',
+			text: '📋 Copy all references',
 			cls: 'mod-cta'
 		});
 		copyButton.addEventListener('click', () => {
@@ -9657,7 +9657,7 @@ class BibleView extends ItemView {
 		// Header
 		const header = resultsContainer.createDiv('search-results-header');
 		header.createEl('h3', {
-			text: `Search Results for "${query}"`,
+			text: `Search results for "${query}"`,
 			cls: 'search-results-title'
 		});
 
@@ -9851,7 +9851,7 @@ class BibleView extends ItemView {
 		// Header
 		const header = resultsContainer.createDiv('search-results-header');
 		header.createEl('h3', {
-			text: `📝 Note Search Results for "${query}"`,
+			text: `📝 Note search results for "${query}"`,
 			cls: 'search-results-title'
 		});
 
@@ -9921,10 +9921,10 @@ class BibleView extends ItemView {
 				});
 				const goToIcon = goToVerseBtn.createSpan({ cls: 'btn-icon' });
 				setIcon(goToIcon, 'book-open');
-				goToVerseBtn.createSpan({ text: 'Go to Verse' });
+				goToVerseBtn.createSpan({ text: 'Go to verse' });
 
 				const openNoteBtn = actionsEl.createEl('button', {
-					text: '📝 Open Note',
+					text: '📝 Open note',
 					cls: 'search-result-action-btn'
 				});
 
@@ -10283,12 +10283,12 @@ class BibleView extends ItemView {
 			});
 
 			const goToBtn = actionsEl.createEl('button', {
-				text: '📖 Go to Verse',
+				text: '📖 Go to verse',
 				cls: 'tag-note-action-btn'
 			});
 
 			const openNoteBtn = actionsEl.createEl('button', {
-				text: '📝 Open Note',
+				text: '📝 Open note',
 				cls: 'tag-note-action-btn'
 			});
 
@@ -10847,7 +10847,7 @@ class BibleView extends ItemView {
 
 			// Add "Create Note" button
 			const createBtn = content.createEl('button', {
-				text: '+ Create Note',
+				text: '+ Create note',
 				cls: 'note-preview-create-btn'
 			});
 			createBtn.addEventListener('click', async () => {
@@ -10900,7 +10900,7 @@ class BibleView extends ItemView {
 
 		// Add "Create Note" button at bottom
 		const createBtn = content.createEl('button', {
-			text: '+ Add Another Note',
+			text: '+ Add another note',
 			cls: 'note-preview-create-btn'
 		});
 		createBtn.addEventListener('click', async () => {
@@ -12709,7 +12709,7 @@ class BibleView extends ItemView {
 			const previewActions = previewHeader.createDiv({ cls: 'preview-actions' });
 
 			const goToVerseBtn = previewActions.createEl('button', {
-				text: '📖 Go to Verse',
+				text: '📖 Go to verse',
 				cls: 'preview-action-btn'
 			});
 			goToVerseBtn.addEventListener('click', async () => {
@@ -13298,7 +13298,7 @@ class BibleView extends ItemView {
 			bulkActionsDiv.addClass('bp-hidden');
 		});
 
-		const bulkMoveToLayerBtn = bulkActionsDiv.createEl('button', { text: '📁 Move to Layer', cls: 'bulk-action-btn' });
+		const bulkMoveToLayerBtn = bulkActionsDiv.createEl('button', { text: '📁 Move to layer', cls: 'bulk-action-btn' });
 		bulkMoveToLayerBtn.addEventListener('click', (e) => {
 			if (selectedHighlightIds.size === 0) return;
 
@@ -13512,7 +13512,7 @@ class BibleView extends ItemView {
 			// Action buttons
 			const actionsDiv = previewPanel.createDiv({ cls: 'preview-actions' });
 
-			const goToVerseBtn = actionsDiv.createEl('button', { text: '📖 Go to Verse', cls: 'preview-action-btn primary' });
+			const goToVerseBtn = actionsDiv.createEl('button', { text: '📖 Go to verse', cls: 'preview-action-btn primary' });
 			goToVerseBtn.addEventListener('click', () => {
 				this.currentBook = highlight.book;
 				this.currentChapter = highlight.chapter;
@@ -13874,7 +13874,7 @@ class BibleView extends ItemView {
 	async showDeleteHighlightConfirmation(reference: string): Promise<boolean> {
 		return new Promise((resolve) => {
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('⚠️ Delete Highlight');
+			modal.titleEl.setText('⚠️ Delete highlight');
 
 			const content = modal.contentEl;
 			content.createEl('p', {
@@ -13916,7 +13916,7 @@ class BibleView extends ItemView {
 	async showBulkDeleteHighlightsConfirmation(count: number): Promise<boolean> {
 		return new Promise((resolve) => {
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('⚠️ Delete Multiple Highlights');
+			modal.titleEl.setText('⚠️ Delete multiple highlights');
 
 			const content = modal.contentEl;
 			content.createEl('p', {
@@ -13940,7 +13940,7 @@ class BibleView extends ItemView {
 			});
 
 			const confirmBtn = buttonContainer.createEl('button', {
-				text: `Delete ${count} Highlights`,
+				text: `Delete ${count} highlights`,
 				cls: 'mod-warning'
 			});
 			confirmBtn.addEventListener('click', () => {
@@ -13958,7 +13958,7 @@ class BibleView extends ItemView {
 	async showClearAllHighlightsConfirmation(count: number): Promise<boolean> {
 		return new Promise((resolve) => {
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('⚠️ Clear All Visible Highlights');
+			modal.titleEl.setText('⚠️ Clear all visible highlights');
 
 			const content = modal.contentEl;
 			content.createEl('p', {
@@ -14269,7 +14269,7 @@ class BibleView extends ItemView {
 			// Action buttons
 			const actionsDiv = previewPanel.createDiv({ cls: 'preview-actions' });
 
-			const goToBtn = actionsDiv.createEl('button', { text: '📖 Go to Location', cls: 'preview-action-btn' });
+			const goToBtn = actionsDiv.createEl('button', { text: '📖 Go to location', cls: 'preview-action-btn' });
 			goToBtn.addEventListener('click', () => {
 				this.currentBook = bookmark.book;
 				this.currentChapter = bookmark.chapter || 1;
@@ -15924,7 +15924,7 @@ class BibleView extends ItemView {
 	async showDeleteBookmarkConfirmation(reference: string): Promise<boolean> {
 		return new Promise((resolve) => {
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('⚠️ Delete Bookmark');
+			modal.titleEl.setText('⚠️ Delete bookmark');
 
 			const content = modal.contentEl;
 			content.createEl('p', {
@@ -15966,7 +15966,7 @@ class BibleView extends ItemView {
 	async showClearAllBookmarksConfirmation(): Promise<boolean> {
 		return new Promise((resolve) => {
 			const modal = new Modal(this.app);
-			modal.titleEl.setText('⚠️ Clear All Bookmarks');
+			modal.titleEl.setText('⚠️ Clear all bookmarks');
 
 			const content = modal.contentEl;
 			content.createEl('p', {
@@ -17144,7 +17144,7 @@ class BibleView extends ItemView {
 			const emptyIcon = emptyState.createDiv({ cls: 'empty-icon' });
 			setIcon(emptyIcon, 'book-open');
 			emptyState.createEl('p', { text: 'No verses added yet' });
-			emptyState.createEl('p', { text: 'Add verses from any chapter view using the bookmark menu, or click "Add Verse" above.', cls: 'text-muted' });
+			emptyState.createEl('p', { text: 'Add verses from any chapter view using the bookmark menu, or click "Add verse" above.', cls: 'text-muted' });
 		} else {
 			// Group by status
 			const groups = [
