@@ -1822,9 +1822,7 @@ export default class BiblePortalPlugin extends Plugin {
 		if (this.currentSession && this.settings.enableSessionTracking) {
 			this.saveSessionToJournal();
 		}
-
-		// Detach all Bible views
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE_BIBLE);
+		// Note: Don't detach leaves in onunload - Obsidian handles this automatically
 	}
 
 	async activateBibleView() {
@@ -2516,18 +2514,23 @@ export default class BiblePortalPlugin extends Plugin {
 	/**
 	 * Get the path to the plugin's bundled data folder
 	 * This folder stores large datasets bundled with the plugin (cross-references, Strong's, interlinear, etc.)
-	 * Location: .obsidian/plugins/bible-portal/data/
+	 * Uses configDir instead of hardcoded .obsidian for portability
 	 */
 	getPluginDataPath(): string {
-		// @ts-ignore - accessing private Obsidian API
-		const pluginDir = this.manifest.dir;
-		return `${pluginDir}/data`;
+		return `${this.app.vault.configDir}/plugins/${this.manifest.id}/data`;
+	}
+
+	/**
+	 * Get the plugin's installation directory
+	 */
+	getPluginDir(): string {
+		return `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
 	}
 
 	/**
 	 * Read JSON file from plugin data folder
 	 */
-	async readPluginDataFile(filename: string): Promise<any | null> {
+	async readPluginDataFile(filename: string): Promise<unknown | null> {
 		try {
 			const filePath = `${this.getPluginDataPath()}/${filename}`;
 			const adapter = this.app.vault.adapter;
@@ -2549,7 +2552,7 @@ export default class BiblePortalPlugin extends Plugin {
 	/**
 	 * Write JSON file to plugin data folder
 	 */
-	async writePluginDataFile(filename: string, data: any): Promise<boolean> {
+	async writePluginDataFile(filename: string, data: unknown): Promise<boolean> {
 		try {
 			const pluginDataPath = this.getPluginDataPath();
 			const adapter = this.app.vault.adapter;
@@ -2597,8 +2600,8 @@ export default class BiblePortalPlugin extends Plugin {
 			const adapter = this.app.vault.adapter;
 			const discoveredVersions: string[] = [];
 
-			// Hardcoded path in plugin folder
-			const bibleDataFolder = '.obsidian/plugins/bible-portal/data/bibles';
+			// Use configDir for portability
+			const bibleDataFolder = `${this.getPluginDataPath()}/bibles`;
 
 			// Check if folder exists using adapter (more reliable than vault cache)
 			const folderExists = await adapter.exists(bibleDataFolder);
@@ -2809,10 +2812,10 @@ export default class BiblePortalPlugin extends Plugin {
 
 			// Flatten all translations from all languages, but ONLY keep English
 			const allTranslations: Array<{short_name: string, full_name: string, language: string}> = [];
-			languagesData.forEach((lang: any) => {
+			languagesData.forEach((lang: { language: string; translations: Array<{ short_name: string; full_name: string }> }) => {
 				// Only include English translations
 				if (lang.language === 'English') {
-					lang.translations.forEach((trans: any) => {
+					lang.translations.forEach((trans: { short_name: string; full_name: string }) => {
 						allTranslations.push({
 							short_name: trans.short_name,
 							full_name: trans.full_name,
@@ -2852,7 +2855,7 @@ export default class BiblePortalPlugin extends Plugin {
 			if (onProgress) onProgress('chapters', `Downloading ${versionCode}... Preparing ${booksData.length} books`, 10);
 			else new Notice(`Downloading ${versionCode}... (Step 2/2: Downloading ${booksData.length} books)`);
 
-			const bibleData: any = {
+			const bibleData: { version: string; books: Record<string, { chapters: Record<string, { verses: Record<string, string> }> }> } = {
 				version: versionCode,
 				books: {}
 			};
@@ -2868,7 +2871,7 @@ export default class BiblePortalPlugin extends Plugin {
 			}
 
 			// Build array of all chapter download promises
-			const chapterPromises: Promise<any>[] = [];
+			const chapterPromises: Promise<{ bookName: string; chapterNum: string; verses: Record<string, string> } | null>[] = [];
 
 			// Calculate total chapters for progress tracking
 			let totalChapterCount = 0;
@@ -2904,8 +2907,8 @@ export default class BiblePortalPlugin extends Plugin {
 							const versesData = response.json;
 
 							// Convert verses array to our format (strip HTML tags)
-							const verses: any = {};
-							versesData.forEach((verseObj: any) => {
+							const verses: Record<string, string> = {};
+							versesData.forEach((verseObj: { verse: number; text: string }) => {
 								verses[verseObj.verse.toString()] = this.stripHtml(verseObj.text);
 							});
 
@@ -2946,7 +2949,7 @@ export default class BiblePortalPlugin extends Plugin {
 			// Step 5: Save to plugin data folder
 			if (onProgress) onProgress('save', `Saving ${versionCode}...`, 95);
 
-			const bibleDataFolder = '.obsidian/plugins/bible-portal/data/bibles';
+			const bibleDataFolder = `${this.getPluginDataPath()}/bibles`;
 			const outputPath = `${bibleDataFolder}/${versionCode.toLowerCase()}.json`;
 			const jsonContent = JSON.stringify(bibleData, null, 2);
 
@@ -3191,7 +3194,7 @@ export default class BiblePortalPlugin extends Plugin {
 			// Try to load concordance for default version
 			const version = this.settings.defaultVersion.toLowerCase();
 			const filename = `concordance-${version}.json`;
-			const data = await this.readPluginDataFile(filename);
+			const data = await this.readPluginDataFile(filename) as ConcordanceData | null;
 
 			if (!data || !data.words) {
 				console.debug('ℹ️ No concordance data found');
@@ -3199,7 +3202,7 @@ export default class BiblePortalPlugin extends Plugin {
 				return;
 			}
 
-			this.concordanceData = data as ConcordanceData;
+			this.concordanceData = data;
 			console.debug(`✓ Concordance loaded: ${this.concordanceData.stats.uniqueWords.toLocaleString()} words`);
 
 		} catch (error) {
@@ -3325,7 +3328,10 @@ export default class BiblePortalPlugin extends Plugin {
 	async loadCommentaryData() {
 		try {
 			// Try to load Matthew Henry's Concise Commentary
-			const data = await this.readPluginDataFile('commentaries/mhc/matthew_henry_concise.json');
+			type CommentaryDataType = { [book: string]: { [chapter: string]: { [verseRange: string]: string } } };
+			type CommentaryMetaType = { title?: string; author?: string; year?: string; license?: string; source?: string };
+
+			const data = await this.readPluginDataFile('commentaries/mhc/matthew_henry_concise.json') as CommentaryDataType | null;
 
 			if (!data) {
 				console.debug('ℹ️ No commentary data found - can be downloaded from settings or Commentary tab');
@@ -3337,7 +3343,7 @@ export default class BiblePortalPlugin extends Plugin {
 			this.commentaryData = data;
 
 			// Try to load metadata
-			const metadata = await this.readPluginDataFile('commentaries/mhc/metadata.json');
+			const metadata = await this.readPluginDataFile('commentaries/mhc/metadata.json') as CommentaryMetaType | null;
 			if (metadata) {
 				this.commentaryMetadata = metadata;
 			}
@@ -3345,7 +3351,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const bookCount = Object.keys(data).length;
 			let chapterCount = 0;
 			for (const book of Object.values(data)) {
-				chapterCount += Object.keys(book as object).length;
+				chapterCount += Object.keys(book).length;
 			}
 			console.debug(`✓ Commentary loaded: ${bookCount} books, ${chapterCount} chapters`);
 
@@ -3450,10 +3456,13 @@ export default class BiblePortalPlugin extends Plugin {
 	 */
 	async loadStrongsDictionaries() {
 		try {
+			type GreekDictType = { [number: string]: StrongsGreekEntry };
+			type HebrewDictType = { [number: string]: StrongsHebrewEntry };
+
 			// Load Greek dictionary
-			const greekData = await this.readPluginDataFile('strongs-greek.json');
+			const greekData = await this.readPluginDataFile('strongs-greek.json') as GreekDictType | null;
 			// Load Hebrew dictionary
-			const hebrewData = await this.readPluginDataFile('strongs-hebrew.json');
+			const hebrewData = await this.readPluginDataFile('strongs-hebrew.json') as HebrewDictType | null;
 
 			if (!greekData && !hebrewData) {
 				console.debug('ℹ️ No Strong\'s dictionaries found');
@@ -3462,8 +3471,8 @@ export default class BiblePortalPlugin extends Plugin {
 			}
 
 			this.strongsDictionary = {
-				greek: greekData || null,
-				hebrew: hebrewData || null
+				greek: greekData,
+				hebrew: hebrewData
 			};
 
 			const greekCount = greekData ? Object.keys(greekData).length : 0;
@@ -4342,8 +4351,8 @@ export default class BiblePortalPlugin extends Plugin {
 	async loadVOTDMapping() {
 		try {
 			const adapter = this.app.vault.adapter;
-			// Hardcoded path in plugin data folder
-			const votdPath = '.obsidian/plugins/bible-portal/data/verse-of-the-day.json';
+			// Use configDir for portability
+			const votdPath = `${this.getPluginDataPath()}/verse-of-the-day.json`;
 
 			if (await adapter.exists(votdPath)) {
 				const votdJson = await adapter.read(votdPath);
@@ -4366,8 +4375,8 @@ export default class BiblePortalPlugin extends Plugin {
 
 		try {
 			const adapter = this.app.vault.adapter;
-			// Hardcoded path - deployed with plugin
-			const jesusWordsPath = '.obsidian/plugins/bible-portal/src/data/jesus-words-complete.json';
+			// Use configDir for portability
+			const jesusWordsPath = `${this.getPluginDir()}/src/data/jesus-words-complete.json`;
 
 			if (await adapter.exists(jesusWordsPath)) {
 				const jesusWordsJson = await adapter.read(jesusWordsPath);
@@ -4434,8 +4443,8 @@ export default class BiblePortalPlugin extends Plugin {
 	async generateVOTDMapping(): Promise<boolean> {
 		try {
 			const adapter = this.app.vault.adapter;
-			// Hardcoded path in plugin data folder
-			const votdPath = '.obsidian/plugins/bible-portal/data/verse-of-the-day.json';
+			// Use configDir for portability
+			const votdPath = `${this.getPluginDataPath()}/verse-of-the-day.json`;
 
 			// Check if file already exists
 			const fileExists = await adapter.exists(votdPath);
@@ -6581,7 +6590,7 @@ class BibleView extends ItemView {
 		const iconDiv = emptyState.createDiv({ cls: 'empty-state-icon' });
 		setIcon(iconDiv, 'book-open');
 
-		emptyState.createEl('h2', { text: 'No Bible Translations Installed', cls: 'empty-state-title' });
+		emptyState.createEl('h2', { text: 'No Bible translations installed', cls: 'empty-state-title' });
 
 		emptyState.createEl('p', {
 			text: 'Download a Bible translation to get started with Bible Portal.',
@@ -7762,8 +7771,10 @@ class BibleView extends ItemView {
 					const jesusSpan = verseTextSpan.createEl('span', {
 						cls: 'jesus-words'
 					});
-					jesusSpan.innerHTML = verseTextSpan.innerHTML;
-					verseTextSpan.empty();
+					// Move all children from verseTextSpan to jesusSpan (avoids innerHTML)
+					while (verseTextSpan.firstChild) {
+						jesusSpan.appendChild(verseTextSpan.firstChild);
+					}
 					verseTextSpan.appendChild(jesusSpan);
 					jesusSpan.style.color = this.plugin.settings.jesusWordsColor;
 				}
@@ -7965,7 +7976,7 @@ class BibleView extends ItemView {
 		}
 	}
 
-	renderPassageViewer(container: HTMLElement, version: string, parsed: any) {
+	renderPassageViewer(container: HTMLElement, version: string, parsed: { book: string; chapter: number; startVerse: number; endVerse: number }) {
 		container.createEl('h3', {
 			text: `${parsed.book} ${parsed.chapter}:${parsed.startVerse}-${parsed.endVerse} (${version})`,
 			cls: 'passage-reference'
@@ -8706,7 +8717,7 @@ class BibleView extends ItemView {
 
 		// Header
 		const header = popup.createDiv({ cls: 'session-details-header' });
-		header.createEl('h3', { text: '📊 Session Details' });
+		header.createEl('h3', { text: '📊 Session details' });
 		const closeBtn = header.createEl('button', { cls: 'session-details-close', text: '×' });
 		closeBtn.addEventListener('click', () => overlay.remove());
 
@@ -9074,7 +9085,7 @@ class BibleView extends ItemView {
 					if (name === null) return; // Cancelled
 
 					const bookmark: Bookmark = {
-						id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+						id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 						name,
 						book,
 						bookmarkLevel: 'verse',
@@ -9126,7 +9137,7 @@ class BibleView extends ItemView {
 				if (name === null) return; // Cancelled
 
 				const bookmark: Bookmark = {
-					id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+					id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 					name,
 					book,
 					bookmarkLevel: 'chapter',
@@ -9167,7 +9178,7 @@ class BibleView extends ItemView {
 					return; // User cancelled
 				}
 				const bookmark: Bookmark = {
-					id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+					id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 					name: bookmarkName || undefined,
 					book,
 					bookmarkLevel: 'book',
@@ -9233,7 +9244,7 @@ class BibleView extends ItemView {
 				});
 				tagOption.addEventListener('click', async () => {
 					const newTag: VerseTag = {
-						id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+						id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 						book,
 						chapter,
 						verse,
@@ -9419,7 +9430,7 @@ class BibleView extends ItemView {
 					const verseText = this.getVerseFromReference(ref);
 					if (verseText && !previewEl) {
 						previewEl = refItem.createEl('div', { cls: 'cross-ref-preview-inline' });
-						previewEl.innerHTML = `<em>${verseText}</em>`;
+						previewEl.createEl('em', { text: verseText });
 					}
 				}, 300);
 			});
@@ -9717,10 +9728,9 @@ class BibleView extends ItemView {
 						cls: 'search-result-reference'
 					});
 
-					// Highlight matching text
-					const highlightedText = this.highlightSearchTerm(result.text, query);
+					// Highlight matching text - use DOM APIs instead of innerHTML
 					const textDiv = resultItem.createDiv('search-result-text');
-					textDiv.innerHTML = highlightedText;
+					this.populateWithHighlightedText(textDiv, result.text, query);
 
 					// Click to navigate
 					resultItem.addEventListener('click', () => {
@@ -9918,10 +9928,8 @@ class BibleView extends ItemView {
 					cls: 'search-result-context'
 				});
 
-				// Highlight the search term in the context
-				const regex = new RegExp(`(${query})`, 'gi');
-				const highlightedContext = result.matchContext.replace(regex, '<mark>$1</mark>');
-				contextEl.innerHTML = highlightedContext;
+				// Highlight the search term in the context - use DOM APIs instead of innerHTML
+				this.populateWithHighlightedText(contextEl, result.matchContext, query);
 
 				// Preview of note content
 				const previewEl = resultItem.createEl('div', {
@@ -10353,6 +10361,27 @@ class BibleView extends ItemView {
 		return text.replace(regex, '<mark>$1</mark>');
 	}
 
+	/**
+	 * Populate an element with text that has search terms highlighted
+	 * Uses DOM APIs instead of innerHTML for safety
+	 */
+	populateWithHighlightedText(container: HTMLElement, text: string, query: string): void {
+		container.empty();
+		if (!query) {
+			container.textContent = text;
+			return;
+		}
+		const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+		const parts = text.split(regex);
+		parts.forEach(part => {
+			if (part.toLowerCase() === query.toLowerCase()) {
+				container.createEl('mark', { text: part });
+			} else {
+				container.appendText(part);
+			}
+		});
+	}
+
 	jumpToPassage(reference: string) {
 		// Parse reference (e.g., "John 3:16" or "Genesis 1" or "Psalm 23:1-6")
 		const match = reference.match(/^(.+?)\s+(\d+)(?::(\d+))?(?:-(\d+))?$/);
@@ -10576,7 +10605,7 @@ class BibleView extends ItemView {
 		}
 
 		const bookmark: Bookmark = {
-			id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+			id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 			book: this.currentBook,
 			bookmarkLevel: 'verse',
 			chapter: this.currentChapter,
@@ -11797,7 +11826,7 @@ class BibleView extends ItemView {
 		// ===== HEADER =====
 		const header = mainContainer.createDiv({ cls: 'notes-browser-header' });
 		const headerTop = header.createDiv({ cls: 'notes-header-top' });
-		headerTop.createEl('h2', { text: '📝 Reflections Hub', cls: 'notes-browser-title' });
+		headerTop.createEl('h2', { text: '📝 Reflections hub', cls: 'notes-browser-title' });
 
 		// Action buttons
 		const actionsDiv = headerTop.createDiv({ cls: 'notes-actions' });
@@ -11821,11 +11850,13 @@ class BibleView extends ItemView {
 				return;
 			}
 			// Show confirmation to remove orphans
-			const confirmRemove = confirm(
-				`Found ${orphanedNotes.length} orphaned note reference${orphanedNotes.length > 1 ? 's' : ''} (files no longer exist):\n\n` +
-				orphanedNotes.slice(0, 5).map(n => `• ${n.book} ${n.chapter}:${n.verse}`).join('\n') +
-				(orphanedNotes.length > 5 ? `\n... and ${orphanedNotes.length - 5} more` : '') +
-				'\n\nRemove these orphaned references?'
+			const orphanList = orphanedNotes.slice(0, 5).map(n => `• ${n.book} ${n.chapter}:${n.verse}`).join('\n');
+			const moreText = orphanedNotes.length > 5 ? `\n... and ${orphanedNotes.length - 5} more` : '';
+			const confirmRemove = await showConfirmModal(
+				this.plugin.app,
+				'Remove orphaned references',
+				`Found ${orphanedNotes.length} orphaned note reference${orphanedNotes.length > 1 ? 's' : ''} (files no longer exist):\n\n${orphanList}${moreText}\n\nRemove these orphaned references?`,
+				{ isDestructive: true, confirmText: 'Remove' }
 			);
 			if (confirmRemove) {
 				const validNotes = this.plugin.noteReferences.filter(noteRef => {
@@ -11997,9 +12028,9 @@ class BibleView extends ItemView {
 		let showAnalytics = true;
 
 		const analyticsHeader = analyticsDashboard.createDiv({ cls: 'analytics-header' });
-		analyticsHeader.createEl('h3', { text: '📊 Notes Analytics' });
+		analyticsHeader.createEl('h3', { text: '📊 Notes analytics' });
 		const toggleAnalyticsBtn = analyticsHeader.createEl('button', { cls: 'analytics-toggle-btn' });
-		toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+		setIcon(toggleAnalyticsBtn, 'chevron-down');
 
 		const analyticsContent = analyticsDashboard.createDiv({ cls: 'analytics-content' });
 
@@ -12477,7 +12508,12 @@ class BibleView extends ItemView {
 					if (selectedForBulk.size === 0) return;
 
 					const count = selectedForBulk.size;
-					const confirmed = confirm(`Delete ${count} note${count > 1 ? 's' : ''}? This will also delete the note files.`);
+					const confirmed = await showConfirmModal(
+						this.plugin.app,
+						'Delete notes',
+						`Delete ${count} note${count > 1 ? 's' : ''}? This will also delete the note files.`,
+						{ isDestructive: true, confirmText: 'Delete' }
+					);
 					if (!confirmed) return;
 
 					for (const notePath of selectedForBulk) {
@@ -12728,7 +12764,13 @@ class BibleView extends ItemView {
 				cls: 'preview-action-btn danger'
 			});
 			deleteBtn.addEventListener('click', async () => {
-				if (confirm(`Delete note for ${referenceText}?`)) {
+				const confirmed = await showConfirmModal(
+					this.plugin.app,
+					'Delete note',
+					`Delete note for ${referenceText}?`,
+					{ isDestructive: true, confirmText: 'Delete' }
+				);
+				if (confirmed) {
 					await this.app.vault.delete(file);
 					this.plugin.noteReferences = this.plugin.noteReferences.filter(n => n.notePath !== note.notePath);
 					await this.plugin.saveHighlightsAndNotes();
@@ -12762,7 +12804,7 @@ class BibleView extends ItemView {
 
 			if (relatedNotes.length > 0) {
 				const relatedSection = previewPanel.createDiv({ cls: 'notes-related-section' });
-				relatedSection.createEl('h4', { text: '🔗 Related Notes', cls: 'related-title' });
+				relatedSection.createEl('h4', { text: '🔗 Related notes', cls: 'related-title' });
 
 				const relatedList = relatedSection.createDiv({ cls: 'related-list' });
 				relatedNotes.forEach(related => {
@@ -12885,9 +12927,9 @@ class BibleView extends ItemView {
 		const analyticsDashboard = highlightsBrowser.createDiv({ cls: 'highlights-analytics-dashboard' });
 
 		const analyticsHeader = analyticsDashboard.createDiv({ cls: 'analytics-header' });
-		analyticsHeader.createEl('h3', { text: '📊 Highlights Analytics' });
+		analyticsHeader.createEl('h3', { text: '📊 Highlights analytics' });
 		const toggleAnalyticsBtn = analyticsHeader.createEl('button', { cls: 'analytics-toggle-btn' });
-		toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+		setIcon(toggleAnalyticsBtn, 'chevron-down');
 
 		const analyticsContent = analyticsDashboard.createDiv({ cls: 'analytics-content' });
 
@@ -12967,7 +13009,7 @@ class BibleView extends ItemView {
 		// Layer distribution section (created once, content updated dynamically)
 		const layerSection = analyticsContent.createDiv({ cls: 'analytics-section layer-distribution-section' });
 		const layerHeader = layerSection.createDiv({ cls: 'analytics-section-header' });
-		layerHeader.createEl('h4', { text: '📁 Layer Distribution' });
+		layerHeader.createEl('h4', { text: '📁 Layer distribution' });
 		layerHeader.createSpan({ text: 'Click to filter', cls: 'analytics-section-hint' });
 		const layerCardsContainer = layerSection.createDiv({ cls: 'layer-distribution-cards' });
 
@@ -13030,7 +13072,7 @@ class BibleView extends ItemView {
 		// Hot spots (top chapters)
 		if (analytics.topChapters.length > 0) {
 			const hotSpotsSection = analyticsContent.createDiv({ cls: 'analytics-section' });
-			hotSpotsSection.createEl('h4', { text: '🔥 Most Highlighted Chapters' });
+			hotSpotsSection.createEl('h4', { text: '🔥 Most highlighted chapters' });
 			const hotSpotsList = hotSpotsSection.createDiv({ cls: 'hot-spots-list' });
 
 			analytics.topChapters.forEach((spot, index) => {
@@ -13320,7 +13362,7 @@ class BibleView extends ItemView {
 			menu.showAtMouseEvent(e);
 		});
 
-		const bulkDeleteBtn = bulkActionsDiv.createEl('button', { text: '🗑️ Delete Selected', cls: 'bulk-action-btn bulk-danger' });
+		const bulkDeleteBtn = bulkActionsDiv.createEl('button', { text: '🗑️ Delete selected', cls: 'bulk-action-btn bulk-danger' });
 		bulkDeleteBtn.addEventListener('click', async () => {
 			if (selectedHighlightIds.size === 0) return;
 
@@ -13335,7 +13377,7 @@ class BibleView extends ItemView {
 			}
 		});
 
-		const clearAllBtn = actionsDiv.createEl('button', { text: '🗑️ Clear All', cls: 'highlights-action-btn danger' });
+		const clearAllBtn = actionsDiv.createEl('button', { text: '🗑️ Clear all', cls: 'highlights-action-btn danger' });
 		clearAllBtn.addEventListener('click', async () => {
 			const visibleLayers = this.plugin.settings.visibleAnnotationLayers;
 			const visibleHighlights = this.plugin.highlights.filter(h => {
@@ -13528,10 +13570,12 @@ class BibleView extends ItemView {
 
 			// Keyboard hints
 			const keyboardHints = previewPanel.createDiv({ cls: 'preview-keyboard-hints' });
-			keyboardHints.innerHTML = `
-				<span class="keyboard-hint"><kbd>/</kbd> Search</span>
-				<span class="keyboard-hint"><kbd>Esc</kbd> Clear selection</span>
-			`;
+			const hint1 = keyboardHints.createSpan({ cls: 'keyboard-hint' });
+			hint1.createEl('kbd', { text: '/' });
+			hint1.appendText(' Search');
+			const hint2 = keyboardHints.createSpan({ cls: 'keyboard-hint' });
+			hint2.createEl('kbd', { text: 'Esc' });
+			hint2.appendText(' Clear selection');
 		};
 
 		// Render highlights list based on view mode
@@ -14039,9 +14083,9 @@ class BibleView extends ItemView {
 		const analyticsDashboard = bookmarksBrowser.createDiv({ cls: 'bookmarks-analytics-dashboard' });
 
 		const analyticsHeader = analyticsDashboard.createDiv({ cls: 'analytics-header' });
-		analyticsHeader.createEl('h3', { text: '📊 Bookmarks Analytics' });
+		analyticsHeader.createEl('h3', { text: '📊 Bookmarks analytics' });
 		const toggleAnalyticsBtn = analyticsHeader.createEl('button', { cls: 'analytics-toggle-btn' });
-		toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+		setIcon(toggleAnalyticsBtn, 'chevron-down');
 
 		const analyticsContent = analyticsDashboard.createDiv({ cls: 'analytics-content' });
 
@@ -14067,7 +14111,7 @@ class BibleView extends ItemView {
 		const coverageCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		coverageCard.createDiv({ cls: 'stat-icon', text: '📊' });
 		coverageCard.createDiv({ cls: 'stat-value', text: `${analytics.coveragePercent}%` });
-		coverageCard.createDiv({ cls: 'stat-label', text: 'Bible Coverage' });
+		coverageCard.createDiv({ cls: 'stat-label', text: 'Bible coverage' });
 
 		const recentCard = statsRow.createDiv({ cls: 'analytics-stat-card' });
 		recentCard.createDiv({ cls: 'stat-icon', text: '📅' });
@@ -14097,7 +14141,7 @@ class BibleView extends ItemView {
 		// Continue Reading (most recent)
 		if (analytics.mostRecent) {
 			const continueSection = analyticsContent.createDiv({ cls: 'analytics-section continue-reading' });
-			continueSection.createEl('h4', { text: '📍 Continue Reading' });
+			continueSection.createEl('h4', { text: '📍 Continue reading' });
 
 			let refText = analytics.mostRecent.book;
 			if (analytics.mostRecent.chapter) {
@@ -14182,7 +14226,7 @@ class BibleView extends ItemView {
 		const importBtn = actionsDiv.createEl('button', { text: '📥 Import', cls: 'bookmarks-action-btn' });
 		importBtn.addEventListener('click', async () => await this.importBookmarks());
 
-		const clearAllBtn = actionsDiv.createEl('button', { text: '🗑️ Clear All', cls: 'bookmarks-action-btn danger' });
+		const clearAllBtn = actionsDiv.createEl('button', { text: '🗑️ Clear all', cls: 'bookmarks-action-btn danger' });
 		clearAllBtn.addEventListener('click', async () => {
 			if (this.plugin.bookmarks.length === 0) {
 				showToast('No bookmarks to clear');
@@ -14410,7 +14454,7 @@ class BibleView extends ItemView {
 
 						// Rename option
 						const renameItem = menu.createDiv({ cls: 'context-menu-item' });
-						renameItem.innerHTML = '✏️ Rename';
+						renameItem.textContent = '✏️ Rename';
 						renameItem.addEventListener('click', async () => {
 							menu.remove();
 							const currentName = bookmark.name || refText;
@@ -14428,7 +14472,7 @@ class BibleView extends ItemView {
 
 						// Delete option
 						const deleteItem = menu.createDiv({ cls: 'context-menu-item danger' });
-						deleteItem.innerHTML = '🗑️ Delete';
+						deleteItem.textContent = '🗑️ Delete';
 						deleteItem.addEventListener('click', async () => {
 							menu.remove();
 							const confirmed = await this.showDeleteBookmarkConfirmation(refText);
@@ -14908,9 +14952,9 @@ class BibleView extends ItemView {
 		const analyticsDashboard = tagsBrowser.createDiv({ cls: 'tags-analytics-dashboard' });
 
 		const analyticsHeader = analyticsDashboard.createDiv({ cls: 'analytics-header' });
-		analyticsHeader.createEl('h3', { text: '📊 Tags Analytics' });
+		analyticsHeader.createEl('h3', { text: '📊 Tags analytics' });
 		const toggleAnalyticsBtn = analyticsHeader.createEl('button', { cls: 'analytics-toggle-btn' });
-		toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+		setIcon(toggleAnalyticsBtn, 'chevron-down');
 
 		const analyticsContent = analyticsDashboard.createDiv({ cls: 'analytics-content' });
 
@@ -14969,7 +15013,7 @@ class BibleView extends ItemView {
 		// Most used tags
 		if (analytics.topTags.length > 0) {
 			const topTagsSection = analyticsContent.createDiv({ cls: 'analytics-section' });
-			topTagsSection.createEl('h4', { text: '🔥 Most Used Tags' });
+			topTagsSection.createEl('h4', { text: '🔥 Most used tags' });
 			const topTagsList = topTagsSection.createDiv({ cls: 'top-tags-list' });
 
 			analytics.topTags.forEach((item, index) => {
@@ -15041,7 +15085,7 @@ class BibleView extends ItemView {
 		// Action buttons
 		const actionsDiv = controlsBar.createDiv({ cls: 'tags-actions' });
 
-		const newTagBtn = actionsDiv.createEl('button', { text: '+ New Tag', cls: 'tags-action-btn' });
+		const newTagBtn = actionsDiv.createEl('button', { text: '+ New tag', cls: 'tags-action-btn' });
 		newTagBtn.addEventListener('click', () => {
 			this.showCreateTagDialog();
 		});
@@ -15253,12 +15297,12 @@ class BibleView extends ItemView {
 			// Action buttons
 			const actionsDiv = previewPanel.createDiv({ cls: 'preview-actions' });
 
-			const renameBtn = actionsDiv.createEl('button', { text: '✏ Rename Tag', cls: 'preview-action-btn' });
+			const renameBtn = actionsDiv.createEl('button', { text: '✏ Rename tag', cls: 'preview-action-btn' });
 			renameBtn.addEventListener('click', () => {
 				this.showRenameTagDialog(tagName);
 			});
 
-			const deleteBtn = actionsDiv.createEl('button', { text: '🗑️ Delete Tag', cls: 'preview-action-btn danger' });
+			const deleteBtn = actionsDiv.createEl('button', { text: '🗑️ Delete tag', cls: 'preview-action-btn danger' });
 			deleteBtn.addEventListener('click', () => {
 				this.showDeleteTagConfirmation(tagName);
 			});
@@ -15610,7 +15654,7 @@ class BibleView extends ItemView {
 				}
 
 				const newTag: VerseTag = {
-					id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+					id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 					book,
 					chapter,
 					verse,
@@ -15811,7 +15855,7 @@ class BibleView extends ItemView {
 
 							if (!exists) {
 								// Generate new ID to avoid conflicts
-								bookmark.id = `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+								bookmark.id = `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 								this.plugin.bookmarks.push(bookmark);
 								imported++;
 							} else {
@@ -16100,7 +16144,7 @@ class BibleView extends ItemView {
 
 							if (!exists) {
 								// Generate new ID to avoid conflicts
-								highlight.id = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+								highlight.id = `highlight-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 								this.plugin.highlights.push(highlight);
 								imported++;
 							} else {
@@ -16354,7 +16398,7 @@ class BibleView extends ItemView {
 		// Adaptive scheduling section (only show if there are active plans)
 		if (activePlans.length > 0) {
 			const adaptiveSection = container.createDiv({ cls: 'reading-plan-adaptive-section' });
-			adaptiveSection.createEl('h3', { text: '⚡ Schedule Mode' });
+			adaptiveSection.createEl('h3', { text: '⚡ Schedule mode' });
 			adaptiveSection.createEl('p', { text: 'Applies to all active plans', cls: 'text-muted schedule-mode-note' });
 
 			const modeSelector = adaptiveSection.createDiv({ cls: 'adaptive-mode-selector' });
@@ -16441,7 +16485,7 @@ class BibleView extends ItemView {
 		// Progress section for each active plan
 		if (activePlans.length > 0) {
 			const progressSection = container.createDiv({ cls: 'reading-plan-progress-section' });
-			progressSection.createEl('h3', { text: '📊 Progress Overview' });
+			progressSection.createEl('h3', { text: '📊 Progress overview' });
 
 			activePlans.forEach(plan => {
 				const progress = this.plugin.getReadingPlanProgress(plan.id);
@@ -16646,7 +16690,13 @@ class BibleView extends ItemView {
 		const deleteIcon = deleteBtn.createSpan();
 		setIcon(deleteIcon, 'trash-2');
 		this.registerDomEvent(deleteBtn, 'click', async () => {
-			if (confirm(`Delete collection "${collection.name}"?`)) {
+			const confirmed = await showConfirmModal(
+				this.plugin.app,
+				'Delete collection',
+				`Delete collection "${collection.name}"?`,
+				{ isDestructive: true, confirmText: 'Delete' }
+			);
+			if (confirmed) {
 				const idx = this.plugin.settings.collections.findIndex(c => c.id === collection.id);
 				if (idx !== -1) {
 					this.plugin.settings.collections.splice(idx, 1);
@@ -16837,7 +16887,7 @@ class BibleView extends ItemView {
 		const exportMdBtn = exportSection.createEl('button', { cls: 'collection-action-btn' });
 		const exportMdIcon = exportMdBtn.createSpan({ cls: 'btn-icon' });
 		setIcon(exportMdIcon, 'file-text');
-		exportMdBtn.createSpan({ text: 'Export Markdown' });
+		exportMdBtn.createSpan({ text: 'Export markdown' });
 		this.registerDomEvent(exportMdBtn, 'click', async () => {
 			const calloutTitle = this.plugin.settings.calloutTitle || 'bible';
 			const version = this.plugin.settings.bibleVersions[0] || 'ESV';
@@ -17078,7 +17128,7 @@ class BibleView extends ItemView {
 		const h2 = header.createEl('h2');
 		const titleIcon = h2.createSpan({ cls: 'title-icon' });
 		setIcon(titleIcon, 'brain');
-		h2.createSpan({ text: 'Scripture Memorization' });
+		h2.createSpan({ text: 'Scripture memorization' });
 
 		const verses = this.plugin.settings.memorizationVerses || [];
 		const today = new Date().toISOString().split('T')[0];
@@ -17179,7 +17229,13 @@ class BibleView extends ItemView {
 					setIcon(deleteBtn, 'trash-2');
 					this.registerDomEvent(deleteBtn, 'click', async (e) => {
 						e.stopPropagation();
-						if (confirm(`Remove "${verse.reference}" from memorization?`)) {
+						const confirmed = await showConfirmModal(
+							this.plugin.app,
+							'Remove verse',
+							`Remove "${verse.reference}" from memorization?`,
+							{ isDestructive: true, confirmText: 'Remove' }
+						);
+						if (confirmed) {
 							this.plugin.settings.memorizationVerses = verses.filter(v => v.reference !== verse.reference);
 							await this.plugin.saveSettings();
 							this.render();
@@ -17226,7 +17282,10 @@ class BibleView extends ItemView {
 		// Progress bar
 		const progressDiv = document.createElement('div');
 		progressDiv.className = 'flashcard-progress';
-		progressDiv.innerHTML = `<div class="flashcard-progress-bar" style="width: ${((index + 1) / cards.length) * 100}%"></div>`;
+		const progressBar = document.createElement('div');
+		progressBar.className = 'flashcard-progress-bar';
+		progressBar.style.width = `${((index + 1) / cards.length) * 100}%`;
+		progressDiv.appendChild(progressBar);
 		const progressText = document.createElement('span');
 		progressText.className = 'flashcard-progress-text';
 		progressText.textContent = `${index + 1} / ${cards.length}`;
@@ -17240,36 +17299,70 @@ class BibleView extends ItemView {
 		// Front (reference)
 		const front = document.createElement('div');
 		front.className = 'flashcard-front';
-		front.innerHTML = `
-			<div class="flashcard-reference">${card.reference}</div>
-			<div class="flashcard-instruction">Can you recite this verse?</div>
-			<button class="flashcard-reveal-btn">Show Answer</button>
-		`;
+		const frontRef = document.createElement('div');
+		frontRef.className = 'flashcard-reference';
+		frontRef.textContent = card.reference;
+		front.appendChild(frontRef);
+		const frontInstruction = document.createElement('div');
+		frontInstruction.className = 'flashcard-instruction';
+		frontInstruction.textContent = 'Can you recite this verse?';
+		front.appendChild(frontInstruction);
+		const revealButton = document.createElement('button');
+		revealButton.className = 'flashcard-reveal-btn';
+		revealButton.textContent = 'Show answer';
+		front.appendChild(revealButton);
 		cardContainer.appendChild(front);
 
 		// Back (verse text with hint option)
 		const back = document.createElement('div');
 		back.className = 'flashcard-back hidden';
 
-		const hintText = this.plugin.settings.memorizationSettings.showHints
-			? card.text.split(' ').map(w => w[0] + '_'.repeat(w.length - 1)).join(' ')
-			: '';
+		const backRef = document.createElement('div');
+		backRef.className = 'flashcard-reference';
+		backRef.textContent = card.reference;
+		back.appendChild(backRef);
 
-		back.innerHTML = `
-			<div class="flashcard-reference">${card.reference}</div>
-			${hintText ? `<div class="flashcard-hint">${hintText}</div>` : ''}
-			<div class="flashcard-verse-text">${card.text}</div>
-			<div class="flashcard-version">${card.version}</div>
-			<div class="flashcard-rating">
-				<span class="rating-label">How well did you remember?</span>
-				<div class="rating-buttons">
-					<button class="rating-btn forgot" data-rating="0">Forgot</button>
-					<button class="rating-btn hard" data-rating="1">Hard</button>
-					<button class="rating-btn good" data-rating="2">Good</button>
-					<button class="rating-btn easy" data-rating="3">Easy</button>
-				</div>
-			</div>
-		`;
+		if (this.plugin.settings.memorizationSettings.showHints) {
+			const hintText = card.text.split(' ').map(w => w[0] + '_'.repeat(w.length - 1)).join(' ');
+			const hintDiv = document.createElement('div');
+			hintDiv.className = 'flashcard-hint';
+			hintDiv.textContent = hintText;
+			back.appendChild(hintDiv);
+		}
+
+		const verseTextDiv = document.createElement('div');
+		verseTextDiv.className = 'flashcard-verse-text';
+		verseTextDiv.textContent = card.text;
+		back.appendChild(verseTextDiv);
+
+		const versionDiv = document.createElement('div');
+		versionDiv.className = 'flashcard-version';
+		versionDiv.textContent = card.version;
+		back.appendChild(versionDiv);
+
+		const ratingDiv = document.createElement('div');
+		ratingDiv.className = 'flashcard-rating';
+		const ratingLabel = document.createElement('span');
+		ratingLabel.className = 'rating-label';
+		ratingLabel.textContent = 'How well did you remember?';
+		ratingDiv.appendChild(ratingLabel);
+		const ratingButtons = document.createElement('div');
+		ratingButtons.className = 'rating-buttons';
+		const ratings = [
+			{ cls: 'forgot', rating: 0, text: 'Forgot' },
+			{ cls: 'hard', rating: 1, text: 'Hard' },
+			{ cls: 'good', rating: 2, text: 'Good' },
+			{ cls: 'easy', rating: 3, text: 'Easy' }
+		];
+		ratings.forEach(r => {
+			const btn = document.createElement('button');
+			btn.className = `rating-btn ${r.cls}`;
+			btn.setAttribute('data-rating', String(r.rating));
+			btn.textContent = r.text;
+			ratingButtons.appendChild(btn);
+		});
+		ratingDiv.appendChild(ratingButtons);
+		back.appendChild(ratingDiv);
 		cardContainer.appendChild(back);
 
 		modalContent.appendChild(cardContainer);
@@ -17277,22 +17370,21 @@ class BibleView extends ItemView {
 		// Close button
 		const closeBtn = document.createElement('button');
 		closeBtn.className = 'flashcard-close-btn';
-		closeBtn.innerHTML = '×';
+		closeBtn.textContent = '×';
 		closeBtn.addEventListener('click', () => modal.remove());
 		modalContent.appendChild(closeBtn);
 
 		modal.appendChild(modalContent);
 		document.body.appendChild(modal);
 
-		// Event handlers
-		const revealBtn = front.querySelector('.flashcard-reveal-btn');
-		revealBtn?.addEventListener('click', () => {
+		// Event handlers - use direct references instead of querySelector
+		revealButton.addEventListener('click', () => {
 			front.classList.add('hidden');
 			back.classList.remove('hidden');
 		});
 
-		const ratingBtns = back.querySelectorAll('.rating-btn');
-		ratingBtns.forEach(btn => {
+		// Rating button handlers - already have direct references from creation
+		ratingButtons.querySelectorAll('.rating-btn').forEach(btn => {
 			btn.addEventListener('click', async () => {
 				const rating = parseInt(btn.getAttribute('data-rating') || '0');
 				await this.processMemorizationRating(card, rating);
@@ -17364,34 +17456,46 @@ class BibleView extends ItemView {
 		const modalContent = document.createElement('div');
 		modalContent.className = 'add-memorization-modal';
 
-		modalContent.innerHTML = `
-			<h3>Add Verse to Memorize</h3>
-			<div class="add-verse-form">
-				<div class="form-group">
-					<label>Reference (e.g., John 3:16)</label>
-					<input type="text" class="verse-reference-input" placeholder="John 3:16">
-				</div>
-				<div class="form-group">
-					<label>Version</label>
-					<select class="verse-version-select">
-						${this.plugin.settings.bibleVersions.map(v => `<option value="${v}">${v}</option>`).join('')}
-					</select>
-				</div>
-				<div class="form-group">
-					<label>Verse Text (auto-fills if found)</label>
-					<textarea class="verse-text-input" rows="4" placeholder="Enter verse text..."></textarea>
-				</div>
-				<div class="form-actions">
-					<button class="cancel-btn">Cancel</button>
-					<button class="lookup-btn">Lookup</button>
-					<button class="add-btn primary">Add Verse</button>
-				</div>
-			</div>
-		`;
+		// Build modal using DOM APIs
+		modalContent.createEl('h3', { text: 'Add verse to memorize' });
+
+		const form = modalContent.createDiv({ cls: 'add-verse-form' });
+
+		// Reference input group
+		const refGroup = form.createDiv({ cls: 'form-group' });
+		refGroup.createEl('label', { text: 'Reference (e.g., John 3:16)' });
+		const refInput = refGroup.createEl('input', {
+			type: 'text',
+			cls: 'verse-reference-input',
+			placeholder: 'John 3:16'
+		});
+
+		// Version select group
+		const versionGroup = form.createDiv({ cls: 'form-group' });
+		versionGroup.createEl('label', { text: 'Version' });
+		const versionSelect = versionGroup.createEl('select', { cls: 'verse-version-select' });
+		this.plugin.settings.bibleVersions.forEach(v => {
+			versionSelect.createEl('option', { value: v, text: v });
+		});
+
+		// Text input group
+		const textGroup = form.createDiv({ cls: 'form-group' });
+		textGroup.createEl('label', { text: 'Verse text (auto-fills if found)' });
+		const textInput = textGroup.createEl('textarea', {
+			cls: 'verse-text-input',
+			attr: { rows: '4' },
+			placeholder: 'Enter verse text...'
+		});
+
+		// Action buttons
+		const actions = form.createDiv({ cls: 'form-actions' });
+		const cancelBtn = actions.createEl('button', { text: 'Cancel', cls: 'cancel-btn' });
+		const lookupBtn = actions.createEl('button', { text: 'Lookup', cls: 'lookup-btn' });
+		const addBtn = actions.createEl('button', { text: 'Add verse', cls: 'add-btn primary' });
 
 		const closeBtn = document.createElement('button');
 		closeBtn.className = 'modal-close-btn';
-		closeBtn.innerHTML = '×';
+		closeBtn.textContent = '×';
 		closeBtn.addEventListener('click', () => modal.remove());
 		modalContent.appendChild(closeBtn);
 
@@ -17399,16 +17503,9 @@ class BibleView extends ItemView {
 		document.body.appendChild(modal);
 
 		// Event handlers
-		const refInput = modalContent.querySelector('.verse-reference-input') as HTMLInputElement;
-		const versionSelect = modalContent.querySelector('.verse-version-select') as HTMLSelectElement;
-		const textInput = modalContent.querySelector('.verse-text-input') as HTMLTextAreaElement;
-		const cancelBtn = modalContent.querySelector('.cancel-btn');
-		const lookupBtn = modalContent.querySelector('.lookup-btn');
-		const addBtn = modalContent.querySelector('.add-btn');
+		cancelBtn.addEventListener('click', () => modal.remove());
 
-		cancelBtn?.addEventListener('click', () => modal.remove());
-
-		lookupBtn?.addEventListener('click', () => {
+		lookupBtn.addEventListener('click', () => {
 			const ref = refInput.value.trim();
 			const version = versionSelect.value;
 
@@ -17432,7 +17529,7 @@ class BibleView extends ItemView {
 			}
 		});
 
-		addBtn?.addEventListener('click', async () => {
+		addBtn.addEventListener('click', async () => {
 			const reference = refInput.value.trim();
 			const version = versionSelect.value;
 			const text = textInput.value.trim();
@@ -17839,7 +17936,7 @@ class BibleView extends ItemView {
 			}
 		} else {
 			// No Strong's data for this chapter - show featured words as fallback
-			wordsContainer.createEl('h4', { text: 'Featured Greek Words' });
+			wordsContainer.createEl('h4', { text: 'Featured Greek words' });
 
 			const greekSamples = ['G26', 'G4102', 'G5485', 'G2316', 'G3056'];
 			for (const strongsNum of greekSamples) {
@@ -17864,7 +17961,7 @@ class BibleView extends ItemView {
 				}
 			}
 
-			wordsContainer.createEl('h4', { text: 'Featured Hebrew Words', cls: 'hebrew-section' });
+			wordsContainer.createEl('h4', { text: 'Featured Hebrew words', cls: 'hebrew-section' });
 
 			const hebrewSamples = ['H430', 'H3068', 'H2617', 'H7965', 'H539'];
 			for (const strongsNum of hebrewSamples) {
@@ -18344,7 +18441,7 @@ class BibleView extends ItemView {
 		const chapterIcon = chapterCard.createSpan({ cls: 'stat-icon' });
 		setIcon(chapterIcon, 'file-text');
 		chapterCard.createEl('div', { text: `${chapterCount}`, cls: 'stat-value' });
-		chapterCard.createEl('div', { text: 'Chapters Visited', cls: 'stat-label' });
+		chapterCard.createEl('div', { text: 'Chapters visited', cls: 'stat-label' });
 
 		// Current streak
 		const streakCard = statsGrid.createDiv({ cls: 'stat-card' });
@@ -18411,7 +18508,7 @@ class BibleView extends ItemView {
 
 		// Session History (timeline of study sessions)
 		const historySection = container.createDiv({ cls: 'insights-history-section' });
-		historySection.createEl('h3', { text: 'Session History' });
+		historySection.createEl('h3', { text: 'Session history' });
 
 		const entries = [...this.plugin.settings.journalEntries].sort((a, b) =>
 			new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -18482,7 +18579,7 @@ class BibleView extends ItemView {
 					// Chapters visited
 					if (entry.chaptersVisited && entry.chaptersVisited.length > 0) {
 						const chaptersDiv = entryContent.createDiv({ cls: 'journal-chapters-visited' });
-						chaptersDiv.createEl('h4', { text: 'Chapters Read:' });
+						chaptersDiv.createEl('h4', { text: 'Chapters read:' });
 						const chaptersList = chaptersDiv.createDiv({ cls: 'chapters-list' });
 						entry.chaptersVisited.forEach(ch => {
 							chaptersList.createSpan({ text: ch, cls: 'chapter-tag' });
@@ -18503,7 +18600,13 @@ class BibleView extends ItemView {
 				setIcon(deleteIcon, 'trash-2');
 
 				deleteBtn.addEventListener('click', async () => {
-					if (confirm('Are you sure you want to delete this entry?')) {
+					const confirmed = await showConfirmModal(
+						this.plugin.app,
+						'Delete entry',
+						'Are you sure you want to delete this entry?',
+						{ isDestructive: true, confirmText: 'Delete' }
+					);
+					if (confirmed) {
 						const index = this.plugin.settings.journalEntries.findIndex(e => e.id === entry.id);
 						if (index !== -1) {
 							this.plugin.settings.journalEntries.splice(index, 1);
@@ -18647,7 +18750,7 @@ class BibleView extends ItemView {
 			}
 
 			// Export button
-			const exportBtn = resultsContainer.createEl('button', { text: 'Copy as Markdown Table', cls: 'comparison-export-btn' });
+			const exportBtn = resultsContainer.createEl('button', { text: 'Copy as markdown table', cls: 'comparison-export-btn' });
 			exportBtn.addEventListener('click', async () => {
 				let md = `| Verse | ${versions.join(' | ')} |\n`;
 				md += `| --- | ${versions.map(() => '---').join(' | ')} |\n`;
@@ -19686,7 +19789,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Add color button
 				const colorActions = content.createDiv({ cls: 'bp-settings-actions' });
-				const addColorBtn = colorActions.createEl('button', { text: '+ Add Color', cls: 'action-secondary' });
+				const addColorBtn = colorActions.createEl('button', { text: '+ Add color', cls: 'action-secondary' });
 				addColorBtn.addEventListener('click', async () => {
 					this.plugin.settings.highlightColors.push({ name: 'New color', color: '#ffeb3b' });
 					await this.plugin.saveSettings();
@@ -19760,7 +19863,13 @@ class BiblePortalSettingTab extends PluginSettingTab {
 						const deleteBtn = item.createEl('button', { cls: 'layer-delete' });
 						setIcon(deleteBtn, 'trash-2');
 						deleteBtn.addEventListener('click', async () => {
-							if (confirm(`Delete layer "${layer.name}"?`)) {
+							const confirmed = await showConfirmModal(
+								this.app,
+								'Delete layer',
+								`Delete layer "${layer.name}"?`,
+								{ isDestructive: true, confirmText: 'Delete' }
+							);
+							if (confirmed) {
 								this.plugin.settings.annotationLayers.splice(index, 1);
 								this.plugin.settings.visibleAnnotationLayers = this.plugin.settings.visibleAnnotationLayers.filter(id => id !== layer.id);
 								if (this.plugin.settings.activeAnnotationLayer === layer.id) {
@@ -19775,7 +19884,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Add layer button
 				const layerActions = content.createDiv({ cls: 'bp-settings-actions' });
-				const addLayerBtn = layerActions.createEl('button', { text: '+ Add Layer', cls: 'action-secondary' });
+				const addLayerBtn = layerActions.createEl('button', { text: '+ Add layer', cls: 'action-secondary' });
 				addLayerBtn.addEventListener('click', async () => {
 					const newLayer: AnnotationLayer = {
 						id: `layer-${Date.now()}`,
@@ -19878,7 +19987,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				// Reference Insert Group
 				const refInsertGroup = content.createDiv({ cls: 'bp-settings-group' });
-				refInsertGroup.createEl('div', { text: 'Reference Insert', cls: 'bp-settings-group-title' });
+				refInsertGroup.createEl('div', { text: 'Reference insert', cls: 'bp-settings-group-title' });
 
 				new Setting(content)
 					.setName('Enable @reference insert')
@@ -20081,7 +20190,13 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				const votdActions = content.createDiv({ cls: 'bp-settings-actions' });
 				const regenerateBtn = votdActions.createEl('button', { text: 'Regenerate mapping', cls: 'action-secondary' });
 				regenerateBtn.addEventListener('click', async () => {
-					if (confirm('Generate a new random verse mapping? This overwrites the existing mapping.')) {
+					const confirmed = await showConfirmModal(
+						this.app,
+						'Regenerate mapping',
+						'Generate a new random verse mapping? This overwrites the existing mapping.',
+						{ confirmText: 'Regenerate' }
+					);
+					if (confirmed) {
 						const success = await this.plugin.generateVOTDMapping();
 						if (success) {
 							new Notice('✅ Verse mapping regenerated!');
@@ -20091,7 +20206,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 
 				const exportVotdBtn = votdActions.createEl('button', { text: 'Export', cls: 'action-secondary' });
 				exportVotdBtn.addEventListener('click', async () => {
-					const votdPath = '.obsidian/plugins/bible-portal/data/verse-of-the-day.json';
+					const votdPath = `${this.plugin.getPluginDataPath()}/verse-of-the-day.json`;
 					const adapter = this.app.vault.adapter;
 					if (!(await adapter.exists(votdPath))) {
 						new Notice('No VOTD mapping found');
@@ -20334,7 +20449,13 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					const actions = content.createDiv({ cls: 'bp-settings-actions' });
 					const resetBtn = actions.createEl('button', { text: 'Reset achievements', cls: 'action-danger' });
 					resetBtn.addEventListener('click', async () => {
-						if (confirm('Reset ALL achievements and stats? This cannot be undone.')) {
+						const confirmed = await showConfirmModal(
+							this.app,
+							'Reset achievements',
+							'Reset ALL achievements and stats? This cannot be undone.',
+							{ isDestructive: true, confirmText: 'Reset' }
+						);
+						if (confirmed) {
 							this.plugin.settings.unlockedAchievements = [];
 							this.plugin.settings.achievementStats = { ...DEFAULT_ACHIEVEMENT_STATS };
 							await this.plugin.saveSettings();
@@ -20373,7 +20494,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					const streakDisplay = content.createDiv({ cls: 'bp-settings-stats' });
 					const streakCard = streakDisplay.createDiv({ cls: 'bp-settings-stat-card' });
 					streakCard.createDiv({ text: `${this.plugin.settings.studyStreak}`, cls: 'stat-value' });
-					streakCard.createDiv({ text: 'Day Streak 🔥', cls: 'stat-label' });
+					streakCard.createDiv({ text: 'Day streak 🔥', cls: 'stat-label' });
 				}
 
 				// Onboarding reset
@@ -21072,4 +21193,94 @@ class InputModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 	}
+}
+
+/**
+ * Confirmation modal to replace browser confirm()
+ */
+class ConfirmModal extends Modal {
+	private title: string;
+	private message: string;
+	private confirmText: string;
+	private cancelText: string;
+	private isDestructive: boolean;
+	private onConfirm: () => void;
+	private onCancel: () => void;
+
+	constructor(
+		app: App,
+		options: {
+			title: string;
+			message: string;
+			confirmText?: string;
+			cancelText?: string;
+			isDestructive?: boolean;
+			onConfirm: () => void;
+			onCancel?: () => void;
+		}
+	) {
+		super(app);
+		this.title = options.title;
+		this.message = options.message;
+		this.confirmText = options.confirmText || 'Confirm';
+		this.cancelText = options.cancelText || 'Cancel';
+		this.isDestructive = options.isDestructive || false;
+		this.onConfirm = options.onConfirm;
+		this.onCancel = options.onCancel || (() => {});
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.addClass('bp-confirm-modal');
+
+		contentEl.createEl('h2', { text: this.title });
+		contentEl.createEl('p', { text: this.message, cls: 'bp-confirm-message' });
+
+		const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+
+		const cancelButton = buttonContainer.createEl('button', { text: this.cancelText });
+		cancelButton.addEventListener('click', () => {
+			this.onCancel();
+			this.close();
+		});
+
+		const confirmButton = buttonContainer.createEl('button', {
+			text: this.confirmText,
+			cls: this.isDestructive ? 'mod-warning' : 'mod-cta'
+		});
+		confirmButton.addEventListener('click', () => {
+			this.onConfirm();
+			this.close();
+		});
+
+		// Focus confirm button for keyboard accessibility
+		setTimeout(() => confirmButton.focus(), 10);
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
+
+/**
+ * Helper function to show confirmation modal (async version of confirm())
+ */
+function showConfirmModal(
+	app: App,
+	title: string,
+	message: string,
+	options?: { confirmText?: string; cancelText?: string; isDestructive?: boolean }
+): Promise<boolean> {
+	return new Promise((resolve) => {
+		new ConfirmModal(app, {
+			title,
+			message,
+			confirmText: options?.confirmText,
+			cancelText: options?.cancelText,
+			isDestructive: options?.isDestructive,
+			onConfirm: () => resolve(true),
+			onCancel: () => resolve(false)
+		}).open();
+	});
 }

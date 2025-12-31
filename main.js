@@ -1111,7 +1111,6 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     if (this.currentSession && this.settings.enableSessionTracking) {
       this.saveSessionToJournal();
     }
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_BIBLE);
   }
   async activateBibleView() {
     const { workspace } = this.app;
@@ -1669,11 +1668,16 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
   /**
    * Get the path to the plugin's bundled data folder
    * This folder stores large datasets bundled with the plugin (cross-references, Strong's, interlinear, etc.)
-   * Location: .obsidian/plugins/bible-portal/data/
+   * Uses configDir instead of hardcoded .obsidian for portability
    */
   getPluginDataPath() {
-    const pluginDir = this.manifest.dir;
-    return `${pluginDir}/data`;
+    return `${this.app.vault.configDir}/plugins/${this.manifest.id}/data`;
+  }
+  /**
+   * Get the plugin's installation directory
+   */
+  getPluginDir() {
+    return `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
   }
   /**
    * Read JSON file from plugin data folder
@@ -1734,7 +1738,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     try {
       const adapter = this.app.vault.adapter;
       const discoveredVersions = [];
-      const bibleDataFolder = ".obsidian/plugins/bible-portal/data/bibles";
+      const bibleDataFolder = `${this.getPluginDataPath()}/bibles`;
       const folderExists = await adapter.exists(bibleDataFolder);
       if (!folderExists) {
         console.warn(`\u26A0\uFE0F Bible data folder does not exist: ${bibleDataFolder}`);
@@ -2153,7 +2157,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
       });
       if (onProgress)
         onProgress("save", `Saving ${versionCode}...`, 95);
-      const bibleDataFolder = ".obsidian/plugins/bible-portal/data/bibles";
+      const bibleDataFolder = `${this.getPluginDataPath()}/bibles`;
       const outputPath = `${bibleDataFolder}/${versionCode.toLowerCase()}.json`;
       const jsonContent = JSON.stringify(bibleData, null, 2);
       const adapter = this.app.vault.adapter;
@@ -2537,8 +2541,8 @@ Saved to: ${outputPath}`, 8e3);
         return;
       }
       this.strongsDictionary = {
-        greek: greekData || null,
-        hebrew: hebrewData || null
+        greek: greekData,
+        hebrew: hebrewData
       };
       const greekCount = greekData ? Object.keys(greekData).length : 0;
       const hebrewCount = hebrewData ? Object.keys(hebrewData).length : 0;
@@ -3294,7 +3298,7 @@ Saved to: ${outputPath}`, 8e3);
   async loadVOTDMapping() {
     try {
       const adapter = this.app.vault.adapter;
-      const votdPath = ".obsidian/plugins/bible-portal/data/verse-of-the-day.json";
+      const votdPath = `${this.getPluginDataPath()}/verse-of-the-day.json`;
       if (await adapter.exists(votdPath)) {
         const votdJson = await adapter.read(votdPath);
         this.votdMapping = JSON.parse(votdJson);
@@ -3315,7 +3319,7 @@ Saved to: ${outputPath}`, 8e3);
     }
     try {
       const adapter = this.app.vault.adapter;
-      const jesusWordsPath = ".obsidian/plugins/bible-portal/src/data/jesus-words-complete.json";
+      const jesusWordsPath = `${this.getPluginDir()}/src/data/jesus-words-complete.json`;
       if (await adapter.exists(jesusWordsPath)) {
         const jesusWordsJson = await adapter.read(jesusWordsPath);
         this.jesusWordsData = JSON.parse(jesusWordsJson);
@@ -3370,7 +3374,7 @@ Saved to: ${outputPath}`, 8e3);
   async generateVOTDMapping() {
     try {
       const adapter = this.app.vault.adapter;
-      const votdPath = ".obsidian/plugins/bible-portal/data/verse-of-the-day.json";
+      const votdPath = `${this.getPluginDataPath()}/verse-of-the-day.json`;
       const fileExists = await adapter.exists(votdPath);
       if (fileExists) {
         new import_obsidian.Notice("Regenerating Verse of the Day mapping...");
@@ -5053,7 +5057,7 @@ var BibleView = class extends import_obsidian.ItemView {
     const emptyState = container.createDiv({ cls: "bible-empty-state" });
     const iconDiv = emptyState.createDiv({ cls: "empty-state-icon" });
     (0, import_obsidian.setIcon)(iconDiv, "book-open");
-    emptyState.createEl("h2", { text: "No Bible Translations Installed", cls: "empty-state-title" });
+    emptyState.createEl("h2", { text: "No Bible translations installed", cls: "empty-state-title" });
     emptyState.createEl("p", {
       text: "Download a Bible translation to get started with Bible Portal.",
       cls: "empty-state-desc"
@@ -5974,8 +5978,9 @@ ${disputedInfo.manuscriptInfo}`);
             const jesusSpan = verseTextSpan.createEl("span", {
               cls: "jesus-words"
             });
-            jesusSpan.innerHTML = verseTextSpan.innerHTML;
-            verseTextSpan.empty();
+            while (verseTextSpan.firstChild) {
+              jesusSpan.appendChild(verseTextSpan.firstChild);
+            }
             verseTextSpan.appendChild(jesusSpan);
             jesusSpan.style.color = this.plugin.settings.jesusWordsColor;
           }
@@ -6872,7 +6877,7 @@ ${disputedInfo.manuscriptInfo}`);
     const popup = document.createElement("div");
     popup.addClass("session-details-popup");
     const header = popup.createDiv({ cls: "session-details-header" });
-    header.createEl("h3", { text: "\u{1F4CA} Session Details" });
+    header.createEl("h3", { text: "\u{1F4CA} Session details" });
     const closeBtn = header.createEl("button", { cls: "session-details-close", text: "\xD7" });
     closeBtn.addEventListener("click", () => overlay.remove());
     const summaryDiv = popup.createDiv({ cls: "session-details-summary" });
@@ -7169,7 +7174,7 @@ ${disputedInfo.manuscriptInfo}`);
           if (name === null)
             return;
           const bookmark = {
-            id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             name,
             book,
             bookmarkLevel: "verse",
@@ -7214,7 +7219,7 @@ ${disputedInfo.manuscriptInfo}`);
         if (name === null)
           return;
         const bookmark = {
-          id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           name,
           book,
           bookmarkLevel: "chapter",
@@ -7252,7 +7257,7 @@ ${disputedInfo.manuscriptInfo}`);
           return;
         }
         const bookmark = {
-          id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           name: bookmarkName || void 0,
           book,
           bookmarkLevel: "book",
@@ -7306,7 +7311,7 @@ ${disputedInfo.manuscriptInfo}`);
         });
         tagOption.addEventListener("click", async () => {
           const newTag = {
-            id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             book,
             chapter,
             verse,
@@ -7450,7 +7455,7 @@ ${disputedInfo.manuscriptInfo}`);
           const verseText = this.getVerseFromReference(ref);
           if (verseText && !previewEl) {
             previewEl = refItem.createEl("div", { cls: "cross-ref-preview-inline" });
-            previewEl.innerHTML = `<em>${verseText}</em>`;
+            previewEl.createEl("em", { text: verseText });
           }
         }, 300);
       });
@@ -7669,9 +7674,8 @@ ${disputedInfo.manuscriptInfo}`);
             text: `${result.book} ${result.chapter}:${result.verse}`,
             cls: "search-result-reference"
           });
-          const highlightedText = this.highlightSearchTerm(result.text, query);
           const textDiv = resultItem.createDiv("search-result-text");
-          textDiv.innerHTML = highlightedText;
+          this.populateWithHighlightedText(textDiv, result.text, query);
           resultItem.addEventListener("click", () => {
             this.currentBook = result.book;
             this.currentChapter = result.chapter;
@@ -7804,9 +7808,7 @@ ${disputedInfo.manuscriptInfo}`);
         const contextEl = resultItem.createEl("div", {
           cls: "search-result-context"
         });
-        const regex = new RegExp(`(${query})`, "gi");
-        const highlightedContext = result.matchContext.replace(regex, "<mark>$1</mark>");
-        contextEl.innerHTML = highlightedContext;
+        this.populateWithHighlightedText(contextEl, result.matchContext, query);
         const previewEl = resultItem.createEl("div", {
           text: result.preview,
           cls: "search-result-preview"
@@ -8130,6 +8132,26 @@ ${disputedInfo.manuscriptInfo}`);
     const regex = new RegExp(`(${query})`, "gi");
     return text.replace(regex, "<mark>$1</mark>");
   }
+  /**
+   * Populate an element with text that has search terms highlighted
+   * Uses DOM APIs instead of innerHTML for safety
+   */
+  populateWithHighlightedText(container, text, query) {
+    container.empty();
+    if (!query) {
+      container.textContent = text;
+      return;
+    }
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+    const parts = text.split(regex);
+    parts.forEach((part) => {
+      if (part.toLowerCase() === query.toLowerCase()) {
+        container.createEl("mark", { text: part });
+      } else {
+        container.appendText(part);
+      }
+    });
+  }
   jumpToPassage(reference) {
     const match = reference.match(/^(.+?)\s+(\d+)(?::(\d+))?(?:-(\d+))?$/);
     if (!match) {
@@ -8293,7 +8315,7 @@ ${disputedInfo.manuscriptInfo}`);
       }
     }
     const bookmark = {
-      id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       book: this.currentBook,
       bookmarkLevel: "verse",
       chapter: this.currentChapter,
@@ -9357,7 +9379,7 @@ ${disputedInfo.manuscriptInfo}`);
     const mainContainer = container.createDiv({ cls: "notes-browser" });
     const header = mainContainer.createDiv({ cls: "notes-browser-header" });
     const headerTop = header.createDiv({ cls: "notes-header-top" });
-    headerTop.createEl("h2", { text: "\u{1F4DD} Reflections Hub", cls: "notes-browser-title" });
+    headerTop.createEl("h2", { text: "\u{1F4DD} Reflections hub", cls: "notes-browser-title" });
     const actionsDiv = headerTop.createDiv({ cls: "notes-actions" });
     const orphanBtn = actionsDiv.createEl("button", {
       text: "\u{1F50D} Find Orphans",
@@ -9376,11 +9398,18 @@ ${disputedInfo.manuscriptInfo}`);
         showToast("No orphaned notes found - all references are valid!");
         return;
       }
-      const confirmRemove = confirm(
+      const orphanList = orphanedNotes.slice(0, 5).map((n) => `\u2022 ${n.book} ${n.chapter}:${n.verse}`).join("\n");
+      const moreText = orphanedNotes.length > 5 ? `
+... and ${orphanedNotes.length - 5} more` : "";
+      const confirmRemove = await showConfirmModal(
+        this.plugin.app,
+        "Remove orphaned references",
         `Found ${orphanedNotes.length} orphaned note reference${orphanedNotes.length > 1 ? "s" : ""} (files no longer exist):
 
-` + orphanedNotes.slice(0, 5).map((n) => `\u2022 ${n.book} ${n.chapter}:${n.verse}`).join("\n") + (orphanedNotes.length > 5 ? `
-... and ${orphanedNotes.length - 5} more` : "") + "\n\nRemove these orphaned references?"
+${orphanList}${moreText}
+
+Remove these orphaned references?`,
+        { isDestructive: true, confirmText: "Remove" }
       );
       if (confirmRemove) {
         const validNotes = this.plugin.noteReferences.filter((noteRef) => {
@@ -9519,9 +9548,9 @@ ${disputedInfo.manuscriptInfo}`);
     const analyticsDashboard = mainContainer.createDiv({ cls: "notes-analytics-dashboard" });
     let showAnalytics = true;
     const analyticsHeader = analyticsDashboard.createDiv({ cls: "analytics-header" });
-    analyticsHeader.createEl("h3", { text: "\u{1F4CA} Notes Analytics" });
+    analyticsHeader.createEl("h3", { text: "\u{1F4CA} Notes analytics" });
     const toggleAnalyticsBtn = analyticsHeader.createEl("button", { cls: "analytics-toggle-btn" });
-    toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    (0, import_obsidian.setIcon)(toggleAnalyticsBtn, "chevron-down");
     const analyticsContent = analyticsDashboard.createDiv({ cls: "analytics-content" });
     toggleAnalyticsBtn.addEventListener("click", () => {
       showAnalytics = !showAnalytics;
@@ -9885,7 +9914,12 @@ ${disputedInfo.manuscriptInfo}`);
           if (selectedForBulk.size === 0)
             return;
           const count = selectedForBulk.size;
-          const confirmed = confirm(`Delete ${count} note${count > 1 ? "s" : ""}? This will also delete the note files.`);
+          const confirmed = await showConfirmModal(
+            this.plugin.app,
+            "Delete notes",
+            `Delete ${count} note${count > 1 ? "s" : ""}? This will also delete the note files.`,
+            { isDestructive: true, confirmText: "Delete" }
+          );
           if (!confirmed)
             return;
           for (const notePath of selectedForBulk) {
@@ -10076,7 +10110,13 @@ ${disputedInfo.manuscriptInfo}`);
         cls: "preview-action-btn danger"
       });
       deleteBtn.addEventListener("click", async () => {
-        if (confirm(`Delete note for ${referenceText}?`)) {
+        const confirmed = await showConfirmModal(
+          this.plugin.app,
+          "Delete note",
+          `Delete note for ${referenceText}?`,
+          { isDestructive: true, confirmText: "Delete" }
+        );
+        if (confirmed) {
           await this.app.vault.delete(file);
           this.plugin.noteReferences = this.plugin.noteReferences.filter((n) => n.notePath !== note.notePath);
           await this.plugin.saveHighlightsAndNotes();
@@ -10101,7 +10141,7 @@ ${disputedInfo.manuscriptInfo}`);
       ).slice(0, 5);
       if (relatedNotes.length > 0) {
         const relatedSection = previewPanel.createDiv({ cls: "notes-related-section" });
-        relatedSection.createEl("h4", { text: "\u{1F517} Related Notes", cls: "related-title" });
+        relatedSection.createEl("h4", { text: "\u{1F517} Related notes", cls: "related-title" });
         const relatedList = relatedSection.createDiv({ cls: "related-list" });
         relatedNotes.forEach((related) => {
           const relatedItem = relatedList.createDiv({ cls: "related-item" });
@@ -10192,9 +10232,9 @@ ${disputedInfo.manuscriptInfo}`);
     };
     const analyticsDashboard = highlightsBrowser.createDiv({ cls: "highlights-analytics-dashboard" });
     const analyticsHeader = analyticsDashboard.createDiv({ cls: "analytics-header" });
-    analyticsHeader.createEl("h3", { text: "\u{1F4CA} Highlights Analytics" });
+    analyticsHeader.createEl("h3", { text: "\u{1F4CA} Highlights analytics" });
     const toggleAnalyticsBtn = analyticsHeader.createEl("button", { cls: "analytics-toggle-btn" });
-    toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    (0, import_obsidian.setIcon)(toggleAnalyticsBtn, "chevron-down");
     const analyticsContent = analyticsDashboard.createDiv({ cls: "analytics-content" });
     toggleAnalyticsBtn.addEventListener("click", () => {
       showAnalytics = !showAnalytics;
@@ -10254,7 +10294,7 @@ ${disputedInfo.manuscriptInfo}`);
     }
     const layerSection = analyticsContent.createDiv({ cls: "analytics-section layer-distribution-section" });
     const layerHeader = layerSection.createDiv({ cls: "analytics-section-header" });
-    layerHeader.createEl("h4", { text: "\u{1F4C1} Layer Distribution" });
+    layerHeader.createEl("h4", { text: "\u{1F4C1} Layer distribution" });
     layerHeader.createSpan({ text: "Click to filter", cls: "analytics-section-hint" });
     const layerCardsContainer = layerSection.createDiv({ cls: "layer-distribution-cards" });
     const renderLayerDistribution = () => {
@@ -10300,7 +10340,7 @@ ${disputedInfo.manuscriptInfo}`);
     renderLayerDistribution();
     if (analytics.topChapters.length > 0) {
       const hotSpotsSection = analyticsContent.createDiv({ cls: "analytics-section" });
-      hotSpotsSection.createEl("h4", { text: "\u{1F525} Most Highlighted Chapters" });
+      hotSpotsSection.createEl("h4", { text: "\u{1F525} Most highlighted chapters" });
       const hotSpotsList = hotSpotsSection.createDiv({ cls: "hot-spots-list" });
       analytics.topChapters.forEach((spot, index) => {
         const spotItem = hotSpotsList.createDiv({ cls: "hot-spot-item" });
@@ -10531,7 +10571,7 @@ ${disputedInfo.manuscriptInfo}`);
       });
       menu.showAtMouseEvent(e);
     });
-    const bulkDeleteBtn = bulkActionsDiv.createEl("button", { text: "\u{1F5D1}\uFE0F Delete Selected", cls: "bulk-action-btn bulk-danger" });
+    const bulkDeleteBtn = bulkActionsDiv.createEl("button", { text: "\u{1F5D1}\uFE0F Delete selected", cls: "bulk-action-btn bulk-danger" });
     bulkDeleteBtn.addEventListener("click", async () => {
       if (selectedHighlightIds.size === 0)
         return;
@@ -10545,7 +10585,7 @@ ${disputedInfo.manuscriptInfo}`);
         showToast(`Deleted highlights`);
       }
     });
-    const clearAllBtn = actionsDiv.createEl("button", { text: "\u{1F5D1}\uFE0F Clear All", cls: "highlights-action-btn danger" });
+    const clearAllBtn = actionsDiv.createEl("button", { text: "\u{1F5D1}\uFE0F Clear all", cls: "highlights-action-btn danger" });
     clearAllBtn.addEventListener("click", async () => {
       const visibleLayers2 = this.plugin.settings.visibleAnnotationLayers;
       const visibleHighlights2 = this.plugin.highlights.filter((h) => {
@@ -10697,10 +10737,12 @@ ${disputedInfo.manuscriptInfo}`);
         }
       });
       const keyboardHints = previewPanel.createDiv({ cls: "preview-keyboard-hints" });
-      keyboardHints.innerHTML = `
-				<span class="keyboard-hint"><kbd>/</kbd> Search</span>
-				<span class="keyboard-hint"><kbd>Esc</kbd> Clear selection</span>
-			`;
+      const hint1 = keyboardHints.createSpan({ cls: "keyboard-hint" });
+      hint1.createEl("kbd", { text: "/" });
+      hint1.appendText(" Search");
+      const hint2 = keyboardHints.createSpan({ cls: "keyboard-hint" });
+      hint2.createEl("kbd", { text: "Esc" });
+      hint2.appendText(" Clear selection");
     };
     const renderHighlightsList = () => {
       renderLayerDistribution();
@@ -11150,9 +11192,9 @@ ${disputedInfo.manuscriptInfo}`);
     const bookmarksBrowser = container.createDiv({ cls: "bookmarks-browser" });
     const analyticsDashboard = bookmarksBrowser.createDiv({ cls: "bookmarks-analytics-dashboard" });
     const analyticsHeader = analyticsDashboard.createDiv({ cls: "analytics-header" });
-    analyticsHeader.createEl("h3", { text: "\u{1F4CA} Bookmarks Analytics" });
+    analyticsHeader.createEl("h3", { text: "\u{1F4CA} Bookmarks analytics" });
     const toggleAnalyticsBtn = analyticsHeader.createEl("button", { cls: "analytics-toggle-btn" });
-    toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    (0, import_obsidian.setIcon)(toggleAnalyticsBtn, "chevron-down");
     const analyticsContent = analyticsDashboard.createDiv({ cls: "analytics-content" });
     toggleAnalyticsBtn.addEventListener("click", () => {
       showAnalytics = !showAnalytics;
@@ -11171,7 +11213,7 @@ ${disputedInfo.manuscriptInfo}`);
     const coverageCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     coverageCard.createDiv({ cls: "stat-icon", text: "\u{1F4CA}" });
     coverageCard.createDiv({ cls: "stat-value", text: `${analytics.coveragePercent}%` });
-    coverageCard.createDiv({ cls: "stat-label", text: "Bible Coverage" });
+    coverageCard.createDiv({ cls: "stat-label", text: "Bible coverage" });
     const recentCard = statsRow.createDiv({ cls: "analytics-stat-card" });
     recentCard.createDiv({ cls: "stat-icon", text: "\u{1F4C5}" });
     recentCard.createDiv({ cls: "stat-value", text: analytics.recentBookmarks.length.toString() });
@@ -11194,7 +11236,7 @@ ${disputedInfo.manuscriptInfo}`);
     }
     if (analytics.mostRecent) {
       const continueSection = analyticsContent.createDiv({ cls: "analytics-section continue-reading" });
-      continueSection.createEl("h4", { text: "\u{1F4CD} Continue Reading" });
+      continueSection.createEl("h4", { text: "\u{1F4CD} Continue reading" });
       let refText = analytics.mostRecent.book;
       if (analytics.mostRecent.chapter) {
         refText += ` ${analytics.mostRecent.chapter}`;
@@ -11260,7 +11302,7 @@ ${disputedInfo.manuscriptInfo}`);
     exportBtn.addEventListener("click", async () => await this.exportBookmarks());
     const importBtn = actionsDiv.createEl("button", { text: "\u{1F4E5} Import", cls: "bookmarks-action-btn" });
     importBtn.addEventListener("click", async () => await this.importBookmarks());
-    const clearAllBtn = actionsDiv.createEl("button", { text: "\u{1F5D1}\uFE0F Clear All", cls: "bookmarks-action-btn danger" });
+    const clearAllBtn = actionsDiv.createEl("button", { text: "\u{1F5D1}\uFE0F Clear all", cls: "bookmarks-action-btn danger" });
     clearAllBtn.addEventListener("click", async () => {
       if (this.plugin.bookmarks.length === 0) {
         showToast("No bookmarks to clear");
@@ -11442,7 +11484,7 @@ ${disputedInfo.manuscriptInfo}`);
             menu.style.left = `${e.clientX}px`;
             menu.style.top = `${e.clientY}px`;
             const renameItem = menu.createDiv({ cls: "context-menu-item" });
-            renameItem.innerHTML = "\u270F\uFE0F Rename";
+            renameItem.textContent = "\u270F\uFE0F Rename";
             renameItem.addEventListener("click", async () => {
               menu.remove();
               const currentName = bookmark.name || refText;
@@ -11458,7 +11500,7 @@ ${disputedInfo.manuscriptInfo}`);
               }
             });
             const deleteItem = menu.createDiv({ cls: "context-menu-item danger" });
-            deleteItem.innerHTML = "\u{1F5D1}\uFE0F Delete";
+            deleteItem.textContent = "\u{1F5D1}\uFE0F Delete";
             deleteItem.addEventListener("click", async () => {
               menu.remove();
               const confirmed = await this.showDeleteBookmarkConfirmation(refText);
@@ -11887,9 +11929,9 @@ ${disputedInfo.manuscriptInfo}`);
     const tagsBrowser = container.createDiv({ cls: "tags-browser" });
     const analyticsDashboard = tagsBrowser.createDiv({ cls: "tags-analytics-dashboard" });
     const analyticsHeader = analyticsDashboard.createDiv({ cls: "analytics-header" });
-    analyticsHeader.createEl("h3", { text: "\u{1F4CA} Tags Analytics" });
+    analyticsHeader.createEl("h3", { text: "\u{1F4CA} Tags analytics" });
     const toggleAnalyticsBtn = analyticsHeader.createEl("button", { cls: "analytics-toggle-btn" });
-    toggleAnalyticsBtn.innerHTML = `<svg class="analytics-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    (0, import_obsidian.setIcon)(toggleAnalyticsBtn, "chevron-down");
     const analyticsContent = analyticsDashboard.createDiv({ cls: "analytics-content" });
     toggleAnalyticsBtn.addEventListener("click", () => {
       showAnalytics = !showAnalytics;
@@ -11932,7 +11974,7 @@ ${disputedInfo.manuscriptInfo}`);
     }
     if (analytics.topTags.length > 0) {
       const topTagsSection = analyticsContent.createDiv({ cls: "analytics-section" });
-      topTagsSection.createEl("h4", { text: "\u{1F525} Most Used Tags" });
+      topTagsSection.createEl("h4", { text: "\u{1F525} Most used tags" });
       const topTagsList = topTagsSection.createDiv({ cls: "top-tags-list" });
       analytics.topTags.forEach((item, index) => {
         const tagItem = topTagsList.createDiv({ cls: "top-tag-item" });
@@ -11985,7 +12027,7 @@ ${disputedInfo.manuscriptInfo}`);
       attr: { title: "Show random tagged verse" }
     });
     const actionsDiv = controlsBar.createDiv({ cls: "tags-actions" });
-    const newTagBtn = actionsDiv.createEl("button", { text: "+ New Tag", cls: "tags-action-btn" });
+    const newTagBtn = actionsDiv.createEl("button", { text: "+ New tag", cls: "tags-action-btn" });
     newTagBtn.addEventListener("click", () => {
       this.showCreateTagDialog();
     });
@@ -12149,11 +12191,11 @@ ${disputedInfo.manuscriptInfo}`);
         });
       });
       const actionsDiv2 = previewPanel.createDiv({ cls: "preview-actions" });
-      const renameBtn = actionsDiv2.createEl("button", { text: "\u270F Rename Tag", cls: "preview-action-btn" });
+      const renameBtn = actionsDiv2.createEl("button", { text: "\u270F Rename tag", cls: "preview-action-btn" });
       renameBtn.addEventListener("click", () => {
         this.showRenameTagDialog(tagName);
       });
-      const deleteBtn = actionsDiv2.createEl("button", { text: "\u{1F5D1}\uFE0F Delete Tag", cls: "preview-action-btn danger" });
+      const deleteBtn = actionsDiv2.createEl("button", { text: "\u{1F5D1}\uFE0F Delete tag", cls: "preview-action-btn danger" });
       deleteBtn.addEventListener("click", () => {
         this.showDeleteTagConfirmation(tagName);
       });
@@ -12476,7 +12518,7 @@ ${disputedInfo.manuscriptInfo}`);
           return;
         }
         const newTag = {
-          id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           book,
           chapter,
           verse,
@@ -12631,7 +12673,7 @@ ${disputedInfo.manuscriptInfo}`);
                 (b) => b.book === bookmark.book && b.chapter === bookmark.chapter && b.verse === bookmark.verse
               );
               if (!exists) {
-                bookmark.id = `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                bookmark.id = `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
                 this.plugin.bookmarks.push(bookmark);
                 imported++;
               } else {
@@ -12857,7 +12899,7 @@ ${disputedInfo.manuscriptInfo}`);
                 (h) => h.book === highlight.book && h.chapter === highlight.chapter && h.verse === highlight.verse && h.text === highlight.text
               );
               if (!exists) {
-                highlight.id = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                highlight.id = `highlight-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
                 this.plugin.highlights.push(highlight);
                 imported++;
               } else {
@@ -13055,7 +13097,7 @@ ${disputedInfo.manuscriptInfo}`);
     });
     if (activePlans.length > 0) {
       const adaptiveSection = container.createDiv({ cls: "reading-plan-adaptive-section" });
-      adaptiveSection.createEl("h3", { text: "\u26A1 Schedule Mode" });
+      adaptiveSection.createEl("h3", { text: "\u26A1 Schedule mode" });
       adaptiveSection.createEl("p", { text: "Applies to all active plans", cls: "text-muted schedule-mode-note" });
       const modeSelector = adaptiveSection.createDiv({ cls: "adaptive-mode-selector" });
       const modes = [
@@ -13129,7 +13171,7 @@ ${disputedInfo.manuscriptInfo}`);
     }
     if (activePlans.length > 0) {
       const progressSection = container.createDiv({ cls: "reading-plan-progress-section" });
-      progressSection.createEl("h3", { text: "\u{1F4CA} Progress Overview" });
+      progressSection.createEl("h3", { text: "\u{1F4CA} Progress overview" });
       activePlans.forEach((plan) => {
         const progress = this.plugin.getReadingPlanProgress(plan.id);
         const completedDays = (this.plugin.settings.readingPlanProgress[plan.id] || []).length;
@@ -13295,7 +13337,13 @@ ${disputedInfo.manuscriptInfo}`);
     const deleteIcon = deleteBtn.createSpan();
     (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
     this.registerDomEvent(deleteBtn, "click", async () => {
-      if (confirm(`Delete collection "${collection.name}"?`)) {
+      const confirmed = await showConfirmModal(
+        this.plugin.app,
+        "Delete collection",
+        `Delete collection "${collection.name}"?`,
+        { isDestructive: true, confirmText: "Delete" }
+      );
+      if (confirmed) {
         const idx = this.plugin.settings.collections.findIndex((c) => c.id === collection.id);
         if (idx !== -1) {
           this.plugin.settings.collections.splice(idx, 1);
@@ -13435,7 +13483,7 @@ ${disputedInfo.manuscriptInfo}`);
     const exportMdBtn = exportSection.createEl("button", { cls: "collection-action-btn" });
     const exportMdIcon = exportMdBtn.createSpan({ cls: "btn-icon" });
     (0, import_obsidian.setIcon)(exportMdIcon, "file-text");
-    exportMdBtn.createSpan({ text: "Export Markdown" });
+    exportMdBtn.createSpan({ text: "Export markdown" });
     this.registerDomEvent(exportMdBtn, "click", async () => {
       const calloutTitle = this.plugin.settings.calloutTitle || "bible";
       const version = this.plugin.settings.bibleVersions[0] || "ESV";
@@ -13628,7 +13676,7 @@ ${collection.description}`);
     const h2 = header.createEl("h2");
     const titleIcon = h2.createSpan({ cls: "title-icon" });
     (0, import_obsidian.setIcon)(titleIcon, "brain");
-    h2.createSpan({ text: "Scripture Memorization" });
+    h2.createSpan({ text: "Scripture memorization" });
     const verses = this.plugin.settings.memorizationVerses || [];
     const today = new Date().toISOString().split("T")[0];
     const statsSection = container.createDiv({ cls: "memorization-stats" });
@@ -13710,7 +13758,13 @@ ${collection.description}`);
           (0, import_obsidian.setIcon)(deleteBtn, "trash-2");
           this.registerDomEvent(deleteBtn, "click", async (e) => {
             e.stopPropagation();
-            if (confirm(`Remove "${verse.reference}" from memorization?`)) {
+            const confirmed = await showConfirmModal(
+              this.plugin.app,
+              "Remove verse",
+              `Remove "${verse.reference}" from memorization?`,
+              { isDestructive: true, confirmText: "Remove" }
+            );
+            if (confirmed) {
               this.plugin.settings.memorizationVerses = verses.filter((v) => v.reference !== verse.reference);
               await this.plugin.saveSettings();
               this.render();
@@ -13746,7 +13800,10 @@ ${collection.description}`);
     modalContent.className = "flashcard-modal";
     const progressDiv = document.createElement("div");
     progressDiv.className = "flashcard-progress";
-    progressDiv.innerHTML = `<div class="flashcard-progress-bar" style="width: ${(index + 1) / cards.length * 100}%"></div>`;
+    const progressBar = document.createElement("div");
+    progressBar.className = "flashcard-progress-bar";
+    progressBar.style.width = `${(index + 1) / cards.length * 100}%`;
+    progressDiv.appendChild(progressBar);
     const progressText = document.createElement("span");
     progressText.className = "flashcard-progress-text";
     progressText.textContent = `${index + 1} / ${cards.length}`;
@@ -13756,46 +13813,77 @@ ${collection.description}`);
     cardContainer.className = "flashcard-container";
     const front = document.createElement("div");
     front.className = "flashcard-front";
-    front.innerHTML = `
-			<div class="flashcard-reference">${card.reference}</div>
-			<div class="flashcard-instruction">Can you recite this verse?</div>
-			<button class="flashcard-reveal-btn">Show Answer</button>
-		`;
+    const frontRef = document.createElement("div");
+    frontRef.className = "flashcard-reference";
+    frontRef.textContent = card.reference;
+    front.appendChild(frontRef);
+    const frontInstruction = document.createElement("div");
+    frontInstruction.className = "flashcard-instruction";
+    frontInstruction.textContent = "Can you recite this verse?";
+    front.appendChild(frontInstruction);
+    const revealButton = document.createElement("button");
+    revealButton.className = "flashcard-reveal-btn";
+    revealButton.textContent = "Show answer";
+    front.appendChild(revealButton);
     cardContainer.appendChild(front);
     const back = document.createElement("div");
     back.className = "flashcard-back hidden";
-    const hintText = this.plugin.settings.memorizationSettings.showHints ? card.text.split(" ").map((w) => w[0] + "_".repeat(w.length - 1)).join(" ") : "";
-    back.innerHTML = `
-			<div class="flashcard-reference">${card.reference}</div>
-			${hintText ? `<div class="flashcard-hint">${hintText}</div>` : ""}
-			<div class="flashcard-verse-text">${card.text}</div>
-			<div class="flashcard-version">${card.version}</div>
-			<div class="flashcard-rating">
-				<span class="rating-label">How well did you remember?</span>
-				<div class="rating-buttons">
-					<button class="rating-btn forgot" data-rating="0">Forgot</button>
-					<button class="rating-btn hard" data-rating="1">Hard</button>
-					<button class="rating-btn good" data-rating="2">Good</button>
-					<button class="rating-btn easy" data-rating="3">Easy</button>
-				</div>
-			</div>
-		`;
+    const backRef = document.createElement("div");
+    backRef.className = "flashcard-reference";
+    backRef.textContent = card.reference;
+    back.appendChild(backRef);
+    if (this.plugin.settings.memorizationSettings.showHints) {
+      const hintText = card.text.split(" ").map((w) => w[0] + "_".repeat(w.length - 1)).join(" ");
+      const hintDiv = document.createElement("div");
+      hintDiv.className = "flashcard-hint";
+      hintDiv.textContent = hintText;
+      back.appendChild(hintDiv);
+    }
+    const verseTextDiv = document.createElement("div");
+    verseTextDiv.className = "flashcard-verse-text";
+    verseTextDiv.textContent = card.text;
+    back.appendChild(verseTextDiv);
+    const versionDiv = document.createElement("div");
+    versionDiv.className = "flashcard-version";
+    versionDiv.textContent = card.version;
+    back.appendChild(versionDiv);
+    const ratingDiv = document.createElement("div");
+    ratingDiv.className = "flashcard-rating";
+    const ratingLabel = document.createElement("span");
+    ratingLabel.className = "rating-label";
+    ratingLabel.textContent = "How well did you remember?";
+    ratingDiv.appendChild(ratingLabel);
+    const ratingButtons = document.createElement("div");
+    ratingButtons.className = "rating-buttons";
+    const ratings = [
+      { cls: "forgot", rating: 0, text: "Forgot" },
+      { cls: "hard", rating: 1, text: "Hard" },
+      { cls: "good", rating: 2, text: "Good" },
+      { cls: "easy", rating: 3, text: "Easy" }
+    ];
+    ratings.forEach((r) => {
+      const btn = document.createElement("button");
+      btn.className = `rating-btn ${r.cls}`;
+      btn.setAttribute("data-rating", String(r.rating));
+      btn.textContent = r.text;
+      ratingButtons.appendChild(btn);
+    });
+    ratingDiv.appendChild(ratingButtons);
+    back.appendChild(ratingDiv);
     cardContainer.appendChild(back);
     modalContent.appendChild(cardContainer);
     const closeBtn = document.createElement("button");
     closeBtn.className = "flashcard-close-btn";
-    closeBtn.innerHTML = "\xD7";
+    closeBtn.textContent = "\xD7";
     closeBtn.addEventListener("click", () => modal.remove());
     modalContent.appendChild(closeBtn);
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
-    const revealBtn = front.querySelector(".flashcard-reveal-btn");
-    revealBtn == null ? void 0 : revealBtn.addEventListener("click", () => {
+    revealButton.addEventListener("click", () => {
       front.classList.add("hidden");
       back.classList.remove("hidden");
     });
-    const ratingBtns = back.querySelectorAll(".rating-btn");
-    ratingBtns.forEach((btn) => {
+    ratingButtons.querySelectorAll(".rating-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const rating = parseInt(btn.getAttribute("data-rating") || "0");
         await this.processMemorizationRating(card, rating);
@@ -13850,45 +13938,41 @@ ${collection.description}`);
     modal.className = "add-memorization-modal-overlay";
     const modalContent = document.createElement("div");
     modalContent.className = "add-memorization-modal";
-    modalContent.innerHTML = `
-			<h3>Add Verse to Memorize</h3>
-			<div class="add-verse-form">
-				<div class="form-group">
-					<label>Reference (e.g., John 3:16)</label>
-					<input type="text" class="verse-reference-input" placeholder="John 3:16">
-				</div>
-				<div class="form-group">
-					<label>Version</label>
-					<select class="verse-version-select">
-						${this.plugin.settings.bibleVersions.map((v) => `<option value="${v}">${v}</option>`).join("")}
-					</select>
-				</div>
-				<div class="form-group">
-					<label>Verse Text (auto-fills if found)</label>
-					<textarea class="verse-text-input" rows="4" placeholder="Enter verse text..."></textarea>
-				</div>
-				<div class="form-actions">
-					<button class="cancel-btn">Cancel</button>
-					<button class="lookup-btn">Lookup</button>
-					<button class="add-btn primary">Add Verse</button>
-				</div>
-			</div>
-		`;
+    modalContent.createEl("h3", { text: "Add verse to memorize" });
+    const form = modalContent.createDiv({ cls: "add-verse-form" });
+    const refGroup = form.createDiv({ cls: "form-group" });
+    refGroup.createEl("label", { text: "Reference (e.g., John 3:16)" });
+    const refInput = refGroup.createEl("input", {
+      type: "text",
+      cls: "verse-reference-input",
+      placeholder: "John 3:16"
+    });
+    const versionGroup = form.createDiv({ cls: "form-group" });
+    versionGroup.createEl("label", { text: "Version" });
+    const versionSelect = versionGroup.createEl("select", { cls: "verse-version-select" });
+    this.plugin.settings.bibleVersions.forEach((v) => {
+      versionSelect.createEl("option", { value: v, text: v });
+    });
+    const textGroup = form.createDiv({ cls: "form-group" });
+    textGroup.createEl("label", { text: "Verse text (auto-fills if found)" });
+    const textInput = textGroup.createEl("textarea", {
+      cls: "verse-text-input",
+      attr: { rows: "4" },
+      placeholder: "Enter verse text..."
+    });
+    const actions = form.createDiv({ cls: "form-actions" });
+    const cancelBtn = actions.createEl("button", { text: "Cancel", cls: "cancel-btn" });
+    const lookupBtn = actions.createEl("button", { text: "Lookup", cls: "lookup-btn" });
+    const addBtn = actions.createEl("button", { text: "Add verse", cls: "add-btn primary" });
     const closeBtn = document.createElement("button");
     closeBtn.className = "modal-close-btn";
-    closeBtn.innerHTML = "\xD7";
+    closeBtn.textContent = "\xD7";
     closeBtn.addEventListener("click", () => modal.remove());
     modalContent.appendChild(closeBtn);
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
-    const refInput = modalContent.querySelector(".verse-reference-input");
-    const versionSelect = modalContent.querySelector(".verse-version-select");
-    const textInput = modalContent.querySelector(".verse-text-input");
-    const cancelBtn = modalContent.querySelector(".cancel-btn");
-    const lookupBtn = modalContent.querySelector(".lookup-btn");
-    const addBtn = modalContent.querySelector(".add-btn");
-    cancelBtn == null ? void 0 : cancelBtn.addEventListener("click", () => modal.remove());
-    lookupBtn == null ? void 0 : lookupBtn.addEventListener("click", () => {
+    cancelBtn.addEventListener("click", () => modal.remove());
+    lookupBtn.addEventListener("click", () => {
       const ref = refInput.value.trim();
       const version = versionSelect.value;
       const match = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
@@ -13908,7 +13992,7 @@ ${collection.description}`);
         showToast('Invalid reference format. Use "Book Chapter:Verse" (e.g., John 3:16)');
       }
     });
-    addBtn == null ? void 0 : addBtn.addEventListener("click", async () => {
+    addBtn.addEventListener("click", async () => {
       const reference = refInput.value.trim();
       const version = versionSelect.value;
       const text = textInput.value.trim();
@@ -14211,7 +14295,7 @@ ${collection.description}`);
         }
       }
     } else {
-      wordsContainer.createEl("h4", { text: "Featured Greek Words" });
+      wordsContainer.createEl("h4", { text: "Featured Greek words" });
       const greekSamples = ["G26", "G4102", "G5485", "G2316", "G3056"];
       for (const strongsNum of greekSamples) {
         const entry = (_a = this.plugin.strongsDictionary.greek) == null ? void 0 : _a[strongsNum];
@@ -14232,7 +14316,7 @@ ${collection.description}`);
           });
         }
       }
-      wordsContainer.createEl("h4", { text: "Featured Hebrew Words", cls: "hebrew-section" });
+      wordsContainer.createEl("h4", { text: "Featured Hebrew words", cls: "hebrew-section" });
       const hebrewSamples = ["H430", "H3068", "H2617", "H7965", "H539"];
       for (const strongsNum of hebrewSamples) {
         const entry = (_b = this.plugin.strongsDictionary.hebrew) == null ? void 0 : _b[strongsNum];
@@ -14614,7 +14698,7 @@ ${collection.description}`);
     const chapterIcon = chapterCard.createSpan({ cls: "stat-icon" });
     (0, import_obsidian.setIcon)(chapterIcon, "file-text");
     chapterCard.createEl("div", { text: `${chapterCount}`, cls: "stat-value" });
-    chapterCard.createEl("div", { text: "Chapters Visited", cls: "stat-label" });
+    chapterCard.createEl("div", { text: "Chapters visited", cls: "stat-label" });
     const streakCard = statsGrid.createDiv({ cls: "stat-card" });
     const streakIcon = streakCard.createSpan({ cls: "stat-icon" });
     (0, import_obsidian.setIcon)(streakIcon, "flame");
@@ -14722,7 +14806,7 @@ ${collection.description}`);
       });
     });
     const historySection = container.createDiv({ cls: "insights-history-section" });
-    historySection.createEl("h3", { text: "Session History" });
+    historySection.createEl("h3", { text: "Session history" });
     const entries = [...this.plugin.settings.journalEntries].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
@@ -14777,7 +14861,7 @@ ${collection.description}`);
           }
           if (entry.chaptersVisited && entry.chaptersVisited.length > 0) {
             const chaptersDiv = entryContent.createDiv({ cls: "journal-chapters-visited" });
-            chaptersDiv.createEl("h4", { text: "Chapters Read:" });
+            chaptersDiv.createEl("h4", { text: "Chapters read:" });
             const chaptersList = chaptersDiv.createDiv({ cls: "chapters-list" });
             entry.chaptersVisited.forEach((ch) => {
               chaptersList.createSpan({ text: ch, cls: "chapter-tag" });
@@ -14794,7 +14878,13 @@ ${collection.description}`);
         const deleteIcon = deleteBtn.createSpan();
         (0, import_obsidian.setIcon)(deleteIcon, "trash-2");
         deleteBtn.addEventListener("click", async () => {
-          if (confirm("Are you sure you want to delete this entry?")) {
+          const confirmed = await showConfirmModal(
+            this.plugin.app,
+            "Delete entry",
+            "Are you sure you want to delete this entry?",
+            { isDestructive: true, confirmText: "Delete" }
+          );
+          if (confirmed) {
             const index = this.plugin.settings.journalEntries.findIndex((e) => e.id === entry.id);
             if (index !== -1) {
               this.plugin.settings.journalEntries.splice(index, 1);
@@ -14918,7 +15008,7 @@ ${collection.description}`);
           cell.textContent = text || "\u2014";
         }
       }
-      const exportBtn = resultsContainer.createEl("button", { text: "Copy as Markdown Table", cls: "comparison-export-btn" });
+      const exportBtn = resultsContainer.createEl("button", { text: "Copy as markdown table", cls: "comparison-export-btn" });
       exportBtn.addEventListener("click", async () => {
         let md = `| Verse | ${versions.join(" | ")} |
 `;
@@ -15667,7 +15757,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           }));
         });
         const colorActions = content.createDiv({ cls: "bp-settings-actions" });
-        const addColorBtn = colorActions.createEl("button", { text: "+ Add Color", cls: "action-secondary" });
+        const addColorBtn = colorActions.createEl("button", { text: "+ Add color", cls: "action-secondary" });
         addColorBtn.addEventListener("click", async () => {
           this.plugin.settings.highlightColors.push({ name: "New color", color: "#ffeb3b" });
           await this.plugin.saveSettings();
@@ -15719,7 +15809,13 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
             const deleteBtn = item.createEl("button", { cls: "layer-delete" });
             (0, import_obsidian.setIcon)(deleteBtn, "trash-2");
             deleteBtn.addEventListener("click", async () => {
-              if (confirm(`Delete layer "${layer.name}"?`)) {
+              const confirmed = await showConfirmModal(
+                this.app,
+                "Delete layer",
+                `Delete layer "${layer.name}"?`,
+                { isDestructive: true, confirmText: "Delete" }
+              );
+              if (confirmed) {
                 this.plugin.settings.annotationLayers.splice(index, 1);
                 this.plugin.settings.visibleAnnotationLayers = this.plugin.settings.visibleAnnotationLayers.filter((id) => id !== layer.id);
                 if (this.plugin.settings.activeAnnotationLayer === layer.id) {
@@ -15732,7 +15828,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           }
         });
         const layerActions = content.createDiv({ cls: "bp-settings-actions" });
-        const addLayerBtn = layerActions.createEl("button", { text: "+ Add Layer", cls: "action-secondary" });
+        const addLayerBtn = layerActions.createEl("button", { text: "+ Add layer", cls: "action-secondary" });
         addLayerBtn.addEventListener("click", async () => {
           const newLayer = {
             id: `layer-${Date.now()}`,
@@ -15786,7 +15882,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           await this.plugin.saveSettings();
         }));
         const refInsertGroup = content.createDiv({ cls: "bp-settings-group" });
-        refInsertGroup.createEl("div", { text: "Reference Insert", cls: "bp-settings-group-title" });
+        refInsertGroup.createEl("div", { text: "Reference insert", cls: "bp-settings-group-title" });
         new import_obsidian.Setting(content).setName("Enable @reference insert").setDesc("Insert Bible verses by typing @reference (e.g., @john3:16) in any note. Requires plugin reload to take effect.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableReferenceInsert).onChange(async (value) => {
           this.plugin.settings.enableReferenceInsert = value;
           await this.plugin.saveSettings();
@@ -15935,7 +16031,13 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         const votdActions = content.createDiv({ cls: "bp-settings-actions" });
         const regenerateBtn = votdActions.createEl("button", { text: "Regenerate mapping", cls: "action-secondary" });
         regenerateBtn.addEventListener("click", async () => {
-          if (confirm("Generate a new random verse mapping? This overwrites the existing mapping.")) {
+          const confirmed = await showConfirmModal(
+            this.app,
+            "Regenerate mapping",
+            "Generate a new random verse mapping? This overwrites the existing mapping.",
+            { confirmText: "Regenerate" }
+          );
+          if (confirmed) {
             const success = await this.plugin.generateVOTDMapping();
             if (success) {
               new import_obsidian.Notice("\u2705 Verse mapping regenerated!");
@@ -15944,7 +16046,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
         });
         const exportVotdBtn = votdActions.createEl("button", { text: "Export", cls: "action-secondary" });
         exportVotdBtn.addEventListener("click", async () => {
-          const votdPath = ".obsidian/plugins/bible-portal/data/verse-of-the-day.json";
+          const votdPath = `${this.plugin.getPluginDataPath()}/verse-of-the-day.json`;
           const adapter = this.app.vault.adapter;
           if (!await adapter.exists(votdPath)) {
             new import_obsidian.Notice("No VOTD mapping found");
@@ -16103,7 +16205,13 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           const actions = content.createDiv({ cls: "bp-settings-actions" });
           const resetBtn = actions.createEl("button", { text: "Reset achievements", cls: "action-danger" });
           resetBtn.addEventListener("click", async () => {
-            if (confirm("Reset ALL achievements and stats? This cannot be undone.")) {
+            const confirmed = await showConfirmModal(
+              this.app,
+              "Reset achievements",
+              "Reset ALL achievements and stats? This cannot be undone.",
+              { isDestructive: true, confirmText: "Reset" }
+            );
+            if (confirmed) {
               this.plugin.settings.unlockedAchievements = [];
               this.plugin.settings.achievementStats = { ...DEFAULT_ACHIEVEMENT_STATS };
               await this.plugin.saveSettings();
@@ -16132,7 +16240,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
           const streakDisplay = content.createDiv({ cls: "bp-settings-stats" });
           const streakCard = streakDisplay.createDiv({ cls: "bp-settings-stat-card" });
           streakCard.createDiv({ text: `${this.plugin.settings.studyStreak}`, cls: "stat-value" });
-          streakCard.createDiv({ text: "Day Streak \u{1F525}", cls: "stat-label" });
+          streakCard.createDiv({ text: "Day streak \u{1F525}", cls: "stat-label" });
         }
         const onboardingGroup = content.createDiv({ cls: "bp-settings-group" });
         onboardingGroup.createEl("div", { text: "Feature discovery", cls: "bp-settings-group-title" });
@@ -16653,3 +16761,54 @@ var InputModal = class extends import_obsidian.Modal {
     contentEl.empty();
   }
 };
+var ConfirmModal = class extends import_obsidian.Modal {
+  constructor(app, options) {
+    super(app);
+    this.title = options.title;
+    this.message = options.message;
+    this.confirmText = options.confirmText || "Confirm";
+    this.cancelText = options.cancelText || "Cancel";
+    this.isDestructive = options.isDestructive || false;
+    this.onConfirm = options.onConfirm;
+    this.onCancel = options.onCancel || (() => {
+    });
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("bp-confirm-modal");
+    contentEl.createEl("h2", { text: this.title });
+    contentEl.createEl("p", { text: this.message, cls: "bp-confirm-message" });
+    const buttonContainer = contentEl.createDiv({ cls: "modal-button-container" });
+    const cancelButton = buttonContainer.createEl("button", { text: this.cancelText });
+    cancelButton.addEventListener("click", () => {
+      this.onCancel();
+      this.close();
+    });
+    const confirmButton = buttonContainer.createEl("button", {
+      text: this.confirmText,
+      cls: this.isDestructive ? "mod-warning" : "mod-cta"
+    });
+    confirmButton.addEventListener("click", () => {
+      this.onConfirm();
+      this.close();
+    });
+    setTimeout(() => confirmButton.focus(), 10);
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+function showConfirmModal(app, title, message, options) {
+  return new Promise((resolve) => {
+    new ConfirmModal(app, {
+      title,
+      message,
+      confirmText: options == null ? void 0 : options.confirmText,
+      cancelText: options == null ? void 0 : options.cancelText,
+      isDestructive: options == null ? void 0 : options.isDestructive,
+      onConfirm: () => resolve(true),
+      onCancel: () => resolve(false)
+    }).open();
+  });
+}
