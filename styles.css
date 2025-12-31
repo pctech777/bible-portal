@@ -13908,3 +13908,183 @@ input,
 	background: var(--interactive-accent);
 	transition: width 0.3s ease;
 }
+
+/* ==========================================================================
+   Bible Reference Insert (@reference syntax) - Suggestion Dropdown
+   ========================================================================== */
+
+/* Suggestion item container */
+.bible-reference-suggestion {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	cursor: pointer;
+}
+
+.bible-reference-suggestion:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* Suggestion type icon */
+.bible-reference-suggestion .suggestion-icon {
+	flex-shrink: 0;
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+}
+
+.bible-reference-suggestion .suggestion-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* Recent references get a subtle highlight */
+.bible-reference-suggestion[data-type="recent"] .suggestion-icon {
+	color: var(--interactive-accent);
+}
+
+/* Suggestion text content */
+.bible-reference-suggestion .suggestion-content {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.bible-reference-suggestion .suggestion-text {
+	font-weight: 500;
+	color: var(--text-normal);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bible-reference-suggestion .suggestion-description {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-top: 2px;
+}
+
+/* Suggestion preview (verse text preview) */
+.bible-reference-suggestion .suggestion-preview {
+	font-size: 12px;
+	color: var(--text-faint);
+	margin-top: 4px;
+	font-style: italic;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 400px;
+}
+
+/* ==========================================================================
+   Bible Callout Styling
+   ========================================================================== */
+
+/* Base Bible callout styling */
+.callout[data-callout="bible"],
+.callout[data-callout="bible-manuscript"] {
+	--callout-color: 139, 69, 19;
+	--callout-icon: lucide-book-open;
+	border-left: 4px solid var(--bp-earth, #8B4513);
+	background: rgba(139, 69, 19, 0.05);
+}
+
+.theme-dark .callout[data-callout="bible"],
+.theme-dark .callout[data-callout="bible-manuscript"] {
+	background: rgba(139, 69, 19, 0.1);
+}
+
+/* Bible callout title */
+.callout[data-callout="bible"] .callout-title,
+.callout[data-callout="bible-manuscript"] .callout-title {
+	color: var(--bp-earth, #8B4513);
+}
+
+.theme-dark .callout[data-callout="bible"] .callout-title,
+.theme-dark .callout[data-callout="bible-manuscript"] .callout-title {
+	color: #CD853F;
+}
+
+/* Manuscript mode: flowing prose style */
+.callout[data-callout="bible-manuscript"] .callout-content {
+	font-style: italic;
+	line-height: 1.7;
+}
+
+/* Verse numbers in callout (superscript bold) */
+.callout[data-callout="bible"] .callout-content strong,
+.callout[data-callout="bible-manuscript"] .callout-content strong {
+	font-weight: 700;
+	color: var(--text-accent);
+	font-size: 0.85em;
+	vertical-align: super;
+}
+
+/* Version attribution at end */
+.callout[data-callout="bible"] .callout-content em,
+.callout[data-callout="bible-manuscript"] .callout-content em {
+	font-size: 0.9em;
+	color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Clickable Bible Callout
+   ========================================================================== */
+
+.bible-callout-clickable {
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bible-callout-clickable:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.theme-dark .bible-callout-clickable:hover {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Click indicator icon */
+.bible-callout-indicator {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 8px;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+.bible-callout-indicator svg {
+	width: 14px;
+	height: 14px;
+	color: var(--text-muted);
+}
+
+.bible-callout-clickable:hover .bible-callout-indicator {
+	opacity: 1;
+}
+
+/* Hint text for double-click on content */
+.bible-callout-clickable .callout-content {
+	position: relative;
+}
+
+.bible-callout-clickable .callout-content::after {
+	content: "Double-click to open in Bible Portal";
+	position: absolute;
+	bottom: -20px;
+	left: 0;
+	font-size: 10px;
+	color: var(--text-faint);
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	pointer-events: none;
+}
+
+.bible-callout-clickable:hover .callout-content::after {
+	opacity: 0.6;
+}

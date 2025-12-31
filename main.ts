@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, ItemView, Menu, Notice, Modal, TFile, TFolder, requestUrl, MarkdownRenderer, setIcon } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, ItemView, Menu, Notice, Modal, TFile, TFolder, requestUrl, MarkdownRenderer, setIcon, EditorSuggest, EditorSuggestContext, EditorSuggestTriggerInfo, Editor, EditorPosition } from 'obsidian';
 
 // Highlight color definition
 interface HighlightColor {
@@ -152,6 +152,10 @@ interface BiblePortalSettings {
 	showContextSidebar: boolean; // Show contextual sidebar on right
 	contextSidebarTab: 'commentary' | 'word-study' | 'context' | 'parallels' | 'notes'; // Active tab
 	contextSidebarWidth: number; // Width in pixels (default: 350)
+
+	// Bible Reference Insert (@reference syntax)
+	enableReferenceInsert: boolean; // Enable @reference insert feature
+	recentInsertedReferences: string[]; // Last 10 inserted references
 }
 
 // Study history data structure
@@ -976,7 +980,11 @@ const DEFAULT_SETTINGS: BiblePortalSettings = {
 	// Context Sidebar (15C)
 	showContextSidebar: false, // Hidden by default - user must opt in
 	contextSidebarTab: 'commentary', // Default to commentary tab
-	contextSidebarWidth: 350 // Default width in pixels
+	contextSidebarWidth: 350, // Default width in pixels
+
+	// Bible Reference Insert (@reference syntax)
+	enableReferenceInsert: true, // Enabled by default
+	recentInsertedReferences: [] // No recent references initially
 };
 
 // Strong's Concordance data structures
@@ -1031,6 +1039,33 @@ type InterlinearBook = InterlinearVerse[];
 
 interface InterlinearData {
 	[bookName: string]: InterlinearBook | null;
+}
+
+// Bible Reference Insert data structures (@reference syntax)
+interface BibleReferenceSuggestion {
+	type: 'book' | 'reference' | 'recent' | 'option';
+	text: string;           // Display text in suggestion dropdown
+	value: string;          // Value to use for insertion
+	preview?: string;       // Optional verse preview text
+	bookName?: string;      // Normalized book name (for book suggestions)
+	description?: string;   // Additional description
+}
+
+interface ParsedReferenceOptions {
+	manuscript: boolean;    // +m or +manuscript - no verse numbers, flowing text
+	versions: string[];     // +esv, +niv, etc. - specified versions
+}
+
+interface ParsedBibleReference {
+	valid: boolean;
+	bookName: string | null;      // Normalized canonical book name
+	chapter: number | null;
+	startVerse: number | null;
+	endVerse: number | null;
+	endChapter: number | null;    // For cross-chapter ranges (e.g., gen1:28-2:3)
+	options: ParsedReferenceOptions;
+	error?: string;               // Error message if invalid
+	rawReference: string;         // Original reference text without options
 }
 
 // Jesus Words data structure - simplified format
@@ -1679,11 +1714,110 @@ export default class BiblePortalPlugin extends Plugin {
 		} catch (error) {
 			console.warn('[Bible Portal] Jesus Words loading failed:', error);
 		}
+
+		// Register Bible Reference EditorSuggest (@reference syntax)
+		if (this.settings.enableReferenceInsert) {
+			this.registerEditorSuggest(new BibleReferenceSuggest(this.app, this));
+		}
+
+		// Register post-processor for click-to-open Bible callouts
+		this.registerMarkdownPostProcessor((el, ctx) => {
+			// Find all Bible callouts
+			const callouts = el.querySelectorAll('.callout[data-callout="bible"], .callout[data-callout="bible-manuscript"]');
+
+			callouts.forEach((callout) => {
+				// Add clickable styling
+				callout.addClass('bible-callout-clickable');
+
+				// Add click indicator icon
+				const titleEl = callout.querySelector('.callout-title');
+				if (titleEl && !titleEl.querySelector('.bible-callout-indicator')) {
+					const indicator = createEl('span', { cls: 'bible-callout-indicator' });
+					setIcon(indicator, 'external-link');
+					titleEl.appendChild(indicator);
+				}
+
+				// Make clickable
+				callout.addEventListener('click', (evt: MouseEvent) => {
+					// Don't navigate if clicking on the text (user might want to select)
+					const target = evt.target as HTMLElement;
+					if (target.closest('.callout-content')) {
+						// Only trigger if double-click on content
+						if (evt.detail !== 2) return;
+					}
+
+					// Parse the callout metadata
+					const calloutEl = callout as HTMLElement;
+					const titleInner = callout.querySelector('.callout-title-inner');
+
+					// Get the metadata from the callout type attribute if available
+					// Format: [!bible|gen1:1-3:esv]
+					const metadata = calloutEl.getAttribute('data-callout-metadata') || '';
+
+					if (metadata) {
+						// Parse metadata: bookChapter:startVerse-endVerse:versions
+						// e.g., "gen1:1-3:esv" or "john3:16:esv,niv"
+						this.navigateToCalloutReference(metadata);
+					} else if (titleInner) {
+						// Fallback: try to parse from the title text
+						const titleText = titleInner.textContent || '';
+						this.navigateToCalloutReference(titleText);
+					}
+				});
+			});
+		});
+	}
+
+	// Navigate to a Bible reference from a callout click
+	private async navigateToCalloutReference(reference: string): Promise<void> {
+		// Try to parse the reference
+		// Could be metadata format: "gen1:1-3:esv" or title format: "Genesis 1:1-3"
+		const parsed = this.parseAtReference(reference.replace(/[|:]+$/, ''));
+
+		if (parsed.valid && parsed.bookName && parsed.chapter) {
+			// Open Bible Portal and navigate
+			await this.activateBibleView();
+
+			// Small delay to let view initialize if newly created
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			// Get the active Bible view
+			const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BIBLE);
+			if (leaves.length > 0) {
+				const view = leaves[0].view as BibleView;
+
+				// Set version if specified (before navigating)
+				if (parsed.options.versions.length > 0) {
+					const version = parsed.options.versions[0].toUpperCase();
+					if (this.bibleVersions.has(version)) {
+						view.currentVersion = version;
+					}
+				}
+
+				// Build reference string for navigateToReference
+				const verseRef = parsed.startVerse
+					? (parsed.endVerse && parsed.endVerse !== parsed.startVerse
+						? `${parsed.bookName} ${parsed.chapter}:${parsed.startVerse}-${parsed.endVerse}`
+						: `${parsed.bookName} ${parsed.chapter}:${parsed.startVerse}`)
+					: `${parsed.bookName} ${parsed.chapter}`;
+
+				// Navigate to the reference
+				view.navigateToReference(verseRef);
+			}
+		} else {
+			// Fallback: try navigating to the raw reference string
+			// navigateToReference handles parsing internally
+			await this.activateBibleView();
+			await new Promise(resolve => setTimeout(resolve, 100));
+			const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BIBLE);
+			if (leaves.length > 0) {
+				const view = leaves[0].view as BibleView;
+				view.navigateToReference(reference);
+			}
+		}
 	}
 
 	onunload() {
-		console.debug('Unloading Bible Portal plugin');
-
 		// Save current study session to journal before unloading
 		if (this.currentSession && this.settings.enableSessionTracking) {
 			this.saveSessionToJournal();
@@ -1694,12 +1828,10 @@ export default class BiblePortalPlugin extends Plugin {
 	}
 
 	async activateBibleView() {
-		console.debug('🚀 activateBibleView() called');
 		const { workspace } = this.app;
 
 		let leaf: WorkspaceLeaf | null = null;
 		const leaves = workspace.getLeavesOfType(VIEW_TYPE_BIBLE);
-		console.debug('📄 Existing Bible view leaves:', leaves.length);
 
 		if (leaves.length > 0) {
 			// A Bible view already exists, use it
@@ -1988,8 +2120,6 @@ export default class BiblePortalPlugin extends Plugin {
 
 		this.settings.journalEntries.push(entry);
 		this.saveSettings();
-
-		console.debug('Study session saved to journal:', entry);
 	}
 
 	/**
@@ -2543,14 +2673,112 @@ export default class BiblePortalPlugin extends Plugin {
 	normalizeBookName(name: string): string {
 		if (!name) return name;
 
-		// Check if it's a 3-letter abbreviation
-		const upper = name.toUpperCase().trim();
+		const trimmed = name.trim();
+		const upper = trimmed.toUpperCase();
+		const lower = trimmed.toLowerCase();
+
+		// Check if it's a 3-letter abbreviation from BOOK_ABBREVIATIONS
 		if (BOOK_ABBREVIATIONS[upper]) {
 			return BOOK_ABBREVIATIONS[upper];
 		}
 
-		// Already a full name, return as-is
-		return name;
+		// Canonical book names for matching
+		const canonicalBooks = [
+			'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
+			'Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel',
+			'1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra',
+			'Nehemiah', 'Esther', 'Job', 'Psalm', 'Proverbs',
+			'Ecclesiastes', 'Song of Solomon', 'Isaiah', 'Jeremiah', 'Lamentations',
+			'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos',
+			'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk',
+			'Zephaniah', 'Haggai', 'Zechariah', 'Malachi',
+			'Matthew', 'Mark', 'Luke', 'John', 'Acts',
+			'Romans', '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians',
+			'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians', '1 Timothy',
+			'2 Timothy', 'Titus', 'Philemon', 'Hebrews', 'James',
+			'1 Peter', '2 Peter', '1 John', '2 John', '3 John',
+			'Jude', 'Revelation'
+		];
+
+		// Check for full name match (case-insensitive)
+		for (const canonical of canonicalBooks) {
+			if (canonical.toLowerCase() === lower) {
+				return canonical;
+			}
+			// Also check without spaces for numbered books
+			if (canonical.toLowerCase().replace(/\s+/g, '') === lower.replace(/\s+/g, '')) {
+				return canonical;
+			}
+		}
+
+		// Handle "Psalms" -> "Psalm"
+		if (lower === 'psalms') return 'Psalm';
+
+		// Extended abbreviations
+		const abbreviations: Record<string, string> = {
+			'gen': 'Genesis', 'ge': 'Genesis', 'gn': 'Genesis',
+			'ex': 'Exodus', 'exo': 'Exodus', 'exod': 'Exodus',
+			'lev': 'Leviticus', 'le': 'Leviticus', 'lv': 'Leviticus',
+			'num': 'Numbers', 'nu': 'Numbers', 'nm': 'Numbers',
+			'deut': 'Deuteronomy', 'de': 'Deuteronomy', 'dt': 'Deuteronomy',
+			'josh': 'Joshua', 'jos': 'Joshua',
+			'judg': 'Judges', 'jdg': 'Judges', 'jg': 'Judges',
+			'ru': 'Ruth', 'rth': 'Ruth',
+			'1sam': '1 Samuel', '2sam': '2 Samuel', '1sa': '1 Samuel', '2sa': '2 Samuel',
+			'1ki': '1 Kings', '2ki': '2 Kings', '1kgs': '1 Kings', '2kgs': '2 Kings',
+			'1chr': '1 Chronicles', '2chr': '2 Chronicles', '1ch': '1 Chronicles', '2ch': '2 Chronicles',
+			'ezr': 'Ezra', 'neh': 'Nehemiah', 'est': 'Esther',
+			'ps': 'Psalm', 'psa': 'Psalm', 'psalm': 'Psalm', 'psalms': 'Psalm',
+			'pro': 'Proverbs', 'prov': 'Proverbs', 'prv': 'Proverbs',
+			'ecc': 'Ecclesiastes', 'eccl': 'Ecclesiastes', 'eccles': 'Ecclesiastes',
+			'sos': 'Song of Solomon', 'song': 'Song of Solomon', 'sng': 'Song of Solomon',
+			'isa': 'Isaiah', 'is': 'Isaiah',
+			'jer': 'Jeremiah', 'je': 'Jeremiah',
+			'lam': 'Lamentations', 'la': 'Lamentations',
+			'ezek': 'Ezekiel', 'eze': 'Ezekiel', 'ezk': 'Ezekiel',
+			'dan': 'Daniel', 'da': 'Daniel', 'dn': 'Daniel',
+			'hos': 'Hosea', 'ho': 'Hosea',
+			'joe': 'Joel', 'jl': 'Joel',
+			'am': 'Amos', 'amo': 'Amos',
+			'ob': 'Obadiah', 'oba': 'Obadiah', 'obad': 'Obadiah',
+			'jon': 'Jonah', 'jnh': 'Jonah',
+			'mic': 'Micah', 'mi': 'Micah',
+			'na': 'Nahum', 'nah': 'Nahum',
+			'hab': 'Habakkuk', 'hb': 'Habakkuk',
+			'zep': 'Zephaniah', 'zeph': 'Zephaniah',
+			'hag': 'Haggai', 'hg': 'Haggai',
+			'zec': 'Zechariah', 'zech': 'Zechariah',
+			'mal': 'Malachi', 'ml': 'Malachi',
+			'matt': 'Matthew', 'mt': 'Matthew',
+			'mk': 'Mark', 'mrk': 'Mark', 'mar': 'Mark',
+			'lk': 'Luke', 'luk': 'Luke',
+			'jn': 'John', 'jhn': 'John', 'joh': 'John',
+			'ac': 'Acts', 'act': 'Acts',
+			'rom': 'Romans', 'ro': 'Romans', 'rm': 'Romans',
+			'1cor': '1 Corinthians', '2cor': '2 Corinthians', '1co': '1 Corinthians', '2co': '2 Corinthians',
+			'gal': 'Galatians', 'ga': 'Galatians',
+			'eph': 'Ephesians', 'ep': 'Ephesians',
+			'php': 'Philippians', 'phil': 'Philippians', 'pp': 'Philippians',
+			'col': 'Colossians', 'co': 'Colossians',
+			'1thess': '1 Thessalonians', '2thess': '2 Thessalonians', '1th': '1 Thessalonians', '2th': '2 Thessalonians',
+			'1tim': '1 Timothy', '2tim': '2 Timothy', '1ti': '1 Timothy', '2ti': '2 Timothy',
+			'tit': 'Titus', 'ti': 'Titus',
+			'phm': 'Philemon', 'philem': 'Philemon',
+			'heb': 'Hebrews', 'he': 'Hebrews',
+			'jas': 'James', 'jam': 'James', 'jm': 'James',
+			'1pet': '1 Peter', '2pet': '2 Peter', '1pe': '1 Peter', '2pe': '2 Peter', '1pt': '1 Peter', '2pt': '2 Peter',
+			'1jn': '1 John', '2jn': '2 John', '3jn': '3 John', '1jo': '1 John', '2jo': '2 John', '3jo': '3 John',
+			'jude': 'Jude', 'jd': 'Jude',
+			'rev': 'Revelation', 're': 'Revelation', 'rv': 'Revelation'
+		};
+
+		const lowerNoSpace = lower.replace(/\s+/g, '');
+		if (abbreviations[lowerNoSpace]) {
+			return abbreviations[lowerNoSpace];
+		}
+
+		// Not found - return as-is (caller should handle validation)
+		return trimmed;
 	}
 
 	/**
@@ -3412,13 +3640,10 @@ export default class BiblePortalPlugin extends Plugin {
 	 */
 	async loadTheographicData() {
 		if (!this.settings.enableTheographic) {
-			console.debug('ℹ️ Theographic features disabled in settings');
 			return;
 		}
 
 		try {
-			console.debug('Loading Theographic Bible metadata...');
-
 			// Load all JSON files (including verses.json for verse-to-metadata mapping)
 			const people = await this.readPluginDataFile('theographic/people.json') as TheographicPerson[] | null;
 			const places = await this.readPluginDataFile('theographic/places.json') as TheographicPlace[] | null;
@@ -4144,21 +4369,9 @@ export default class BiblePortalPlugin extends Plugin {
 			// Hardcoded path - deployed with plugin
 			const jesusWordsPath = '.obsidian/plugins/bible-portal/src/data/jesus-words-complete.json';
 
-			console.debug('📂 Looking for Jesus Words at:', jesusWordsPath);
-
-			const startTime = performance.now();
-
 			if (await adapter.exists(jesusWordsPath)) {
-				console.debug('✓ File exists, loading...');
 				const jesusWordsJson = await adapter.read(jesusWordsPath);
 				this.jesusWordsData = JSON.parse(jesusWordsJson);
-
-				console.debug('📖 Jesus Words data loaded:', {
-					hasData: !!this.jesusWordsData,
-					hasVerses: !!this.jesusWordsData?.verses,
-					versesLength: this.jesusWordsData?.verses?.length,
-					totalVerses: this.jesusWordsData?.totalVerses
-				});
 
 				// Build fast lookup set from simple verse array
 				this.jesusWordsLookup.clear();
@@ -4170,15 +4383,9 @@ export default class BiblePortalPlugin extends Plugin {
 					}
 				}
 
-				const endTime = performance.now();
-				const loadTime = (endTime - startTime).toFixed(2);
-
-				console.debug(`✓ Jesus Words loaded: ${this.jesusWordsLookup.size} verses in ${loadTime}ms`);
 				const gospelsText = (this.jesusWordsData?.gospels || []).join(', ') || 'Gospels';
 				new Notice(`✓ Jesus Words loaded: ${this.jesusWordsLookup.size} red-letter verses across ${gospelsText}`);
 			} else {
-				console.debug('ℹ️ Jesus Words file not found - red-letter features disabled');
-				console.debug(`   Expected location: ${jesusWordsPath}`);
 				this.jesusWordsData = null;
 			}
 		} catch (error) {
@@ -4661,9 +4868,6 @@ export default class BiblePortalPlugin extends Plugin {
 			// Split by newlines and extract tag values
 			const tagLines = tagsSection.split('\n').filter(line => line.trim().startsWith('-'));
 			const tags = tagLines.map(line => line.trim().replace(/^- /, '').trim()).filter(tag => tag.length > 0);
-
-			console.debug('🏷️ Extracted tags from', notePath, ':', tags);
-
 			return tags;
 		} catch (error) {
 			console.error(`Error reading tags from ${notePath}:`, error);
@@ -4675,18 +4879,12 @@ export default class BiblePortalPlugin extends Plugin {
 	async getAllTags(): Promise<Array<{tag: string, count: number}>> {
 		const tagCounts = new Map<string, number>();
 
-		console.debug('🏷️ Getting all tags from', this.noteReferences.length, 'notes');
-
 		for (const noteRef of this.noteReferences) {
 			const tags = await this.getNoteTags(noteRef.notePath);
-			console.debug('📄', noteRef.notePath, '→ tags:', tags);
 			for (const tag of tags) {
 				tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
 			}
 		}
-
-		console.debug('🏷️ Total unique tags found:', tagCounts.size);
-		console.debug('🏷️ Tags:', Array.from(tagCounts.keys()));
 
 		return Array.from(tagCounts.entries())
 			.map(([tag, count]) => ({ tag, count }))
@@ -5026,6 +5224,174 @@ tags:
 		});
 
 		return notePath;
+	}
+
+	/**
+	 * Parse @reference syntax for Bible reference insert feature
+	 * Supports: @gen1:1, @gen1:1-3, @gen1, @gen1-3, @gen1:3-3:9
+	 * Options: +m, +manuscript, +esv, +niv, etc.
+	 * Also handles metadata format: gen1:1:esv (colon-separated version)
+	 */
+	parseAtReference(input: string): ParsedBibleReference {
+		// Strip leading @ if present
+		let text = input.startsWith('@') ? input.slice(1) : input;
+		text = text.trim();
+
+		// Default options
+		const options: ParsedReferenceOptions = { manuscript: false, versions: [] };
+
+		// Extract options (everything after first +)
+		const plusIndex = text.indexOf('+');
+		let referenceText = text;
+
+		if (plusIndex !== -1) {
+			referenceText = text.slice(0, plusIndex).trim();
+			const optionsStr = text.slice(plusIndex);
+
+			// Parse each +option
+			const optionParts = optionsStr.split('+').filter(o => o.trim());
+			for (const opt of optionParts) {
+				const lowerOpt = opt.toLowerCase().trim();
+				if (lowerOpt === 'm' || lowerOpt === 'manuscript') {
+					options.manuscript = true;
+				} else if (lowerOpt.length > 0) {
+					// Treat as version - will be validated later
+					options.versions.push(lowerOpt.toUpperCase());
+				}
+			}
+		} else {
+			// Check for metadata format with colon-separated version: gen1:1:esv or gen1:1:esv,niv
+			// The version part comes after the last colon and contains only letters/commas
+			const colonMatch = referenceText.match(/^(.+):([a-zA-Z,]+)$/);
+			if (colonMatch) {
+				const potentialVersions = colonMatch[2];
+				// Verify it looks like version codes (2-4 letter codes separated by commas)
+				const versionParts = potentialVersions.split(',').map(v => v.trim().toUpperCase());
+				const allLookLikeVersions = versionParts.every(v => /^[A-Z]{2,10}$/.test(v));
+				if (allLookLikeVersions) {
+					referenceText = colonMatch[1];
+					options.versions.push(...versionParts);
+				}
+			}
+		}
+
+		// Normalize spacing: allow up to 1 space between book and chapter
+		// e.g., "gen 1:1" or "genesis 1:1" or "gen1:1"
+		referenceText = referenceText.replace(/\s+/g, ' ').trim();
+
+		// Reference patterns (order matters - try most specific first)
+		const patterns = {
+			// Cross-chapter verse range: gen1:3-3:9 or genesis 1:3-3:9
+			crossChapterRange: /^([1-3]?\s*[a-z]+)\s*(\d+)\s*:\s*(\d+)\s*-\s*(\d+)\s*:\s*(\d+)$/i,
+			// Same-chapter verse range: gen1:1-3 or genesis 1:1-3
+			verseRange: /^([1-3]?\s*[a-z]+)\s*(\d+)\s*:\s*(\d+)\s*-\s*(\d+)$/i,
+			// Single verse: gen1:1 or genesis 1:1
+			singleVerse: /^([1-3]?\s*[a-z]+)\s*(\d+)\s*:\s*(\d+)$/i,
+			// Chapter range: gen1-3 or genesis 1-3
+			chapterRange: /^([1-3]?\s*[a-z]+)\s*(\d+)\s*-\s*(\d+)$/i,
+			// Single chapter: gen1 or genesis 1
+			singleChapter: /^([1-3]?\s*[a-z]+)\s*(\d+)$/i
+		};
+
+		// Try cross-chapter range first: gen1:3-3:9
+		let match = referenceText.match(patterns.crossChapterRange);
+		if (match) {
+			const bookName = this.normalizeBookName(match[1]);
+			if (!bookName) {
+				return {
+					valid: false, bookName: null, chapter: null, startVerse: null,
+					endVerse: null, endChapter: null, options, error: `Unknown book: "${match[1]}"`,
+					rawReference: referenceText
+				};
+			}
+			return {
+				valid: true, bookName, chapter: parseInt(match[2]), startVerse: parseInt(match[3]),
+				endVerse: parseInt(match[5]), endChapter: parseInt(match[4]), options,
+				rawReference: referenceText
+			};
+		}
+
+		// Try verse range: gen1:1-3
+		match = referenceText.match(patterns.verseRange);
+		if (match) {
+			const bookName = this.normalizeBookName(match[1]);
+			if (!bookName) {
+				return {
+					valid: false, bookName: null, chapter: null, startVerse: null,
+					endVerse: null, endChapter: null, options, error: `Unknown book: "${match[1]}"`,
+					rawReference: referenceText
+				};
+			}
+			return {
+				valid: true, bookName, chapter: parseInt(match[2]), startVerse: parseInt(match[3]),
+				endVerse: parseInt(match[4]), endChapter: null, options,
+				rawReference: referenceText
+			};
+		}
+
+		// Try single verse: gen1:1
+		match = referenceText.match(patterns.singleVerse);
+		if (match) {
+			const bookName = this.normalizeBookName(match[1]);
+			if (!bookName) {
+				return {
+					valid: false, bookName: null, chapter: null, startVerse: null,
+					endVerse: null, endChapter: null, options, error: `Unknown book: "${match[1]}"`,
+					rawReference: referenceText
+				};
+			}
+			return {
+				valid: true, bookName, chapter: parseInt(match[2]), startVerse: parseInt(match[3]),
+				endVerse: null, endChapter: null, options,
+				rawReference: referenceText
+			};
+		}
+
+		// Try chapter range: gen1-3
+		match = referenceText.match(patterns.chapterRange);
+		if (match) {
+			const bookName = this.normalizeBookName(match[1]);
+			if (!bookName) {
+				return {
+					valid: false, bookName: null, chapter: null, startVerse: null,
+					endVerse: null, endChapter: null, options, error: `Unknown book: "${match[1]}"`,
+					rawReference: referenceText
+				};
+			}
+			// For chapter ranges, we return startVerse=1, endVerse=last verse of end chapter
+			// Caller will need to handle fetching multiple chapters
+			return {
+				valid: true, bookName, chapter: parseInt(match[2]), startVerse: 1,
+				endVerse: null, endChapter: parseInt(match[3]), options,
+				rawReference: referenceText
+			};
+		}
+
+		// Try single chapter: gen1
+		match = referenceText.match(patterns.singleChapter);
+		if (match) {
+			const bookName = this.normalizeBookName(match[1]);
+			if (!bookName) {
+				return {
+					valid: false, bookName: null, chapter: null, startVerse: null,
+					endVerse: null, endChapter: null, options, error: `Unknown book: "${match[1]}"`,
+					rawReference: referenceText
+				};
+			}
+			return {
+				valid: true, bookName, chapter: parseInt(match[2]), startVerse: null,
+				endVerse: null, endChapter: null, options,
+				rawReference: referenceText
+			};
+		}
+
+		// No pattern matched
+		return {
+			valid: false, bookName: null, chapter: null, startVerse: null,
+			endVerse: null, endChapter: null, options,
+			error: `Invalid reference format: "${referenceText}"`,
+			rawReference: referenceText
+		};
 	}
 }
 
@@ -7053,7 +7419,6 @@ class BibleView extends ItemView {
 				setIcon(bookNoteIcon, 'book-marked');
 				createBookNoteBtn.createSpan({ text: 'Create book note' });
 				createBookNoteBtn.addEventListener('click', async (e) => {
-					console.debug('📚 Create book note button clicked!');
 					e.stopPropagation();
 					await this.createBookNote(this.currentBook);
 				});
@@ -7432,7 +7797,6 @@ class BibleView extends ItemView {
 
 				// Add right-click context menu to entire verse
 				verseDiv.addEventListener('contextmenu', (e) => {
-					console.debug('🖱️ RIGHT-CLICK on verse:', this.currentBook, this.currentChapter, verseNumInt);
 					e.preventDefault();
 					e.stopPropagation();
 
@@ -8103,6 +8467,7 @@ class BibleView extends ItemView {
 	/**
 	 * Normalize a book name to its canonical form (proper case)
 	 * Returns null if book is not recognized
+	 * Supports compact abbreviations like 'gen', '1sam', 'matt', etc.
 	 */
 	normalizeBookName(book: string): string | null {
 		const canonical = this.getCanonicalBooks();
@@ -8115,27 +8480,156 @@ class BibleView extends ItemView {
 			}
 		}
 
-		// Handle common abbreviations
+		// Also check without spaces for numbered books (e.g., "1samuel" -> "1 samuel")
+		const lowerNoSpace = lowerBook.replace(/\s+/g, '');
+		for (const canonicalBook of canonical) {
+			if (canonicalBook.toLowerCase().replace(/\s+/g, '') === lowerNoSpace) {
+				return canonicalBook;
+			}
+		}
+
+		// Comprehensive abbreviations (both with and without spaces)
 		const abbreviations: Record<string, string> = {
-			'gen': 'Genesis', 'ex': 'Exodus', 'lev': 'Leviticus', 'num': 'Numbers', 'deut': 'Deuteronomy',
-			'josh': 'Joshua', 'judg': 'Judges', '1 sam': '1 Samuel', '2 sam': '2 Samuel',
-			'1 kgs': '1 Kings', '2 kgs': '2 Kings', '1 chr': '1 Chronicles', '2 chr': '2 Chronicles',
-			'neh': 'Nehemiah', 'est': 'Esther', 'ps': 'Psalms', 'psa': 'Psalms', 'psalm': 'Psalms',
-			'prov': 'Proverbs', 'eccl': 'Ecclesiastes', 'song': 'Song of Solomon', 'sos': 'Song of Solomon',
-			'isa': 'Isaiah', 'jer': 'Jeremiah', 'lam': 'Lamentations', 'ezek': 'Ezekiel', 'dan': 'Daniel',
-			'hos': 'Hosea', 'ob': 'Obadiah', 'mic': 'Micah', 'nah': 'Nahum', 'hab': 'Habakkuk',
-			'zeph': 'Zephaniah', 'hag': 'Haggai', 'zech': 'Zechariah', 'mal': 'Malachi',
-			'matt': 'Matthew', 'mk': 'Mark', 'lk': 'Luke', 'jn': 'John',
-			'rom': 'Romans', '1 cor': '1 Corinthians', '2 cor': '2 Corinthians', 'gal': 'Galatians',
-			'eph': 'Ephesians', 'phil': 'Philippians', 'col': 'Colossians',
+			// Genesis family
+			'gen': 'Genesis', 'ge': 'Genesis', 'gn': 'Genesis',
+			// Exodus family
+			'ex': 'Exodus', 'exo': 'Exodus', 'exod': 'Exodus',
+			// Leviticus family
+			'lev': 'Leviticus', 'le': 'Leviticus', 'lv': 'Leviticus',
+			// Numbers family
+			'num': 'Numbers', 'nu': 'Numbers', 'nm': 'Numbers',
+			// Deuteronomy family
+			'deut': 'Deuteronomy', 'de': 'Deuteronomy', 'dt': 'Deuteronomy',
+			// Joshua family
+			'josh': 'Joshua', 'jos': 'Joshua',
+			// Judges family
+			'judg': 'Judges', 'jdg': 'Judges', 'jg': 'Judges',
+			// Ruth family
+			'ru': 'Ruth', 'rth': 'Ruth',
+			// Samuel (both with space and compact)
+			'1 sam': '1 Samuel', '2 sam': '2 Samuel',
+			'1sam': '1 Samuel', '2sam': '2 Samuel',
+			'1sa': '1 Samuel', '2sa': '2 Samuel',
+			'1s': '1 Samuel', '2s': '2 Samuel',
+			// Kings (both with space and compact)
+			'1 kgs': '1 Kings', '2 kgs': '2 Kings',
+			'1kgs': '1 Kings', '2kgs': '2 Kings',
+			'1ki': '1 Kings', '2ki': '2 Kings',
+			'1k': '1 Kings', '2k': '2 Kings',
+			// Chronicles (both with space and compact)
+			'1 chr': '1 Chronicles', '2 chr': '2 Chronicles',
+			'1chr': '1 Chronicles', '2chr': '2 Chronicles',
+			'1ch': '1 Chronicles', '2ch': '2 Chronicles',
+			// Ezra, Nehemiah, Esther
+			'ezr': 'Ezra', 'neh': 'Nehemiah', 'ne': 'Nehemiah',
+			'est': 'Esther', 'esth': 'Esther',
+			// Job
+			'jb': 'Job',
+			// Psalms family
+			'ps': 'Psalms', 'psa': 'Psalms', 'psalm': 'Psalms', 'psm': 'Psalms',
+			// Proverbs family
+			'prov': 'Proverbs', 'pro': 'Proverbs', 'pr': 'Proverbs', 'prv': 'Proverbs',
+			// Ecclesiastes family
+			'eccl': 'Ecclesiastes', 'ecc': 'Ecclesiastes', 'ec': 'Ecclesiastes', 'qoh': 'Ecclesiastes',
+			// Song of Solomon family
+			'song': 'Song of Solomon', 'sos': 'Song of Solomon', 'ss': 'Song of Solomon', 'sg': 'Song of Solomon',
+			'songofsongs': 'Song of Solomon', 'songofsolomon': 'Song of Solomon',
+			// Isaiah family
+			'isa': 'Isaiah', 'is': 'Isaiah',
+			// Jeremiah family
+			'jer': 'Jeremiah', 'je': 'Jeremiah', 'jr': 'Jeremiah',
+			// Lamentations family
+			'lam': 'Lamentations', 'la': 'Lamentations',
+			// Ezekiel family
+			'ezek': 'Ezekiel', 'eze': 'Ezekiel', 'ezk': 'Ezekiel',
+			// Daniel family
+			'dan': 'Daniel', 'da': 'Daniel', 'dn': 'Daniel',
+			// Minor prophets
+			'hos': 'Hosea', 'ho': 'Hosea',
+			'joel': 'Joel', 'jol': 'Joel', 'jl': 'Joel',
+			'amos': 'Amos', 'am': 'Amos',
+			'ob': 'Obadiah', 'oba': 'Obadiah', 'obad': 'Obadiah',
+			'jonah': 'Jonah', 'jon': 'Jonah', 'jnh': 'Jonah',
+			'mic': 'Micah', 'mi': 'Micah',
+			'nah': 'Nahum', 'na': 'Nahum',
+			'hab': 'Habakkuk', 'hk': 'Habakkuk',
+			'zeph': 'Zephaniah', 'zep': 'Zephaniah', 'zp': 'Zephaniah',
+			'hag': 'Haggai', 'hg': 'Haggai',
+			'zech': 'Zechariah', 'zec': 'Zechariah', 'zc': 'Zechariah',
+			'mal': 'Malachi', 'ml': 'Malachi',
+			// Matthew family
+			'matt': 'Matthew', 'mat': 'Matthew', 'mt': 'Matthew',
+			// Mark family
+			'mk': 'Mark', 'mr': 'Mark', 'mrk': 'Mark',
+			// Luke family
+			'lk': 'Luke', 'lu': 'Luke', 'luk': 'Luke',
+			// John (Gospel) - careful with ambiguity
+			'jn': 'John', 'jhn': 'John',
+			// Acts
+			'acts': 'Acts', 'ac': 'Acts', 'act': 'Acts',
+			// Romans family
+			'rom': 'Romans', 'ro': 'Romans', 'rm': 'Romans',
+			// Corinthians (both with space and compact)
+			'1 cor': '1 Corinthians', '2 cor': '2 Corinthians',
+			'1cor': '1 Corinthians', '2cor': '2 Corinthians',
+			'1co': '1 Corinthians', '2co': '2 Corinthians',
+			// Galatians family
+			'gal': 'Galatians', 'ga': 'Galatians',
+			// Ephesians family
+			'eph': 'Ephesians', 'ep': 'Ephesians',
+			// Philippians family
+			'phil': 'Philippians', 'php': 'Philippians', 'pp': 'Philippians',
+			// Colossians family
+			'col': 'Colossians', 'co': 'Colossians',
+			// Thessalonians (both with space and compact)
 			'1 thess': '1 Thessalonians', '2 thess': '2 Thessalonians',
-			'1 tim': '1 Timothy', '2 tim': '2 Timothy', 'phm': 'Philemon', 'heb': 'Hebrews',
-			'jas': 'James', '1 pet': '1 Peter', '2 pet': '2 Peter',
-			'1 jn': '1 John', '2 jn': '2 John', '3 jn': '3 John', 'rev': 'Revelation'
+			'1thess': '1 Thessalonians', '2thess': '2 Thessalonians',
+			'1th': '1 Thessalonians', '2th': '2 Thessalonians',
+			'1thes': '1 Thessalonians', '2thes': '2 Thessalonians',
+			// Timothy (both with space and compact)
+			'1 tim': '1 Timothy', '2 tim': '2 Timothy',
+			'1tim': '1 Timothy', '2tim': '2 Timothy',
+			'1ti': '1 Timothy', '2ti': '2 Timothy',
+			// Titus family
+			'tit': 'Titus', 'ti': 'Titus',
+			// Philemon family
+			'phm': 'Philemon', 'phlm': 'Philemon', 'philem': 'Philemon',
+			// Hebrews family
+			'heb': 'Hebrews', 'he': 'Hebrews',
+			// James family
+			'jas': 'James', 'jm': 'James', 'jam': 'James',
+			// Peter (both with space and compact)
+			'1 pet': '1 Peter', '2 pet': '2 Peter',
+			'1pet': '1 Peter', '2pet': '2 Peter',
+			'1pe': '1 Peter', '2pe': '2 Peter',
+			'1pt': '1 Peter', '2pt': '2 Peter',
+			// John epistles (both with space and compact)
+			'1 jn': '1 John', '2 jn': '2 John', '3 jn': '3 John',
+			'1jn': '1 John', '2jn': '2 John', '3jn': '3 John',
+			'1jo': '1 John', '2jo': '2 John', '3jo': '3 John',
+			'1john': '1 John', '2john': '2 John', '3john': '3 John',
+			// Jude family
+			'jude': 'Jude', 'jd': 'Jude',
+			// Revelation family
+			'rev': 'Revelation', 're': 'Revelation', 'rv': 'Revelation', 'apoc': 'Revelation'
 		};
 
 		if (abbreviations[lowerBook]) {
 			return abbreviations[lowerBook];
+		}
+
+		// Check for ambiguous abbreviations that could match multiple books
+		const ambiguous: Record<string, string[]> = {
+			'j': ['John', 'James', 'Jude', 'Joshua', 'Judges', 'Jeremiah', 'Joel', 'Jonah', 'Job'],
+			'jo': ['John', 'Joshua', 'Jonah', 'Joel', 'Job'],
+			'p': ['Psalms', 'Proverbs', 'Philippians', 'Philemon', '1 Peter', '2 Peter'],
+			'ju': ['Judges', 'Jude']
+		};
+
+		if (ambiguous[lowerBook]) {
+			// Return null with error logged - caller should handle this
+			console.warn(`[Bible Portal] Ambiguous abbreviation "${book}" could match: ${ambiguous[lowerBook].join(', ')}`);
+			return null;
 		}
 
 		return null;
@@ -8298,8 +8792,6 @@ class BibleView extends ItemView {
 	}
 
 	showVerseContextMenu(event: MouseEvent, book: string, chapter: number, verse: number, version?: string) {
-		console.debug('showVerseContextMenu called for:', book, chapter, verse, 'version:', version);
-
 		// Create custom popup menu
 		const menu = document.createElement('div');
 		menu.addClass('bible-verse-menu');
@@ -9131,8 +9623,6 @@ class BibleView extends ItemView {
 				}
 			}
 
-			const endTime = performance.now();
-			console.debug(`⚡ Indexed search completed in ${(endTime - startTime).toFixed(2)}ms (${results.length} results)`);
 		} else {
 			// FALLBACK PATH: Full text search for multi-word or phrase searches
 			const booksToSearch = scope === 'current-book'
@@ -18194,6 +18684,634 @@ class BibleView extends ItemView {
 	}
 }
 
+// Bible Reference Insert Suggest (@reference syntax)
+class BibleReferenceSuggest extends EditorSuggest<BibleReferenceSuggestion> {
+	private plugin: BiblePortalPlugin;
+
+	constructor(app: App, plugin: BiblePortalPlugin) {
+		super(app);
+		this.plugin = plugin;
+
+		// Set instruction hints in the suggestion popup
+		this.setInstructions([
+			{ command: 'Tab/Enter', purpose: 'insert reference' },
+			{ command: 'Esc', purpose: 'dismiss' }
+		]);
+	}
+
+	/**
+	 * Determine if suggestions should be triggered
+	 * Called on every keystroke/cursor movement
+	 */
+	onTrigger(cursor: EditorPosition, editor: Editor, file: TFile | null): EditorSuggestTriggerInfo | null {
+		// Quick bail if feature disabled
+		if (!this.plugin.settings.enableReferenceInsert) return null;
+
+		const line = editor.getLine(cursor.line);
+		const textBeforeCursor = line.slice(0, cursor.ch);
+
+		// Check for escape sequence /@
+		if (textBeforeCursor.match(/\/@[^@]*$/)) return null;
+
+		// Check if inside code block (simple heuristic)
+		if (this.isInsideCodeBlock(editor, cursor)) return null;
+
+		// Check for inline code (odd number of backticks before cursor)
+		const backtickCount = (textBeforeCursor.match(/`/g) || []).length;
+		if (backtickCount % 2 === 1) return null;
+
+		// Look for @ trigger - match @<text> where text can contain letters, numbers, :, -, +, and spaces
+		const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9:+\-\s]*)$/);
+		if (!atMatch) return null;
+
+		const query = atMatch[1];
+		const startCh = cursor.ch - query.length - 1; // -1 for the @
+
+		return {
+			start: { line: cursor.line, ch: startCh },
+			end: cursor,
+			query: query
+		};
+	}
+
+	/**
+	 * Check if cursor is inside a code block
+	 */
+	private isInsideCodeBlock(editor: Editor, cursor: EditorPosition): boolean {
+		let inCodeBlock = false;
+
+		// Scan all lines before cursor
+		for (let i = 0; i < cursor.line; i++) {
+			const line = editor.getLine(i);
+			const fenceMatches = line.match(/^```/gm);
+			if (fenceMatches) {
+				inCodeBlock = !inCodeBlock;
+			}
+		}
+
+		// Check current line up to cursor for code fence
+		const currentLine = editor.getLine(cursor.line).slice(0, cursor.ch);
+		if (currentLine.match(/^```/)) {
+			inCodeBlock = !inCodeBlock;
+		}
+
+		return inCodeBlock;
+	}
+
+	/**
+	 * Get suggestions based on the current query
+	 */
+	getSuggestions(context: EditorSuggestContext): BibleReferenceSuggestion[] {
+		const query = context.query.toLowerCase().trim();
+		const suggestions: BibleReferenceSuggestion[] = [];
+
+		// If query is empty, show recent references and popular books
+		if (!query) {
+			// Recent references first
+			const recent = this.plugin.settings.recentInsertedReferences || [];
+			for (const ref of recent.slice(0, 5)) {
+				suggestions.push({
+					type: 'recent',
+					text: ref,
+					value: ref,
+					description: 'Recent'
+				});
+			}
+
+			// Popular books
+			const popularBooks = ['Genesis', 'Psalms', 'Proverbs', 'Matthew', 'John', 'Romans'];
+			for (const book of popularBooks) {
+				if (suggestions.length >= 10) break;
+				suggestions.push({
+					type: 'book',
+					text: book,
+					value: book.toLowerCase().replace(/\s+/g, ''),
+					bookName: book,
+					description: 'Book'
+				});
+			}
+
+			return suggestions;
+		}
+
+		// Check if query contains + (options section)
+		if (query.includes('+')) {
+			return this.getOptionSuggestions(query);
+		}
+
+		// Check if query looks like a complete reference (has chapter/verse numbers)
+		if (query.match(/\d+/)) {
+			return this.getReferenceSuggestions(query);
+		}
+
+		// Otherwise, suggest book names
+		return this.getBookSuggestions(query);
+	}
+
+	/**
+	 * Get book name suggestions with fuzzy matching
+	 */
+	private getBookSuggestions(query: string): BibleReferenceSuggestion[] {
+		const books = this.plugin.getBooksArray(this.plugin.settings.defaultVersion);
+		const matches: Array<{ book: string; score: number }> = [];
+
+		// Extract just the book portion (before any numbers)
+		const bookQuery = query.replace(/[\d:+-].*$/, '').trim().toLowerCase();
+
+		for (const book of books) {
+			const score = this.fuzzyMatchScore(bookQuery, book);
+			if (score > 0) {
+				matches.push({ book, score });
+			}
+		}
+
+		// Sort by score descending
+		matches.sort((a, b) => b.score - a.score);
+
+		return matches.slice(0, 8).map(m => ({
+			type: 'book' as const,
+			text: m.book,
+			value: m.book.toLowerCase().replace(/\s+/g, ''),
+			bookName: m.book,
+			description: 'Book'
+		}));
+	}
+
+	/**
+	 * Calculate fuzzy match score between query and target
+	 */
+	private fuzzyMatchScore(query: string, target: string): number {
+		const q = query.toLowerCase();
+		const t = target.toLowerCase();
+
+		// Exact prefix match scores highest
+		if (t.startsWith(q)) return 100 + (q.length / t.length) * 50;
+
+		// Check without spaces (for numbered books like "1 Samuel" matching "1sam")
+		const tNoSpace = t.replace(/\s+/g, '');
+		if (tNoSpace.startsWith(q)) return 90 + (q.length / tNoSpace.length) * 40;
+
+		// Substring match
+		if (t.includes(q)) return 50;
+		if (tNoSpace.includes(q)) return 45;
+
+		// Character-by-character fuzzy match
+		let score = 0;
+		let lastIndex = -1;
+		for (const char of q) {
+			const idx = t.indexOf(char, lastIndex + 1);
+			if (idx === -1) return 0;
+			score += 10 - Math.min(idx - lastIndex, 10);
+			lastIndex = idx;
+		}
+
+		return score;
+	}
+
+	/**
+	 * Get reference suggestions when query looks like a reference
+	 */
+	private getReferenceSuggestions(query: string): BibleReferenceSuggestion[] {
+		const parsed = this.plugin.parseAtReference(query);
+		const suggestions: BibleReferenceSuggestion[] = [];
+
+		if (parsed.valid && parsed.bookName) {
+			// Valid reference - offer to insert it
+			const displayRef = this.formatDisplayReference(parsed);
+			const preview = this.getVersePreview(parsed);
+
+			suggestions.push({
+				type: 'reference',
+				text: displayRef,
+				value: query,
+				preview: preview,
+				bookName: parsed.bookName,
+				description: 'Press Enter to insert'
+			});
+
+			// Also offer with options
+			suggestions.push({
+				type: 'option',
+				text: `${displayRef} +options`,
+				value: query + '+',
+				description: 'Add version or format options'
+			});
+		} else if (parsed.error) {
+			// Show error as suggestion (user feedback)
+			suggestions.push({
+				type: 'reference',
+				text: query,
+				value: query,
+				description: parsed.error
+			});
+		}
+
+		return suggestions;
+	}
+
+	/**
+	 * Get option suggestions when query contains +
+	 */
+	private getOptionSuggestions(query: string): BibleReferenceSuggestion[] {
+		const suggestions: BibleReferenceSuggestion[] = [];
+
+		// Parse to get the base reference
+		const parsed = this.plugin.parseAtReference(query);
+		if (!parsed.valid) return suggestions;
+
+		const baseRef = query.split('+')[0];
+		const displayRef = this.formatDisplayReference(parsed);
+
+		// Suggest versions
+		const versions = this.plugin.settings.bibleVersions || [];
+		for (const version of versions.slice(0, 4)) {
+			if (!parsed.options.versions.includes(version)) {
+				suggestions.push({
+					type: 'option',
+					text: `${displayRef} +${version.toLowerCase()}`,
+					value: `${baseRef}+${version.toLowerCase()}`,
+					description: `Use ${version} version`
+				});
+			}
+		}
+
+		// Suggest manuscript format if not already selected
+		if (!parsed.options.manuscript) {
+			suggestions.push({
+				type: 'option',
+				text: `${displayRef} +manuscript`,
+				value: `${baseRef}+m`,
+				description: 'Flowing text, no verse numbers'
+			});
+		}
+
+		// If we have a complete reference with options, offer to insert
+		if (parsed.options.versions.length > 0 || parsed.options.manuscript) {
+			const preview = this.getVersePreview(parsed);
+			suggestions.unshift({
+				type: 'reference',
+				text: displayRef + this.formatOptionsDisplay(parsed.options),
+				value: query,
+				preview: preview,
+				description: 'Press Enter to insert'
+			});
+		}
+
+		return suggestions;
+	}
+
+	/**
+	 * Format a parsed reference for display
+	 */
+	private formatDisplayReference(parsed: ParsedBibleReference): string {
+		if (!parsed.bookName || !parsed.chapter) return '';
+
+		let ref = `${parsed.bookName} ${parsed.chapter}`;
+
+		if (parsed.startVerse !== null) {
+			ref += `:${parsed.startVerse}`;
+			if (parsed.endChapter !== null && parsed.endChapter !== parsed.chapter) {
+				ref += `-${parsed.endChapter}:${parsed.endVerse}`;
+			} else if (parsed.endVerse !== null) {
+				ref += `-${parsed.endVerse}`;
+			}
+		} else if (parsed.endChapter !== null) {
+			ref += `-${parsed.endChapter}`;
+		}
+
+		return ref;
+	}
+
+	/**
+	 * Format options for display
+	 */
+	private formatOptionsDisplay(options: ParsedReferenceOptions): string {
+		const parts: string[] = [];
+		if (options.versions.length > 0) {
+			parts.push(...options.versions.map(v => `+${v.toLowerCase()}`));
+		}
+		if (options.manuscript) {
+			parts.push('+m');
+		}
+		return parts.length > 0 ? ' ' + parts.join('') : '';
+	}
+
+	/**
+	 * Get a preview of the verse text
+	 */
+	private getVersePreview(parsed: ParsedBibleReference): string {
+		if (!parsed.bookName || !parsed.chapter) return '';
+
+		const version = parsed.options.versions[0] || this.plugin.settings.defaultVersion;
+
+		// Handle "Psalms" vs "Psalm" data inconsistency
+		let bookName = parsed.bookName;
+		if (bookName === 'Psalms') bookName = 'Psalm';
+
+		const chapter = this.plugin.getChapter(version, bookName, parsed.chapter);
+		if (!chapter || !chapter.verses) return '';
+
+		// Get first verse for preview
+		const verseNum = parsed.startVerse || 1;
+		const verseData = chapter.verses[verseNum.toString()];
+		if (!verseData) return '';
+
+		const text = typeof verseData === 'string' ? verseData : verseData.text;
+		return text.length > 100 ? text.slice(0, 100) + '...' : text;
+	}
+
+	/**
+	 * Render a suggestion in the dropdown
+	 */
+	renderSuggestion(suggestion: BibleReferenceSuggestion, el: HTMLElement): void {
+		el.addClass('bible-reference-suggestion');
+
+		const container = el.createDiv({ cls: 'suggestion-content' });
+
+		// Icon based on type
+		const iconEl = container.createSpan({ cls: 'suggestion-icon' });
+		switch (suggestion.type) {
+			case 'recent':
+				setIcon(iconEl, 'history');
+				break;
+			case 'book':
+				setIcon(iconEl, 'book');
+				break;
+			case 'reference':
+				setIcon(iconEl, 'bookmark');
+				break;
+			case 'option':
+				setIcon(iconEl, 'settings');
+				break;
+		}
+
+		// Main content
+		const textContainer = container.createDiv({ cls: 'suggestion-text-container' });
+
+		// Main text
+		const textEl = textContainer.createSpan({ cls: 'suggestion-text' });
+		textEl.setText(suggestion.text);
+
+		// Description (type label)
+		if (suggestion.description) {
+			const descEl = textContainer.createSpan({ cls: 'suggestion-desc' });
+			descEl.setText(suggestion.description);
+		}
+
+		// Preview if available
+		if (suggestion.preview) {
+			const previewEl = container.createDiv({ cls: 'suggestion-preview' });
+			previewEl.setText(suggestion.preview);
+		}
+	}
+
+	/**
+	 * Handle suggestion selection
+	 */
+	selectSuggestion(suggestion: BibleReferenceSuggestion, evt: MouseEvent | KeyboardEvent): void {
+		if (!this.context) return;
+		const { editor, start, end } = this.context;
+
+		// If it's a book suggestion, insert the book name and wait for more input
+		if (suggestion.type === 'book') {
+			editor.replaceRange('@' + suggestion.value, start, end);
+			return;
+		}
+
+		// If it's an option suggestion with trailing +, insert and wait
+		if (suggestion.type === 'option' && suggestion.value.endsWith('+')) {
+			editor.replaceRange('@' + suggestion.value, start, end);
+			return;
+		}
+
+		// Parse the reference
+		const parsed = this.plugin.parseAtReference(suggestion.value);
+
+		if (!parsed.valid || !parsed.bookName || !parsed.chapter) {
+			// Show error
+			new Notice(`Invalid reference: ${parsed.error || 'Unknown error'}`);
+			return;
+		}
+
+		// Generate the callout
+		const callout = this.generateCallout(parsed);
+
+		if (!callout) {
+			new Notice('Could not generate callout - verse data not found');
+			return;
+		}
+
+		// Replace the @reference with the callout
+		editor.replaceRange(callout, start, end);
+
+		// Track in recent references
+		this.addToRecentReferences(suggestion.value);
+	}
+
+	/**
+	 * Generate a Bible callout from parsed reference
+	 */
+	private generateCallout(parsed: ParsedBibleReference): string | null {
+		if (!parsed.bookName || !parsed.chapter) return null;
+
+		// Get effective versions (use defaults if none specified)
+		let versions = parsed.options.versions;
+		if (versions.length === 0) {
+			versions = [this.plugin.settings.defaultVersion];
+		}
+
+		// Filter to available versions
+		const availableVersions = versions.filter(v =>
+			this.plugin.bibleVersions && this.plugin.bibleVersions.has(v)
+		);
+
+		if (availableVersions.length === 0) {
+			availableVersions.push(this.plugin.settings.defaultVersion);
+		}
+
+		// Build the callout
+		const calloutType = parsed.options.manuscript ? 'bible-manuscript' : 'bible';
+		const metadata = this.formatMetadata(parsed, availableVersions);
+		const displayRef = this.formatDisplayReference(parsed);
+
+		const lines: string[] = [];
+		lines.push(`> [!${calloutType}|${metadata}] ${displayRef}`);
+
+		// Add verse content for each version
+		for (let vIdx = 0; vIdx < availableVersions.length; vIdx++) {
+			const version = availableVersions[vIdx];
+			const verseLines = this.getVerseLines(parsed, version);
+
+			if (verseLines.length === 0) continue;
+
+			if (parsed.options.manuscript) {
+				// Manuscript mode: flowing text, no verse numbers
+				const flowingText = verseLines.map(v => v.text).join(' ');
+				lines.push(`> ${flowingText} *(${version})*`);
+			} else {
+				// Normal mode: bold superscript verse numbers
+				for (const verse of verseLines) {
+					const superNum = this.toSuperscript(verse.verse);
+					lines.push(`> **${superNum}**${verse.text}`);
+				}
+				lines.push(`> *(${version})*`);
+			}
+
+			// Add blank line between versions if multi-version
+			if (vIdx < availableVersions.length - 1) {
+				lines.push('>');
+			}
+		}
+
+		return lines.join('\n');
+	}
+
+	/**
+	 * Get verse text lines for a parsed reference
+	 */
+	private getVerseLines(parsed: ParsedBibleReference, version: string): Array<{ verse: number; text: string }> {
+		const results: Array<{ verse: number; text: string }> = [];
+
+		if (!parsed.bookName || !parsed.chapter) return results;
+
+		// Handle "Psalms" vs "Psalm" data inconsistency
+		let bookName = parsed.bookName;
+		if (bookName === 'Psalms') bookName = 'Psalm';
+
+		// Single chapter (no verses specified)
+		if (parsed.startVerse === null) {
+			const chapter = this.plugin.getChapter(version, bookName, parsed.chapter);
+			if (!chapter || !chapter.verses) return results;
+
+			// Get all verses in chapter
+			const verseNums = Object.keys(chapter.verses).map(n => parseInt(n)).sort((a, b) => a - b);
+			for (const num of verseNums) {
+				const verseData = chapter.verses[num.toString()];
+				const text = typeof verseData === 'string' ? verseData : verseData.text;
+				results.push({ verse: num, text });
+			}
+			return results;
+		}
+
+		// Cross-chapter range
+		if (parsed.endChapter !== null && parsed.endChapter !== parsed.chapter) {
+			// Get verses from start chapter (startVerse to end)
+			const startChapter = this.plugin.getChapter(version, bookName, parsed.chapter);
+			if (startChapter && startChapter.verses) {
+				const verseNums = Object.keys(startChapter.verses).map(n => parseInt(n)).sort((a, b) => a - b);
+				for (const num of verseNums) {
+					if (num >= parsed.startVerse!) {
+						const verseData = startChapter.verses[num.toString()];
+						const text = typeof verseData === 'string' ? verseData : verseData.text;
+						results.push({ verse: num, text });
+					}
+				}
+			}
+
+			// Get all verses from middle chapters
+			for (let ch = parsed.chapter + 1; ch < parsed.endChapter; ch++) {
+				const midChapter = this.plugin.getChapter(version, bookName, ch);
+				if (midChapter && midChapter.verses) {
+					const verseNums = Object.keys(midChapter.verses).map(n => parseInt(n)).sort((a, b) => a - b);
+					for (const num of verseNums) {
+						const verseData = midChapter.verses[num.toString()];
+						const text = typeof verseData === 'string' ? verseData : verseData.text;
+						results.push({ verse: num, text });
+					}
+				}
+			}
+
+			// Get verses from end chapter (1 to endVerse)
+			const endChapter = this.plugin.getChapter(version, bookName, parsed.endChapter);
+			if (endChapter && endChapter.verses && parsed.endVerse) {
+				const verseNums = Object.keys(endChapter.verses).map(n => parseInt(n)).sort((a, b) => a - b);
+				for (const num of verseNums) {
+					if (num <= parsed.endVerse) {
+						const verseData = endChapter.verses[num.toString()];
+						const text = typeof verseData === 'string' ? verseData : verseData.text;
+						results.push({ verse: num, text });
+					}
+				}
+			}
+
+			return results;
+		}
+
+		// Same chapter - single verse or verse range
+		const chapter = this.plugin.getChapter(version, bookName, parsed.chapter);
+		if (!chapter || !chapter.verses) return results;
+
+		const startVerse = parsed.startVerse!;
+		const endVerse = parsed.endVerse || startVerse;
+
+		for (let v = startVerse; v <= endVerse; v++) {
+			const verseData = chapter.verses[v.toString()];
+			if (verseData) {
+				const text = typeof verseData === 'string' ? verseData : verseData.text;
+				results.push({ verse: v, text });
+			}
+		}
+
+		return results;
+	}
+
+	/**
+	 * Convert number to superscript
+	 */
+	private toSuperscript(num: number): string {
+		const superscriptDigits: Record<string, string> = {
+			'0': '\u2070', '1': '\u00B9', '2': '\u00B2', '3': '\u00B3',
+			'4': '\u2074', '5': '\u2075', '6': '\u2076', '7': '\u2077',
+			'8': '\u2078', '9': '\u2079'
+		};
+
+		return num.toString().split('').map(d => superscriptDigits[d] || d).join('');
+	}
+
+	/**
+	 * Format metadata for callout type
+	 */
+	private formatMetadata(parsed: ParsedBibleReference, versions: string[]): string {
+		if (!parsed.bookName || !parsed.chapter) return '';
+
+		// Create compact reference: gen1:1-3
+		const bookAbbr = parsed.bookName.toLowerCase().replace(/\s+/g, '').slice(0, 3);
+		let ref = `${bookAbbr}${parsed.chapter}`;
+
+		if (parsed.startVerse !== null) {
+			ref += `:${parsed.startVerse}`;
+			if (parsed.endChapter !== null && parsed.endChapter !== parsed.chapter) {
+				ref += `-${parsed.endChapter}:${parsed.endVerse}`;
+			} else if (parsed.endVerse !== null) {
+				ref += `-${parsed.endVerse}`;
+			}
+		} else if (parsed.endChapter !== null) {
+			ref += `-${parsed.endChapter}`;
+		}
+
+		return `${ref}:${versions.join(',').toLowerCase()}`;
+	}
+
+	/**
+	 * Add a reference to the recent list
+	 */
+	private addToRecentReferences(ref: string): void {
+		const recent = this.plugin.settings.recentInsertedReferences || [];
+
+		// Remove if already exists
+		const filtered = recent.filter(r => r !== ref);
+
+		// Add to front
+		filtered.unshift(ref);
+
+		// Keep only last 10
+		this.plugin.settings.recentInsertedReferences = filtered.slice(0, 10);
+
+		// Save (async, don't await)
+		this.plugin.saveSettings();
+	}
+}
+
 // Settings tab
 class BiblePortalSettingTab extends PluginSettingTab {
 	plugin: BiblePortalPlugin;
@@ -18757,6 +19875,45 @@ class BiblePortalSettingTab extends PluginSettingTab {
 							this.plugin.settings.imageExportQuality = value;
 							await this.plugin.saveSettings();
 						}));
+
+				// Reference Insert Group
+				const refInsertGroup = content.createDiv({ cls: 'bp-settings-group' });
+				refInsertGroup.createEl('div', { text: 'Reference Insert', cls: 'bp-settings-group-title' });
+
+				new Setting(content)
+					.setName('Enable @reference insert')
+					.setDesc('Insert Bible verses by typing @reference (e.g., @john3:16) in any note. Requires plugin reload to take effect.')
+					.addToggle(toggle => toggle
+						.setValue(this.plugin.settings.enableReferenceInsert)
+						.onChange(async (value) => {
+							this.plugin.settings.enableReferenceInsert = value;
+							await this.plugin.saveSettings();
+							new Notice(value
+								? 'Reference insert enabled. Reload Obsidian to activate.'
+								: 'Reference insert disabled. Reload Obsidian to deactivate.');
+						}));
+
+				// Show recent references count
+				if (this.plugin.settings.recentInsertedReferences.length > 0) {
+					const recentStatus = content.createDiv({ cls: 'bp-settings-status' });
+					recentStatus.createSpan({ cls: 'status-icon success' });
+					recentStatus.createSpan({
+						text: `${this.plugin.settings.recentInsertedReferences.length} recent reference${this.plugin.settings.recentInsertedReferences.length !== 1 ? 's' : ''} tracked`,
+						cls: 'status-text'
+					});
+
+					new Setting(content)
+						.setName('Clear recent references')
+						.setDesc('Clear the list of recently inserted references shown in autocomplete')
+						.addButton(button => button
+							.setButtonText('Clear')
+							.onClick(async () => {
+								this.plugin.settings.recentInsertedReferences = [];
+								await this.plugin.saveSettings();
+								this.display(); // Refresh to hide the status
+								new Notice('Recent references cleared');
+							}));
+				}
 			}
 		});
 
