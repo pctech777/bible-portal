@@ -1182,7 +1182,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
         this.settings.studyStreak = 1;
       }
       this.settings.lastStudyDate = today;
-      this.saveSettings();
+      void this.saveSettings();
     }
     this.studyModeTimer = window.setInterval(() => {
       this.updateStudyModeStatusBar();
@@ -1227,7 +1227,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
     }
     this.isStudyModeActive = false;
     this.currentSession = null;
-    this.saveSettings();
+    void this.saveSettings();
     this.updateStatusBar("", 0);
     new import_obsidian.Notice(`\u{1F4D6} Study session ended - ${durationMinutes} min, ${((_a = journalEntry.chaptersVisited) == null ? void 0 : _a.length) || 0} chapters`);
   }
@@ -1270,7 +1270,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
         }
         this.settings.studyHistory.bookVisits[book] = (this.settings.studyHistory.bookVisits[book] || 0) + 1;
         this.settings.studyHistory.chapterVisits[key] = (this.settings.studyHistory.chapterVisits[key] || 0) + 1;
-        this.saveSettings();
+        void this.saveSettings();
       }
     }
   }
@@ -1345,7 +1345,7 @@ var BiblePortalPlugin = class extends import_obsidian.Plugin {
       highlightsAdded: stats.highlights
     };
     this.settings.journalEntries.push(entry);
-    this.saveSettings();
+    void this.saveSettings();
   }
   /**
    * Get all active reading plans
@@ -3691,12 +3691,12 @@ Saved to: ${outputPath}`, 8e3);
         t.tag = newName;
       }
     });
-    this.saveHighlightsAndNotes();
+    void this.saveHighlightsAndNotes();
   }
   // Delete a tag from all verses
   deleteTagFromAll(tagName) {
     this.verseTags = this.verseTags.filter((t) => t.tag !== tagName);
-    this.saveHighlightsAndNotes();
+    void this.saveHighlightsAndNotes();
   }
   // Get tags from a note file
   async getNoteTags(notePath) {
@@ -4244,7 +4244,7 @@ var BibleView = class extends import_obsidian.ItemView {
     container.empty();
     container.addClass("bible-portal-view");
     this.setupResizeObserver();
-    this.render();
+    void this.render();
   }
   async onClose() {
     if (this.resizeObserver) {
@@ -4272,7 +4272,7 @@ var BibleView = class extends import_obsidian.ItemView {
               parallelCheckbox.style.display = "none";
               if (this.secondVersion) {
                 this.secondVersion = null;
-                this.render();
+                void this.render();
               }
             }
           }
@@ -4355,7 +4355,7 @@ var BibleView = class extends import_obsidian.ItemView {
       btn.createSpan({ text: m.title, cls: "sidebar-mode-title" });
       btn.addEventListener("click", () => {
         this.viewMode = m.mode;
-        this.render();
+        void this.render();
       });
     });
   }
@@ -4588,7 +4588,7 @@ var BibleView = class extends import_obsidian.ItemView {
         miniProgressFill.style.width = `${avgProgress}%`;
         quickLink.addEventListener("click", () => {
           this.viewMode = "reading-plan" /* READING_PLAN */;
-          this.render();
+          void this.render();
         });
       }
     }
@@ -4726,7 +4726,7 @@ var BibleView = class extends import_obsidian.ItemView {
     contextBtn.addEventListener("click", async () => {
       this.plugin.settings.showContextSidebar = !this.plugin.settings.showContextSidebar;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const chapterActionsBtn = primaryNav.createEl("button", {
       cls: "bible-chapter-actions-btn",
@@ -4754,7 +4754,7 @@ var BibleView = class extends import_obsidian.ItemView {
                 highlight.layer = layer.id;
               }
               await this.plugin.saveHighlightsAndNotes();
-              this.render();
+              await this.render();
               showToast(`Moved ${chapterHighlights.length} highlight${chapterHighlights.length !== 1 ? "s" : ""} to ${layer.name} layer`);
             });
           });
@@ -4797,7 +4797,7 @@ var BibleView = class extends import_obsidian.ItemView {
     bookSelect.addEventListener("change", (e) => {
       this.currentBook = e.target.value;
       this.currentChapter = 1;
-      this.render();
+      void this.render();
     });
     const chapterSelect = primaryNav.createEl("select", { cls: "bible-chapter-select" });
     const chapters = this.plugin.getChaptersArray(this.currentVersion, this.currentBook);
@@ -4812,7 +4812,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     chapterSelect.addEventListener("change", (e) => {
       this.currentChapter = parseInt(e.target.value);
-      this.render();
+      void this.render();
     });
     const prevBtn = primaryNav.createEl("button", { cls: "bible-nav-btn" });
     (0, import_obsidian.setIcon)(prevBtn, "arrow-left");
@@ -4820,7 +4820,7 @@ var BibleView = class extends import_obsidian.ItemView {
     prevBtn.addEventListener("click", () => {
       if (this.currentChapter > 1) {
         this.currentChapter--;
-        this.render();
+        void this.render();
       } else {
         const books2 = this.plugin.getBooksArray(this.currentVersion);
         const currentBookIndex = books2.indexOf(this.currentBook);
@@ -4835,7 +4835,7 @@ var BibleView = class extends import_obsidian.ItemView {
         const lastChapter = Math.max(...prevBookChapters);
         this.currentBook = prevBook;
         this.currentChapter = lastChapter;
-        this.render();
+        void this.render();
       }
     });
     const nextBtn = primaryNav.createEl("button", { cls: "bible-nav-btn" });
@@ -4846,7 +4846,7 @@ var BibleView = class extends import_obsidian.ItemView {
       const maxChapter = Math.max(...chapters2);
       if (this.currentChapter < maxChapter) {
         this.currentChapter++;
-        this.render();
+        void this.render();
       } else {
         const books2 = this.plugin.getBooksArray(this.currentVersion);
         const currentBookIndex = books2.indexOf(this.currentBook);
@@ -4858,7 +4858,7 @@ var BibleView = class extends import_obsidian.ItemView {
         }
         this.currentBook = books2[nextBookIndex];
         this.currentChapter = 1;
-        this.render();
+        void this.render();
       }
     });
     primaryNav.createDiv({ cls: "nav-spacer" });
@@ -4870,7 +4870,7 @@ var BibleView = class extends import_obsidian.ItemView {
     toggleSecondaryBtn.addEventListener("click", async () => {
       this.plugin.settings.showSecondaryNav = !this.plugin.settings.showSecondaryNav;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const secondaryNav = container.createDiv({
       cls: `bible-portal-nav bible-portal-nav-secondary ${this.plugin.settings.showSecondaryNav ? "" : "collapsed"}`
@@ -4883,7 +4883,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     versionSelect.addEventListener("change", (e) => {
       this.currentVersion = e.target.value;
-      this.render();
+      void this.render();
     });
     const parallelCheckbox = secondaryNav.createDiv({ cls: "nav-checkbox parallel-checkbox-container" });
     if (!this.sidebarVisible) {
@@ -4899,7 +4899,7 @@ var BibleView = class extends import_obsidian.ItemView {
       } else {
         this.secondVersion = null;
       }
-      this.render();
+      void this.render();
     });
     if (this.secondVersion) {
       secondaryNav.createEl("span", { text: "\u2192", cls: "parallel-separator" });
@@ -4911,7 +4911,7 @@ var BibleView = class extends import_obsidian.ItemView {
       });
       secondVersionSelect.addEventListener("change", (e) => {
         this.secondVersion = e.target.value;
-        this.render();
+        void this.render();
       });
       const syncCheckbox = secondaryNav.createDiv({ cls: "nav-checkbox sync-scroll-checkbox" });
       const syncInput = syncCheckbox.createEl("input", { type: "checkbox", attr: { id: "sync-scroll-check" } });
@@ -5161,7 +5161,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     versionSelect.addEventListener("change", (e) => {
       this.currentVersion = e.target.value;
-      this.render();
+      void this.render();
     });
     const parallelCheckbox = navControls.createDiv({ cls: "nav-checkbox" });
     const parallelInput = parallelCheckbox.createEl("input", { type: "checkbox", attr: { id: "parallel-check-verse" } });
@@ -5186,7 +5186,7 @@ var BibleView = class extends import_obsidian.ItemView {
       });
       secondVersionSelect.addEventListener("change", (e) => {
         this.secondVersion = e.target.value;
-        this.render();
+        void this.render();
       });
     }
     const layerGroup = navControls.createDiv({ cls: "nav-layer-group" });
@@ -5378,7 +5378,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     versionSelect.addEventListener("change", (e) => {
       this.currentVersion = e.target.value;
-      this.render();
+      void this.render();
     });
     const parallelCheckbox = navControls.createDiv({ cls: "nav-checkbox" });
     const parallelInput = parallelCheckbox.createEl("input", { type: "checkbox", attr: { id: "parallel-check-passage" } });
@@ -5403,7 +5403,7 @@ var BibleView = class extends import_obsidian.ItemView {
       });
       secondVersionSelect.addEventListener("change", (e) => {
         this.secondVersion = e.target.value;
-        this.render();
+        void this.render();
       });
     }
     const layerGroup = navControls.createDiv({ cls: "nav-layer-group" });
@@ -5636,7 +5636,7 @@ var BibleView = class extends import_obsidian.ItemView {
           navigator.clipboard.writeText(copyText).then(() => {
             copyBtn.setText("\u2713 Copied!");
             setTimeout(() => copyBtn.setText("\u{1F4CB} Copy to Clipboard"), 2e3);
-          });
+          }).catch(() => showToast("Failed to copy to clipboard"));
         });
       } else {
         resultContainer.createEl("p", {
@@ -6394,7 +6394,7 @@ ${disputedInfo.manuscriptInfo}`);
       navigator.clipboard.writeText(copyText).then(() => {
         copyBtn.setText("\u2713");
         setTimeout(() => copyBtn.setText("\u{1F4CB}"), 1e3);
-      });
+      }).catch(() => showToast("Failed to copy to clipboard"));
     });
     closeBtn.addEventListener("click", () => overlay.remove());
     overlay.addEventListener("click", (e) => {
