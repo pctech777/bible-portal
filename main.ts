@@ -5559,10 +5559,8 @@ class BibleView extends ItemView {
 					const parallelCheckbox = this.containerEl.querySelector('.parallel-checkbox-container');
 
 					if (parallelCheckbox) {
-						if (shouldShowSidebar) {
-							(parallelCheckbox as HTMLElement).style.display = '';
-						} else {
-							(parallelCheckbox as HTMLElement).style.display = 'none';
+						(parallelCheckbox as HTMLElement).toggleClass('bp-hidden', !shouldShowSidebar);
+						if (!shouldShowSidebar) {
 							// Also disable parallel view if it was on
 							if (this.secondVersion) {
 								this.secondVersion = null;
@@ -6369,13 +6367,10 @@ class BibleView extends ItemView {
 			void this.render();
 		});
 
-		// Parallel view toggle
-		const parallelCheckbox = secondaryNav.createDiv({ cls: 'nav-checkbox parallel-checkbox-container' });
-
-		// Hide parallel option when sidebar is hidden (narrow view)
-		if (!this.sidebarVisible) {
-			parallelCheckbox.style.display = 'none';
-		}
+		// Parallel view toggle (hide when sidebar is hidden in narrow view)
+		const parallelCheckbox = secondaryNav.createDiv({
+			cls: `nav-checkbox parallel-checkbox-container${!this.sidebarVisible ? ' bp-hidden' : ''}`
+		});
 
 		const parallelInput = parallelCheckbox.createEl('input', { type: 'checkbox', attr: { id: 'parallel-check' } });
 		parallelCheckbox.createEl('label', { text: 'Parallel view', attr: { for: 'parallel-check' } });
@@ -6597,7 +6592,7 @@ class BibleView extends ItemView {
 		});
 
 		// Progress container (hidden initially)
-		const progressContainer = emptyState.createDiv({ cls: 'bible-download-progress', attr: { style: 'display: none;' } });
+		const progressContainer = emptyState.createDiv({ cls: 'bible-download-progress bp-hidden' });
 		const progressText = progressContainer.createEl('p', { cls: 'bible-download-progress-text' });
 		const progressBarOuter = progressContainer.createDiv({ cls: 'bible-download-progress-bar-outer' });
 		const progressBarInner = progressBarOuter.createDiv({ cls: 'bible-download-progress-bar-inner' });
@@ -6610,8 +6605,8 @@ class BibleView extends ItemView {
 
 		downloadBtn.addEventListener('click', async () => {
 			// Show progress, hide button
-			downloadBtn.style.display = 'none';
-			progressContainer.style.display = 'block';
+			downloadBtn.addClass('bp-hidden');
+			progressContainer.removeClass('bp-hidden');
 			progressText.textContent = 'Fetching available translations...';
 			progressBarInner.style.width = '0%';
 
@@ -6626,8 +6621,8 @@ class BibleView extends ItemView {
 					setTimeout(() => this.render(), 500);
 				} else if (step === 'error') {
 					// Show error and restore button
-					progressContainer.style.display = 'none';
-					downloadBtn.style.display = 'block';
+					progressContainer.addClass('bp-hidden');
+					downloadBtn.removeClass('bp-hidden');
 				}
 			});
 		});
@@ -7167,10 +7162,7 @@ class BibleView extends ItemView {
 
 			if (entry) {
 				// Display the full Strong's entry
-				const entryDiv = resultContainer.createDiv({ cls: 'strongs-entry-display' });
-
-				// Make content selectable
-				entryDiv.style.userSelect = 'text';
+				const entryDiv = resultContainer.createDiv({ cls: 'strongs-entry-display bp-select-text' });
 
 				// Strong's number header
 				entryDiv.createEl('h3', {
@@ -8263,10 +8255,7 @@ class BibleView extends ItemView {
 		const overlay = document.createElement('div');
 		overlay.addClass('strongs-modal-overlay');
 
-		const modal = overlay.createDiv('strongs-modal');
-
-		// Make all modal content selectable
-		modal.style.userSelect = 'text';
+		const modal = overlay.createDiv('strongs-modal bp-select-text');
 
 		// Header
 		const header = modal.createDiv('strongs-modal-header');
@@ -9223,8 +9212,7 @@ class BibleView extends ItemView {
 			addExistingHeader.createSpan({ text: 'Add existing tag...' });
 
 			// Create submenu for existing tags
-			const tagSubmenu = menu.createEl('div', { cls: 'bible-menu-submenu' });
-			tagSubmenu.style.display = 'none';
+			const tagSubmenu = menu.createEl('div', { cls: 'bible-menu-submenu bp-hidden' });
 
 			availableTags.forEach(tagName => {
 				const tagOption = tagSubmenu.createEl('div', {
@@ -9249,7 +9237,7 @@ class BibleView extends ItemView {
 
 			addExistingHeader.addEventListener('click', (e) => {
 				e.stopPropagation();
-				tagSubmenu.style.display = tagSubmenu.style.display === 'none' ? 'block' : 'none';
+				tagSubmenu.toggleClass('bp-hidden', !tagSubmenu.hasClass('bp-hidden'));
 			});
 		}
 
@@ -9433,9 +9421,7 @@ class BibleView extends ItemView {
 		});
 
 		// Add copy button at bottom
-		const buttonContainer = contentEl.createEl('div', { cls: 'cross-ref-button-container' });
-		buttonContainer.style.marginTop = '15px';
-		buttonContainer.style.textAlign = 'center';
+		const buttonContainer = contentEl.createEl('div', { cls: 'cross-ref-button-container bp-btn-container' });
 
 		const copyButton = buttonContainer.createEl('button', {
 			text: '📋 Copy All References',
@@ -13007,10 +12993,10 @@ class BibleView extends ItemView {
 
 			// Hide section if no highlights
 			if (layerCounts.size === 0 || this.plugin.highlights.length === 0) {
-				layerSection.style.display = 'none';
+				layerSection.addClass('bp-hidden');
 				return;
 			}
-			layerSection.style.display = '';
+			layerSection.removeClass('bp-hidden');
 
 			this.plugin.settings.annotationLayers.forEach(layer => {
 				const count = layerCounts.get(layer.id) || 0;
@@ -13073,11 +13059,11 @@ class BibleView extends ItemView {
 				activeFilters.book !== 'all';
 
 			if (!hasActiveFilters) {
-				container.style.display = 'none';
+				container.addClass('bp-hidden');
 				return;
 			}
 
-			container.style.display = 'flex';
+			container.removeClass('bp-hidden');
 
 			// Search chip
 			if (activeFilters.search !== '') {
@@ -13192,8 +13178,7 @@ class BibleView extends ItemView {
 		});
 
 		// ===== ACTIVE FILTERS BAR =====
-		const activeFiltersBar = highlightsBrowser.createDiv({ cls: 'highlights-active-filters' });
-		activeFiltersBar.style.display = 'none'; // Hidden by default
+		const activeFiltersBar = highlightsBrowser.createDiv({ cls: 'highlights-active-filters bp-hidden' });
 
 		// ===== SECONDARY CONTROLS BAR =====
 		const secondaryControlsBar = highlightsBrowser.createDiv({ cls: 'highlights-secondary-controls' });
@@ -13288,8 +13273,7 @@ class BibleView extends ItemView {
 		importBtn.addEventListener('click', async () => await this.importHighlights());
 
 		// Bulk action controls
-		const bulkActionsDiv = secondaryControlsBar.createDiv({ cls: 'highlights-bulk-actions' });
-		bulkActionsDiv.style.display = 'none'; // Hidden by default
+		const bulkActionsDiv = secondaryControlsBar.createDiv({ cls: 'highlights-bulk-actions bp-hidden' });
 
 		const selectionCount = bulkActionsDiv.createSpan({ cls: 'bulk-selection-count', text: '0 selected' });
 
@@ -13311,7 +13295,7 @@ class BibleView extends ItemView {
 			selectedHighlightIds.clear();
 			renderHighlightsList();
 			selectionCount.textContent = '0 selected';
-			bulkActionsDiv.style.display = 'none';
+			bulkActionsDiv.addClass('bp-hidden');
 		});
 
 		const bulkMoveToLayerBtn = bulkActionsDiv.createEl('button', { text: '📁 Move to Layer', cls: 'bulk-action-btn' });
@@ -13333,7 +13317,7 @@ class BibleView extends ItemView {
 
 						selectedHighlightIds.clear();
 						selectionCount.textContent = '0 selected';
-						bulkActionsDiv.style.display = 'none';
+						bulkActionsDiv.addClass('bp-hidden');
 						renderHighlightsList();
 						showToast(`Moved ${selectedHighlights.length} highlight${selectedHighlights.length !== 1 ? 's' : ''} to ${layer.name} layer`);
 					});
@@ -13352,7 +13336,7 @@ class BibleView extends ItemView {
 				await Promise.all(Array.from(selectedHighlightIds).map(id => this.plugin.removeHighlight(id)));
 				selectedHighlightIds.clear();
 				selectionCount.textContent = '0 selected';
-				bulkActionsDiv.style.display = 'none';
+				bulkActionsDiv.addClass('bp-hidden');
 				renderHighlightsList();
 				showToast(`Deleted highlights`);
 			}
@@ -13653,7 +13637,7 @@ class BibleView extends ItemView {
 							selectedHighlightIds.delete(highlight.id);
 						}
 						selectionCount.textContent = `${selectedHighlightIds.size} selected`;
-						bulkActionsDiv.style.display = selectedHighlightIds.size > 0 ? 'flex' : 'none';
+						bulkActionsDiv.toggleClass('bp-hidden', selectedHighlightIds.size === 0);
 					});
 
 					let refText = `${highlight.chapter}:${highlight.verse}`;
@@ -14650,7 +14634,7 @@ class BibleView extends ItemView {
 			});
 
 			// Progress container (hidden initially)
-			const progressContainer = noConcordanceDiv.createDiv({ cls: 'concordance-progress', attr: { style: 'display: none;' } });
+			const progressContainer = noConcordanceDiv.createDiv({ cls: 'concordance-progress bp-hidden' });
 			const progressText = progressContainer.createEl('p', { cls: 'concordance-progress-text' });
 			const progressBarOuter = progressContainer.createDiv({ cls: 'concordance-progress-bar-outer' });
 			const progressBarInner = progressBarOuter.createDiv({ cls: 'concordance-progress-bar-inner' });
@@ -14661,8 +14645,8 @@ class BibleView extends ItemView {
 			});
 			buildBtn.addEventListener('click', async () => {
 				buildBtn.disabled = true;
-				buildBtn.style.display = 'none';
-				progressContainer.style.display = 'block';
+				buildBtn.addClass('bp-hidden');
+				progressContainer.removeClass('bp-hidden');
 
 				const success = await this.plugin.buildConcordanceFromBible((book, current, total) => {
 					const percent = Math.round((current / total) * 100);
@@ -14674,8 +14658,8 @@ class BibleView extends ItemView {
 					this.render(); // Re-render to show concordance
 				} else {
 					buildBtn.disabled = false;
-					buildBtn.style.display = 'block';
-					progressContainer.style.display = 'none';
+					buildBtn.removeClass('bp-hidden');
+					progressContainer.addClass('bp-hidden');
 				}
 			});
 			return;
@@ -14724,12 +14708,11 @@ class BibleView extends ItemView {
 		const wordListDiv = resultsDiv.createDiv({ cls: 'concordance-word-list' });
 
 		// Verse references column (hidden initially)
-		const versesDiv = resultsDiv.createDiv({ cls: 'concordance-verses' });
-		versesDiv.style.display = 'none';
+		const versesDiv = resultsDiv.createDiv({ cls: 'concordance-verses bp-hidden' });
 
 		const renderWordList = (letter: string, searchTerm: string = '') => {
 			wordListDiv.empty();
-			versesDiv.style.display = 'none';
+			versesDiv.addClass('bp-hidden');
 
 			let words: string[];
 			if (searchTerm) {
@@ -14795,7 +14778,7 @@ class BibleView extends ItemView {
 
 		const renderVerses = (word: string, refs: ConcordanceReference[]) => {
 			versesDiv.empty();
-			versesDiv.style.display = 'block';
+			versesDiv.removeClass('bp-hidden');
 
 			// Header
 			const versesHeader = versesDiv.createDiv({ cls: 'verses-header' });
@@ -14809,7 +14792,7 @@ class BibleView extends ItemView {
 				cls: 'verses-close-btn'
 			});
 			closeBtn.addEventListener('click', () => {
-				versesDiv.style.display = 'none';
+				versesDiv.addClass('bp-hidden');
 				wordListDiv.querySelectorAll('.concordance-word-item').forEach(item => {
 					item.removeClass('selected');
 				});
@@ -15530,10 +15513,8 @@ class BibleView extends ItemView {
 		const input = content.createEl('input', {
 			type: 'text',
 			placeholder: 'Tag name (e.g., faith, healing)',
-			cls: 'tag-input-field'
+			cls: 'tag-input-field bp-input-full bp-input-spaced'
 		});
-		input.style.width = '100%';
-		input.style.marginBottom = '16px';
 
 		const btnContainer = content.createDiv({ cls: 'modal-button-container' });
 
@@ -15588,10 +15569,8 @@ class BibleView extends ItemView {
 		const input = content.createEl('input', {
 			type: 'text',
 			placeholder: 'Tag name (e.g., faith, healing, prayer)',
-			cls: 'tag-input-field'
+			cls: 'tag-input-field bp-input-full bp-input-spaced'
 		});
-		input.style.width = '100%';
-		input.style.marginBottom = '16px';
 
 		// Show existing tags as suggestions
 		const allTags = this.plugin.getAllTagNames();
@@ -15675,10 +15654,8 @@ class BibleView extends ItemView {
 		const input = content.createEl('input', {
 			type: 'text',
 			value: oldName,
-			cls: 'tag-input-field'
+			cls: 'tag-input-field bp-input-full bp-input-spaced'
 		});
-		input.style.width = '100%';
-		input.style.marginBottom = '16px';
 
 		const btnContainer = content.createDiv({ cls: 'modal-button-container' });
 
@@ -19898,8 +19875,8 @@ class BiblePortalSettingTab extends PluginSettingTab {
 					.setDesc('Template for new notes. Variables: {{reference}}, {{version}}, {{verse}}, {{verseText}}')
 					.addTextArea(text => {
 						text.inputEl.rows = 8;
-						text.inputEl.style.width = '100%';
-						text.inputEl.style.fontFamily = 'monospace';
+						text.inputEl.addClass('bp-input-full');
+						text.inputEl.addClass('bp-input-monospace');
 						return text
 							.setPlaceholder('# {{reference}}\n\n**Version:** {{version}}')
 							.setValue(this.plugin.settings.noteTemplate)
@@ -20616,9 +20593,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				const creditsGroup = content.createDiv({ cls: 'bp-settings-group' });
 				creditsGroup.createEl('div', { text: 'Data sources & licenses', cls: 'bp-settings-group-title' });
 
-				const creditsList = creditsGroup.createEl('ul');
-				creditsList.style.fontSize = '13px';
-				creditsList.style.color = 'var(--text-muted)';
+				const creditsList = creditsGroup.createEl('ul', { cls: 'bp-credits-list' });
 
 				const credits = [
 					{ name: 'Cross-References', source: 'josephilipraja/bible-cross-reference-json', license: 'GPL-2.0' },
@@ -21110,11 +21085,9 @@ class InputModal extends Modal {
 		const inputEl = contentEl.createEl('input', {
 			type: 'text',
 			placeholder: this.placeholder,
-			value: this.defaultValue
+			value: this.defaultValue,
+			cls: 'bp-input-full bp-input-padded bp-input-spaced'
 		});
-		inputEl.style.width = '100%';
-		inputEl.style.padding = '8px';
-		inputEl.style.marginBottom = '12px';
 
 		// Auto-focus and select
 		setTimeout(() => {
@@ -21134,11 +21107,7 @@ class InputModal extends Modal {
 		});
 
 		// Buttons
-		const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-		buttonContainer.style.display = 'flex';
-		buttonContainer.style.justifyContent = 'flex-end';
-		buttonContainer.style.gap = '8px';
-		buttonContainer.style.marginTop = '12px';
+		const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container bp-modal-buttons' });
 
 		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
 		cancelButton.addEventListener('click', () => {

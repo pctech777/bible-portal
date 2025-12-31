@@ -117,6 +117,48 @@
 	transition: width var(--bp-transition-normal) ease;
 }
 
+/* Modal button container */
+.bp-modal-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+/* Full-width input utility */
+.bp-input-full {
+	width: 100%;
+}
+
+/* Input with margin below */
+.bp-input-spaced {
+	margin-bottom: 16px;
+}
+
+/* Padded input */
+.bp-input-padded {
+	padding: 8px;
+}
+
+.bp-input-monospace {
+	font-family: monospace;
+}
+
+/* User select utilities */
+.bp-select-text { user-select: text; }
+
+/* Button container with top margin */
+.bp-btn-container {
+	margin-top: 15px;
+	text-align: center;
+}
+
+/* Credits list styling */
+.bp-credits-list {
+	font-size: 13px;
+	color: var(--text-muted);
+}
+
 /* Position utilities for dynamic positioning */
 .bp-absolute { position: absolute; }
 .bp-fixed { position: fixed; }
