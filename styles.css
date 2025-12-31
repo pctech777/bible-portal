@@ -83,6 +83,111 @@
 	--bp-radius-full: 9999px;
 }
 
+/* ========================================
+   UTILITY CLASSES
+   Reusable utility classes for common patterns
+   ======================================== */
+
+/* Visibility utilities */
+.bp-hidden { display: none !important; }
+.bp-visible { display: block !important; }
+.bp-visible-flex { display: flex !important; }
+.bp-visible-inline { display: inline !important; }
+.bp-visible-inline-block { display: inline-block !important; }
+
+/* Cursor utilities */
+.bp-clickable { cursor: pointer; }
+.bp-not-allowed { cursor: not-allowed; }
+.bp-grabbing { cursor: grabbing; }
+
+/* Text selection */
+.bp-select-text { user-select: text; }
+.bp-select-none { user-select: none; }
+
+/* Dynamic color utilities (use with CSS custom properties) */
+.bp-bg-dynamic { background-color: var(--bp-dynamic-bg); }
+.bp-text-dynamic { color: var(--bp-dynamic-color); }
+.bp-border-dynamic { border-color: var(--bp-dynamic-border); }
+.bp-border-left-dynamic { border-left-color: var(--bp-dynamic-border); }
+.bp-border-top-dynamic { border-top-color: var(--bp-dynamic-border); }
+
+/* Progress bar utilities */
+.bp-progress-bar {
+	width: var(--bp-progress, 0%);
+	transition: width var(--bp-transition-normal) ease;
+}
+
+/* Modal button container */
+.bp-modal-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+/* Full-width input utility */
+.bp-input-full {
+	width: 100%;
+}
+
+/* Input with margin below */
+.bp-input-spaced {
+	margin-bottom: 16px;
+}
+
+/* Padded input */
+.bp-input-padded {
+	padding: 8px;
+}
+
+.bp-input-monospace {
+	font-family: monospace;
+}
+
+/* User select utilities */
+.bp-select-text { user-select: text; }
+
+/* Button container with top margin */
+.bp-btn-container {
+	margin-top: 15px;
+	text-align: center;
+}
+
+/* Credits list styling */
+.bp-credits-list {
+	font-size: 13px;
+	color: var(--text-muted);
+}
+
+/* Position utilities for dynamic positioning */
+.bp-absolute { position: absolute; }
+.bp-fixed { position: fixed; }
+.bp-relative { position: relative; }
+
+/* Z-index layers */
+.bp-z-dropdown { z-index: 100; }
+.bp-z-modal { z-index: 1000; }
+.bp-z-tooltip { z-index: 10000; }
+
+/* Link-like appearance */
+.bp-link {
+	cursor: pointer;
+	color: var(--interactive-accent);
+	text-decoration: underline;
+}
+
+/* Form input utilities */
+.bp-color-input {
+	width: 32px;
+	height: 24px;
+	border: none;
+	cursor: pointer;
+}
+
+.bp-toggle-input {
+	cursor: pointer;
+}
+
 /* Dark mode adjustments */
 .theme-dark {
 	/* Slightly adjusted banner colors for dark mode */
@@ -333,6 +438,21 @@
 	padding: 10px 5px;
 	gap: 6px;
 	flex-shrink: 0;
+}
+
+/* Sidebar footer - pushes settings button to bottom */
+.sidebar-footer {
+	margin-top: auto;
+	padding-top: 10px;
+	border-top: 1px solid var(--bp-border);
+}
+
+.sidebar-settings-btn {
+	opacity: 0.7;
+}
+
+.sidebar-settings-btn:hover {
+	opacity: 1;
 }
 
 .bible-portal-main {
@@ -2331,6 +2451,10 @@
 
 /* Custom verse menu */
 .bible-verse-menu {
+	position: absolute;
+	left: var(--bp-pos-left, 0);
+	top: var(--bp-pos-top, 0);
+	z-index: var(--bp-pos-z, 1000);
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -3365,6 +3489,18 @@
 	transform: translateX(-50%) translateY(0);
 }
 
+.bible-toast-success {
+	background: var(--interactive-accent);
+}
+
+.bible-toast-error {
+	background: #dc2626;
+}
+
+.bible-toast-warning {
+	background: #d97706;
+}
+
 /* Note preview popup */
 .note-preview-popup {
 	background: var(--background-primary);
@@ -4289,6 +4425,9 @@ input,
 /* Strong's hover tooltip */
 .strongs-tooltip {
 	position: fixed;
+	left: var(--bp-tooltip-left, 0);
+	top: var(--bp-tooltip-top, 0);
+	transform: var(--bp-tooltip-transform, none);
 	background: var(--background-primary);
 	border: 2px solid var(--interactive-accent);
 	border-radius: 12px;
@@ -9221,6 +9360,9 @@ input,
 
 /* Bookmark Context Menu */
 .bookmark-context-menu {
+	position: fixed;
+	left: var(--bp-pos-left, 0);
+	top: var(--bp-pos-top, 0);
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
@@ -10789,32 +10931,31 @@ input,
 	overflow-y: auto;
 }
 
-.collection-verse-item {
+/* Collection verse cards */
+.collection-verse-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bp-space-2);
+	padding: var(--bp-space-3);
+	background: var(--background-secondary);
+	border-radius: var(--bp-radius-md);
+	border: 1px solid var(--background-modifier-border);
+	transition: box-shadow 0.2s ease;
+}
+
+.collection-verse-card:hover {
+	box-shadow: var(--bp-shadow-sm);
+}
+
+.collection-card-header {
 	display: flex;
 	align-items: center;
-	gap: var(--bp-space-3);
-	padding: var(--bp-space-2) var(--bp-space-3);
-	background: var(--background-secondary);
-	border-radius: 4px;
-	transition: background 0.2s ease;
-}
-
-.collection-verse-item.completed {
-	opacity: 0.6;
-}
-
-.collection-verse-item.completed .collection-verse-ref {
-	text-decoration: line-through;
-}
-
-.collection-verse-checkbox {
-	width: 18px;
-	height: 18px;
-	accent-color: var(--interactive-accent);
+	justify-content: space-between;
+	gap: var(--bp-space-2);
 }
 
 .collection-verse-ref {
-	flex: 1;
+	font-weight: 600;
 	cursor: pointer;
 	color: var(--text-accent);
 }
@@ -10833,7 +10974,7 @@ input,
 	transition: opacity 0.2s ease;
 }
 
-.collection-verse-item:hover .collection-verse-remove {
+.collection-verse-card:hover .collection-verse-remove {
 	opacity: 1;
 }
 
@@ -10841,18 +10982,120 @@ input,
 	color: #e53935;
 }
 
+.collection-card-title {
+	font-size: var(--bp-text-sm);
+	font-weight: 500;
+	padding: var(--bp-space-1) var(--bp-space-2);
+	background: transparent;
+	border: 1px dashed transparent;
+	border-radius: 4px;
+	color: var(--text-normal);
+}
+
+.collection-card-title:hover,
+.collection-card-title:focus {
+	background: var(--background-primary);
+	border-color: var(--background-modifier-border);
+}
+
+.collection-card-title::placeholder {
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+.collection-verse-text {
+	padding: var(--bp-space-2) var(--bp-space-3);
+	background: var(--background-primary);
+	border-radius: 4px;
+	font-size: var(--bp-text-sm);
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+.collection-verse-text .verse-text-content {
+	margin: 0;
+}
+
+.collection-verse-text .verse-text-line {
+	margin: 0 0 4px 0;
+}
+
+.collection-verse-text .verse-text-line:last-child {
+	margin-bottom: 0;
+}
+
+.collection-verse-text .verse-text-error {
+	color: var(--text-faint);
+}
+
+.collection-card-desc {
+	font-size: var(--bp-text-sm);
+	padding: var(--bp-space-2);
+	background: transparent;
+	border: 1px dashed transparent;
+	border-radius: 4px;
+	resize: vertical;
+	min-height: 40px;
+	color: var(--text-normal);
+}
+
+.collection-card-desc:hover,
+.collection-card-desc:focus {
+	background: var(--background-primary);
+	border-color: var(--background-modifier-border);
+}
+
+.collection-card-desc::placeholder {
+	color: var(--text-muted);
+	font-style: italic;
+	opacity: 0.7;
+}
+
+/* Count summary */
+.collection-count-summary {
+	margin-bottom: var(--bp-space-4);
+	font-size: var(--bp-text-sm);
+	color: var(--text-muted);
+}
+
+/* Export/Import section */
 .collection-export-section {
 	margin-top: var(--bp-space-6);
 	padding-top: var(--bp-space-4);
 	border-top: 1px solid var(--background-modifier-border);
+	display: flex;
+	gap: var(--bp-space-2);
 }
 
-.collection-export-btn {
-	padding: var(--bp-space-2) var(--bp-space-4);
+.collection-action-btn {
+	display: flex;
+	align-items: center;
+	gap: var(--bp-space-2);
+	padding: var(--bp-space-2) var(--bp-space-3);
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 4px;
 	cursor: pointer;
+	font-size: var(--bp-text-sm);
+	color: var(--text-normal);
+	transition: background 0.2s ease;
+}
+
+.collection-action-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.collection-action-btn .btn-icon {
+	width: 16px;
+	height: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.collection-action-btn .btn-icon svg {
+	width: 14px;
+	height: 14px;
 }
 
 /* ========================================
@@ -11322,7 +11565,9 @@ input,
 .context-sidebar-content {
 	flex: 1;
 	overflow-y: auto;
+	overflow-x: hidden;
 	padding: 16px;
+	min-width: 0; /* Prevent flex item from overflowing */
 }
 
 /* Placeholder styling */
@@ -11444,6 +11689,8 @@ input,
 	border-radius: 8px;
 	padding: 12px;
 	border-left: 3px solid var(--interactive-accent);
+	overflow: hidden;
+	min-width: 0;
 }
 
 .verse-range-header {
@@ -11454,12 +11701,16 @@ input,
 	font-size: var(--bp-text-sm);
 	font-weight: 600;
 	color: var(--text-accent);
+	white-space: nowrap;
 }
 
 .commentary-text {
 	font-size: var(--bp-text-sm);
 	line-height: 1.65;
 	color: var(--text-normal);
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+	white-space: normal;
 }
 
 .commentary-text p {
@@ -13771,4 +14022,184 @@ input,
 	height: 100%;
 	background: var(--interactive-accent);
 	transition: width 0.3s ease;
+}
+
+/* ==========================================================================
+   Bible Reference Insert (@reference syntax) - Suggestion Dropdown
+   ========================================================================== */
+
+/* Suggestion item container */
+.bible-reference-suggestion {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	cursor: pointer;
+}
+
+.bible-reference-suggestion:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* Suggestion type icon */
+.bible-reference-suggestion .suggestion-icon {
+	flex-shrink: 0;
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+}
+
+.bible-reference-suggestion .suggestion-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* Recent references get a subtle highlight */
+.bible-reference-suggestion[data-type="recent"] .suggestion-icon {
+	color: var(--interactive-accent);
+}
+
+/* Suggestion text content */
+.bible-reference-suggestion .suggestion-content {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.bible-reference-suggestion .suggestion-text {
+	font-weight: 500;
+	color: var(--text-normal);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bible-reference-suggestion .suggestion-description {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-top: 2px;
+}
+
+/* Suggestion preview (verse text preview) */
+.bible-reference-suggestion .suggestion-preview {
+	font-size: 12px;
+	color: var(--text-faint);
+	margin-top: 4px;
+	font-style: italic;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 400px;
+}
+
+/* ==========================================================================
+   Bible Callout Styling
+   ========================================================================== */
+
+/* Base Bible callout styling */
+.callout[data-callout="bible"],
+.callout[data-callout="bible-manuscript"] {
+	--callout-color: 139, 69, 19;
+	--callout-icon: lucide-book-open;
+	border-left: 4px solid var(--bp-earth, #8B4513);
+	background: rgba(139, 69, 19, 0.05);
+}
+
+.theme-dark .callout[data-callout="bible"],
+.theme-dark .callout[data-callout="bible-manuscript"] {
+	background: rgba(139, 69, 19, 0.1);
+}
+
+/* Bible callout title */
+.callout[data-callout="bible"] .callout-title,
+.callout[data-callout="bible-manuscript"] .callout-title {
+	color: var(--bp-earth, #8B4513);
+}
+
+.theme-dark .callout[data-callout="bible"] .callout-title,
+.theme-dark .callout[data-callout="bible-manuscript"] .callout-title {
+	color: #CD853F;
+}
+
+/* Manuscript mode: flowing prose style */
+.callout[data-callout="bible-manuscript"] .callout-content {
+	font-style: italic;
+	line-height: 1.7;
+}
+
+/* Verse numbers in callout (superscript bold) */
+.callout[data-callout="bible"] .callout-content strong,
+.callout[data-callout="bible-manuscript"] .callout-content strong {
+	font-weight: 700;
+	color: var(--text-accent);
+	font-size: 0.85em;
+	vertical-align: super;
+}
+
+/* Version attribution at end */
+.callout[data-callout="bible"] .callout-content em,
+.callout[data-callout="bible-manuscript"] .callout-content em {
+	font-size: 0.9em;
+	color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Clickable Bible Callout
+   ========================================================================== */
+
+.bible-callout-clickable {
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bible-callout-clickable:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.theme-dark .bible-callout-clickable:hover {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Click indicator icon */
+.bible-callout-indicator {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 8px;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+.bible-callout-indicator svg {
+	width: 14px;
+	height: 14px;
+	color: var(--text-muted);
+}
+
+.bible-callout-clickable:hover .bible-callout-indicator {
+	opacity: 1;
+}
+
+/* Hint text for double-click on content */
+.bible-callout-clickable .callout-content {
+	position: relative;
+}
+
+.bible-callout-clickable .callout-content::after {
+	content: "Double-click to open in Bible Portal";
+	position: absolute;
+	bottom: -20px;
+	left: 0;
+	font-size: 10px;
+	color: var(--text-faint);
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	pointer-events: none;
+}
+
+.bible-callout-clickable:hover .callout-content::after {
+	opacity: 0.6;
 }
