@@ -808,6 +808,11 @@ function showToast(message, type = "success", duration = 3e3) {
     setTimeout(() => toast.remove(), 300);
   }, duration);
 }
+function setCssProps(el, props) {
+  for (const [key, value] of Object.entries(props)) {
+    el.style.setProperty(key, value);
+  }
+}
 var INTERLINEAR_BOOK_MAPPING = {
   "Genesis": "genesis",
   "Exodus": "exodus",
@@ -3710,7 +3715,7 @@ Saved to: ${outputPath}`, 8e3);
       if (!yamlMatch)
         return [];
       const yamlContent = yamlMatch[1];
-      const tagsMatch = yamlContent.match(/tags:\s*\n((?:  - .+(?:\n|$))*)/);
+      const tagsMatch = yamlContent.match(/tags:\s*\n((?: {2}- .+(?:\n|$))*)/);
       if (!tagsMatch)
         return [];
       const tagsSection = tagsMatch[1].trim();
@@ -3746,7 +3751,7 @@ Saved to: ${outputPath}`, 8e3);
       if (existingTags.includes(newTag)) {
         return false;
       }
-      const yamlMatch = content.match(/^(---\s*\n[\s\S]*?tags:\s*\n(?:  - .+\n)*)(---)/);
+      const yamlMatch = content.match(/^(---\s*\n[\s\S]*?tags:\s*\n(?: {2}- .+\n)*)(---)/);
       if (yamlMatch) {
         const beforeTags = yamlMatch[1];
         const afterTags = yamlMatch[2];
@@ -3769,7 +3774,7 @@ Saved to: ${outputPath}`, 8e3);
       if (!(file instanceof import_obsidian.TFile))
         return false;
       let content = await this.app.vault.read(file);
-      const tagLineRegex = new RegExp(`  - ${tagToRemove.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}
+      const tagLineRegex = new RegExp(` {2}- ${tagToRemove.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}
 `, "g");
       content = content.replace(tagLineRegex, "");
       await this.app.vault.modify(file, content);
@@ -5090,11 +5095,11 @@ var BibleView = class extends import_obsidian.ItemView {
         downloadBtn.addClass("bp-hidden");
         progressContainer.removeClass("bp-hidden");
         progressText.textContent = "Fetching available translations...";
-        progressBarInner.style.setProperty("--bp-progress-width", "0%");
+        setCssProps(progressBarInner, { "--bp-progress-width": "0%" });
         await this.plugin.downloadBibleTranslation((step, message, percent) => {
           progressText.textContent = message;
           if (percent >= 0) {
-            progressBarInner.style.setProperty("--bp-progress-width", `${percent}%`);
+            setCssProps(progressBarInner, { "--bp-progress-width": `${percent}%` });
           }
           if (step === "complete") {
             setTimeout(() => void this.render(), 500);
@@ -6076,7 +6081,7 @@ ${disputedInfo.manuscriptInfo}`);
                     if (file instanceof import_obsidian.TFile) {
                       const content = await this.plugin.app.vault.read(file);
                       let preview = "";
-                      const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+                      const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|$)/);
                       if (studyNotesMatch && studyNotesMatch[1]) {
                         preview = studyNotesMatch[1].trim();
                       } else {
@@ -6354,9 +6359,12 @@ ${disputedInfo.manuscriptInfo}`);
     const rect = target.getBoundingClientRect();
     const tooltipLeft = rect.left + rect.width / 2;
     const tooltipTop = rect.bottom + 10;
-    tooltip.style.setProperty("--bp-tooltip-left", `${tooltipLeft}px`);
-    tooltip.style.setProperty("--bp-tooltip-top", `${tooltipTop}px`);
-    tooltip.style.setProperty("--bp-tooltip-transform", "translateX(-50%)");
+    setCssProps(tooltip, {
+      "--bp-tooltip-left": `${tooltipLeft}px`,
+      "--bp-tooltip-top": `${tooltipTop}px`,
+      "--bp-tooltip-transform": "translateX(-50%)"
+      // Center horizontally
+    });
     document.body.appendChild(tooltip);
     tooltip.dataset.strongsTooltip = "active";
   }
@@ -8641,7 +8649,7 @@ ${disputedInfo.manuscriptInfo}`);
       if (file instanceof import_obsidian.TFile) {
         const content = await this.plugin.app.vault.read(file);
         let preview = "";
-        const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+        const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|$)/);
         if (studyNotesMatch && studyNotesMatch[1]) {
           preview = studyNotesMatch[1].trim();
         } else {
@@ -10173,7 +10181,8 @@ Remove these orphaned references?`,
       });
       const previewContent = previewPanel.createDiv({ cls: "notes-preview-content" });
       try {
-        await import_obsidian.MarkdownRenderer.renderMarkdown(
+        await import_obsidian.MarkdownRenderer.render(
+          this.app,
           fileContent,
           previewContent,
           note.notePath,
@@ -12151,7 +12160,7 @@ Remove these orphaned references?`,
             );
             if (!exists) {
               this.plugin.verseTags.push({
-                id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
                 book: importTag.book,
                 chapter: importTag.chapter,
                 verse: importTag.verse,
@@ -14220,7 +14229,7 @@ ${collection.description}`);
       if (verseRange !== "intro") {
         const keyMatch = verseRange.match(/^(\d+)/);
         const startVerse = keyMatch ? keyMatch[1] : verseRange;
-        const endMatch = commentary.match(/^[,\-](\d+)\s/);
+        const endMatch = commentary.match(/^[,-](\d+)\s/);
         if (endMatch) {
           displayRange = `${startVerse}-${endMatch[1]}`;
         } else {
@@ -14233,7 +14242,7 @@ ${collection.description}`);
       } else {
         rangeHeader.createSpan({ text: "Introduction", cls: "verse-range" });
       }
-      const cleanedText = commentary.replace(/^[,\-]\d+\s+/, "");
+      const cleanedText = commentary.replace(/^[,-]\d+\s+/, "");
       const textDiv = section.createDiv({ cls: "commentary-text" });
       const paragraphs = cleanedText.split(/(?<=[.!?])\s+(?=[A-Z])/);
       for (const para of paragraphs) {
@@ -14685,7 +14694,7 @@ ${collection.description}`);
       const previewContent = previewPanel.createDiv({ cls: "preview-content" });
       const content = await this.plugin.app.vault.read(file);
       let previewText = "";
-      const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+      const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|$)/);
       if (studyNotesMatch && studyNotesMatch[1]) {
         previewText = studyNotesMatch[1].trim();
       } else {
@@ -15142,7 +15151,7 @@ var BibleReferenceSuggest = class extends import_obsidian.EditorSuggest {
     const backtickCount = (textBeforeCursor.match(/`/g) || []).length;
     if (backtickCount % 2 === 1)
       return null;
-    const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9:+\-\s]*)$/);
+    const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9:+\s-]*)$/);
     if (!atMatch)
       return null;
     const query = atMatch[1];
@@ -16424,7 +16433,7 @@ var BiblePortalSettingTab = class extends import_obsidian.PluginSettingTab {
       content: (content) => {
         const about = content.createDiv({ cls: "bp-settings-about" });
         about.createDiv({ text: "\u{1F4D6}", cls: "about-logo" });
-        new import_obsidian.Setting(about).setName("Bible portal").setHeading();
+        new import_obsidian.Setting(about).setName("About").setHeading();
         about.createEl("p", { text: "Version 1.5.0", cls: "about-version" });
         about.createEl("p", {
           text: "A comprehensive Bible study plugin for Obsidian with multi-version support, cross-references, Strong's Concordance, and contextual metadata.",
@@ -16528,19 +16537,19 @@ var DownloadProgressModal = class extends import_obsidian.Modal {
     contentEl.createEl("h2", { text: this.titleText });
     this.progressBar = contentEl.createDiv({ cls: "download-progress-bar" });
     this.progressFill = this.progressBar.createDiv({ cls: "download-progress-fill" });
-    this.progressFill.style.setProperty("--bp-download-progress", "0%");
+    setCssProps(this.progressFill, { "--bp-download-progress": "0%" });
     this.statusEl = contentEl.createEl("p", { text: "Starting download...", cls: "download-status" });
     this.closeBtn = contentEl.createEl("button", { text: "Close", cls: "download-close-btn bp-hidden" });
     this.closeBtn.addEventListener("click", () => this.close());
   }
   setProgress(percent) {
-    this.progressFill.style.setProperty("--bp-download-progress", `${percent}%`);
+    setCssProps(this.progressFill, { "--bp-download-progress": `${percent}%` });
   }
   setStatus(message) {
     this.statusEl.textContent = message;
   }
   setComplete(message) {
-    this.progressFill.style.setProperty("--bp-download-progress", "100%");
+    setCssProps(this.progressFill, { "--bp-download-progress": "100%" });
     this.progressFill.addClass("complete");
     this.statusEl.textContent = message;
     this.closeBtn.removeClass("bp-hidden");

@@ -1417,6 +1417,13 @@ function showToast(message: string, type: 'success' | 'error' | 'warning' = 'suc
 	}, duration);
 }
 
+// Helper to set CSS custom properties (per Obsidian linting guidelines)
+function setCssProps(el: HTMLElement, props: Record<string, string>): void {
+	for (const [key, value] of Object.entries(props)) {
+		el.style.setProperty(key, value);
+	}
+}
+
 // Verse of the Day mapping structure
 interface VOTDMapping {
 	[dayOfYear: number]: {
@@ -4936,7 +4943,7 @@ export default class BiblePortalPlugin extends Plugin {
 			const yamlContent = yamlMatch[1];
 
 			// Extract tags from YAML - match all lines that start with "  - " under tags:
-			const tagsMatch = yamlContent.match(/tags:\s*\n((?:  - .+(?:\n|$))*)/);
+			const tagsMatch = yamlContent.match(/tags:\s*\n((?: {2}- .+(?:\n|$))*)/);
 			if (!tagsMatch) return [];
 
 			const tagsSection = tagsMatch[1].trim();
@@ -4983,7 +4990,7 @@ export default class BiblePortalPlugin extends Plugin {
 			}
 
 			// Find the tags section in YAML
-			const yamlMatch = content.match(/^(---\s*\n[\s\S]*?tags:\s*\n(?:  - .+\n)*)(---)/);
+			const yamlMatch = content.match(/^(---\s*\n[\s\S]*?tags:\s*\n(?: {2}- .+\n)*)(---)/);
 			if (yamlMatch) {
 				// Insert new tag before the closing ---
 				const beforeTags = yamlMatch[1];
@@ -5011,7 +5018,7 @@ export default class BiblePortalPlugin extends Plugin {
 			let content = await this.app.vault.read(file);
 
 			// Find and remove the tag line
-			const tagLineRegex = new RegExp(`  - ${tagToRemove.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\n`, 'g');
+			const tagLineRegex = new RegExp(` {2}- ${tagToRemove.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\n`, 'g');
 			content = content.replace(tagLineRegex, '');
 
 			await this.app.vault.modify(file, content);
@@ -6695,12 +6702,12 @@ class BibleView extends ItemView {
 				downloadBtn.addClass('bp-hidden');
 				progressContainer.removeClass('bp-hidden');
 				progressText.textContent = 'Fetching available translations...';
-				progressBarInner.style.setProperty('--bp-progress-width', '0%');
+				setCssProps(progressBarInner, { '--bp-progress-width': '0%' });
 
 				await this.plugin.downloadBibleTranslation((step, message, percent) => {
 					progressText.textContent = message;
 					if (percent >= 0) {
-						progressBarInner.style.setProperty('--bp-progress-width', `${percent}%`);
+						setCssProps(progressBarInner, { '--bp-progress-width': `${percent}%` });
 					}
 
 					if (step === 'complete') {
@@ -7963,7 +7970,7 @@ class BibleView extends ItemView {
 
 											// Extract just the Study Notes section
 											let preview = '';
-											const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+											const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|$)/);
 											if (studyNotesMatch && studyNotesMatch[1]) {
 												preview = studyNotesMatch[1].trim();
 											} else {
@@ -8340,9 +8347,11 @@ class BibleView extends ItemView {
 		const tooltipLeft = rect.left + (rect.width / 2);
 		const tooltipTop = rect.bottom + 10;
 
-		tooltip.style.setProperty('--bp-tooltip-left', `${tooltipLeft}px`);
-		tooltip.style.setProperty('--bp-tooltip-top', `${tooltipTop}px`);
-		tooltip.style.setProperty('--bp-tooltip-transform', 'translateX(-50%)'); // Center horizontally
+		setCssProps(tooltip, {
+			'--bp-tooltip-left': `${tooltipLeft}px`,
+			'--bp-tooltip-top': `${tooltipTop}px`,
+			'--bp-tooltip-transform': 'translateX(-50%)'  // Center horizontally
+		});
 
 		document.body.appendChild(tooltip);
 		tooltip.dataset.strongsTooltip = 'active';
@@ -11090,7 +11099,7 @@ class BibleView extends ItemView {
 
 				// Extract just the Study Notes section content
 				let preview = '';
-				const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+				const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|$)/);
 				if (studyNotesMatch && studyNotesMatch[1]) {
 					preview = studyNotesMatch[1].trim();
 				} else {
@@ -11867,7 +11876,9 @@ class BibleView extends ItemView {
 							count++;
 						}
 					}
-				} catch {}
+				} catch {
+					// File may not exist or be inaccessible
+				}
 			}
 			recentActivity.push({ date: dateStr, count });
 		}
@@ -11889,7 +11900,9 @@ class BibleView extends ItemView {
 							break;
 						}
 					}
-				} catch {}
+				} catch {
+					// File may not exist or be inaccessible
+				}
 			}
 
 			if (hasActivity) {
@@ -12888,7 +12901,8 @@ class BibleView extends ItemView {
 
 			// Render markdown content
 			try {
-				await MarkdownRenderer.renderMarkdown(
+				await MarkdownRenderer.render(
+					this.app,
 					fileContent,
 					previewContent,
 					note.notePath,
@@ -15277,7 +15291,7 @@ class BibleView extends ItemView {
 						);
 						if (!exists) {
 							this.plugin.verseTags.push({
-								id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+								id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 								book: importTag.book,
 								chapter: importTag.chapter,
 								verse: importTag.verse,
@@ -17856,7 +17870,7 @@ class BibleView extends ItemView {
 				const startVerse = keyMatch ? keyMatch[1] : verseRange;
 
 				// Extract end verse from commentary text (patterns like "-5", ",2", "-20")
-				const endMatch = commentary.match(/^[,\-](\d+)\s/);
+				const endMatch = commentary.match(/^[,-](\d+)\s/);
 				if (endMatch) {
 					displayRange = `${startVerse}-${endMatch[1]}`;
 				} else {
@@ -17873,7 +17887,7 @@ class BibleView extends ItemView {
 			}
 
 			// Commentary text - strip the leading verse marker
-			const cleanedText = commentary.replace(/^[,\-]\d+\s+/, '');
+			const cleanedText = commentary.replace(/^[,-]\d+\s+/, '');
 
 			// Commentary text
 			const textDiv = section.createDiv({ cls: 'commentary-text' });
@@ -18454,7 +18468,7 @@ class BibleView extends ItemView {
 
 			// Extract just the Study Notes section
 			let previewText = '';
-			const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|\Z|$)/);
+			const studyNotesMatch = content.match(/## Study Notes\s*([\s\S]*?)(?=\n## |\n---|$)/);
 			if (studyNotesMatch && studyNotesMatch[1]) {
 				previewText = studyNotesMatch[1].trim();
 			} else {
@@ -18956,7 +18970,7 @@ class BibleReferenceSuggest extends EditorSuggest<BibleReferenceSuggestion> {
 		if (backtickCount % 2 === 1) return null;
 
 		// Look for @ trigger - match @<text> where text can contain letters, numbers, :, -, +, and spaces
-		const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9:+\-\s]*)$/);
+		const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9:+\s-]*)$/);
 		if (!atMatch) return null;
 
 		const query = atMatch[1];
@@ -20758,7 +20772,7 @@ class BiblePortalSettingTab extends PluginSettingTab {
 				const about = content.createDiv({ cls: 'bp-settings-about' });
 
 				about.createDiv({ text: '📖', cls: 'about-logo' });
-				new Setting(about).setName("Bible portal").setHeading();
+				new Setting(about).setName("About").setHeading();
 				about.createEl('p', { text: 'Version 1.5.0', cls: 'about-version' });
 				about.createEl('p', {
 					text: 'A comprehensive Bible study plugin for Obsidian with multi-version support, cross-references, Strong\'s Concordance, and contextual metadata.',
@@ -20907,7 +20921,7 @@ class DownloadProgressModal extends Modal {
 		// Progress bar container
 		this.progressBar = contentEl.createDiv({ cls: 'download-progress-bar' });
 		this.progressFill = this.progressBar.createDiv({ cls: 'download-progress-fill' });
-		this.progressFill.style.setProperty('--bp-download-progress', '0%');
+		setCssProps(this.progressFill, { '--bp-download-progress': '0%' });
 
 		// Status text
 		this.statusEl = contentEl.createEl('p', { text: 'Starting download...', cls: 'download-status' });
@@ -20918,7 +20932,7 @@ class DownloadProgressModal extends Modal {
 	}
 
 	setProgress(percent: number) {
-		this.progressFill.style.setProperty('--bp-download-progress', `${percent}%`);
+		setCssProps(this.progressFill, { '--bp-download-progress': `${percent}%` });
 	}
 
 	setStatus(message: string) {
@@ -20926,7 +20940,7 @@ class DownloadProgressModal extends Modal {
 	}
 
 	setComplete(message: string) {
-		this.progressFill.style.setProperty('--bp-download-progress', '100%');
+		setCssProps(this.progressFill, { '--bp-download-progress': '100%' });
 		this.progressFill.addClass('complete');
 		this.statusEl.textContent = message;
 		this.closeBtn.removeClass('bp-hidden');
