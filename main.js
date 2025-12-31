@@ -4274,7 +4274,7 @@ var BibleView = class extends import_obsidian.ItemView {
                 highlight.layer = layer.id;
               }
               await this.plugin.saveHighlightsAndNotes();
-              this.render();
+              await this.render();
               showToast(`Moved ${chapterHighlights.length} highlight${chapterHighlights.length !== 1 ? "s" : ""} to ${layer.name} layer`);
             });
           });
@@ -4317,7 +4317,7 @@ var BibleView = class extends import_obsidian.ItemView {
     bookSelect.addEventListener("change", (e) => {
       this.currentBook = e.target.value;
       this.currentChapter = 1;
-      this.render();
+      void this.render();
     });
     const chapterSelect = primaryNav.createEl("select", { cls: "bible-chapter-select" });
     const chapters = this.plugin.getChaptersArray(this.currentVersion, this.currentBook);
@@ -4332,7 +4332,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     chapterSelect.addEventListener("change", (e) => {
       this.currentChapter = parseInt(e.target.value);
-      this.render();
+      void this.render();
     });
     const prevBtn = primaryNav.createEl("button", { cls: "bible-nav-btn" });
     (0, import_obsidian.setIcon)(prevBtn, "arrow-left");
@@ -4340,7 +4340,7 @@ var BibleView = class extends import_obsidian.ItemView {
     prevBtn.addEventListener("click", () => {
       if (this.currentChapter > 1) {
         this.currentChapter--;
-        this.render();
+        void this.render();
       } else {
         const books2 = this.plugin.getBooksArray(this.currentVersion);
         const currentBookIndex = books2.indexOf(this.currentBook);
@@ -4355,7 +4355,7 @@ var BibleView = class extends import_obsidian.ItemView {
         const lastChapter = Math.max(...prevBookChapters);
         this.currentBook = prevBook;
         this.currentChapter = lastChapter;
-        this.render();
+        void this.render();
       }
     });
     const nextBtn = primaryNav.createEl("button", { cls: "bible-nav-btn" });
@@ -4366,7 +4366,7 @@ var BibleView = class extends import_obsidian.ItemView {
       const maxChapter = Math.max(...chapters2);
       if (this.currentChapter < maxChapter) {
         this.currentChapter++;
-        this.render();
+        void this.render();
       } else {
         const books2 = this.plugin.getBooksArray(this.currentVersion);
         const currentBookIndex = books2.indexOf(this.currentBook);
@@ -4378,7 +4378,7 @@ var BibleView = class extends import_obsidian.ItemView {
         }
         this.currentBook = books2[nextBookIndex];
         this.currentChapter = 1;
-        this.render();
+        void this.render();
       }
     });
     primaryNav.createDiv({ cls: "nav-spacer" });
@@ -4390,7 +4390,7 @@ var BibleView = class extends import_obsidian.ItemView {
     toggleSecondaryBtn.addEventListener("click", async () => {
       this.plugin.settings.showSecondaryNav = !this.plugin.settings.showSecondaryNav;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const secondaryNav = container.createDiv({
       cls: `bible-portal-nav bible-portal-nav-secondary ${this.plugin.settings.showSecondaryNav ? "" : "collapsed"}`
@@ -4403,7 +4403,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     versionSelect.addEventListener("change", (e) => {
       this.currentVersion = e.target.value;
-      this.render();
+      void this.render();
     });
     const parallelCheckbox = secondaryNav.createDiv({ cls: "nav-checkbox parallel-checkbox-container" });
     if (!this.sidebarVisible) {
@@ -4419,7 +4419,7 @@ var BibleView = class extends import_obsidian.ItemView {
       } else {
         this.secondVersion = null;
       }
-      this.render();
+      void this.render();
     });
     if (this.secondVersion) {
       secondaryNav.createEl("span", { text: "\u2192", cls: "parallel-separator" });
@@ -4431,7 +4431,7 @@ var BibleView = class extends import_obsidian.ItemView {
       });
       secondVersionSelect.addEventListener("change", (e) => {
         this.secondVersion = e.target.value;
-        this.render();
+        void this.render();
       });
       const syncCheckbox = secondaryNav.createDiv({ cls: "nav-checkbox sync-scroll-checkbox" });
       const syncInput = syncCheckbox.createEl("input", { type: "checkbox", attr: { id: "sync-scroll-check" } });
@@ -4478,7 +4478,7 @@ var BibleView = class extends import_obsidian.ItemView {
           this.plugin.settings.visibleAnnotationLayers.push(layer.id);
         }
         await this.plugin.saveSettings();
-        this.render();
+        await this.render();
       });
     });
     const checkboxGroup = secondaryNav.createDiv({ cls: "nav-checkbox-group" });
@@ -4489,7 +4489,7 @@ var BibleView = class extends import_obsidian.ItemView {
     strongsInput.addEventListener("change", async () => {
       this.plugin.settings.enableStrongs = strongsInput.checked;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const notesCheckbox = checkboxGroup.createDiv({ cls: "nav-checkbox" });
     const notesInput = notesCheckbox.createEl("input", { type: "checkbox", attr: { id: "notes-check" } });
@@ -4498,7 +4498,7 @@ var BibleView = class extends import_obsidian.ItemView {
     notesInput.addEventListener("change", async () => {
       this.plugin.settings.showNoteIndicators = notesInput.checked;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const tagsCheckbox = checkboxGroup.createDiv({ cls: "nav-checkbox" });
     const tagsInput = tagsCheckbox.createEl("input", { type: "checkbox", attr: { id: "tags-check" } });
@@ -4507,7 +4507,7 @@ var BibleView = class extends import_obsidian.ItemView {
     tagsInput.addEventListener("change", async () => {
       this.plugin.settings.showTagIndicators = tagsInput.checked;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const allTags = this.plugin.getAllTagNames();
     if (allTags.length > 0 && this.plugin.settings.showTagIndicators !== false) {
@@ -4523,7 +4523,7 @@ var BibleView = class extends import_obsidian.ItemView {
       });
       tagsSelect.addEventListener("change", () => {
         this.tagFilter = tagsSelect.value || null;
-        this.render();
+        void this.render();
       });
     }
     searchBtn.addEventListener("click", () => {
@@ -4601,7 +4601,7 @@ var BibleView = class extends import_obsidian.ItemView {
           progressBarInner.style.width = `${percent}%`;
         }
         if (step === "complete") {
-          setTimeout(() => this.render(), 500);
+          setTimeout(() => void this.render(), 500);
         } else if (step === "error") {
           progressContainer.style.display = "none";
           downloadBtn.style.display = "block";
@@ -4681,7 +4681,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     versionSelect.addEventListener("change", (e) => {
       this.currentVersion = e.target.value;
-      this.render();
+      void this.render();
     });
     const parallelCheckbox = navControls.createDiv({ cls: "nav-checkbox" });
     const parallelInput = parallelCheckbox.createEl("input", { type: "checkbox", attr: { id: "parallel-check-verse" } });
@@ -4694,7 +4694,7 @@ var BibleView = class extends import_obsidian.ItemView {
       } else {
         this.secondVersion = null;
       }
-      this.render();
+      void this.render();
     });
     if (this.secondVersion) {
       navControls.createEl("span", { text: "\u2192", cls: "parallel-separator" });
@@ -4706,7 +4706,7 @@ var BibleView = class extends import_obsidian.ItemView {
       });
       secondVersionSelect.addEventListener("change", (e) => {
         this.secondVersion = e.target.value;
-        this.render();
+        void this.render();
       });
     }
     const layerGroup = navControls.createDiv({ cls: "nav-layer-group" });
@@ -4743,7 +4743,7 @@ var BibleView = class extends import_obsidian.ItemView {
           this.plugin.settings.visibleAnnotationLayers.push(layer.id);
         }
         await this.plugin.saveSettings();
-        this.render();
+        await this.render();
       });
     });
     const checkboxGroup = navControls.createDiv({ cls: "nav-checkbox-group" });
@@ -4754,7 +4754,7 @@ var BibleView = class extends import_obsidian.ItemView {
     strongsInput.addEventListener("change", async () => {
       this.plugin.settings.enableStrongs = strongsInput.checked;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const notesCheckbox = checkboxGroup.createDiv({ cls: "nav-checkbox" });
     const notesInput = notesCheckbox.createEl("input", { type: "checkbox", attr: { id: "notes-check-verse" } });
@@ -4763,7 +4763,7 @@ var BibleView = class extends import_obsidian.ItemView {
     notesInput.addEventListener("change", async () => {
       this.plugin.settings.showNoteIndicators = notesInput.checked;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     if (this.lookupInput) {
       const parsed = this.parseVerseReference(this.lookupInput);
@@ -4898,7 +4898,7 @@ var BibleView = class extends import_obsidian.ItemView {
     });
     versionSelect.addEventListener("change", (e) => {
       this.currentVersion = e.target.value;
-      this.render();
+      void this.render();
     });
     const parallelCheckbox = navControls.createDiv({ cls: "nav-checkbox" });
     const parallelInput = parallelCheckbox.createEl("input", { type: "checkbox", attr: { id: "parallel-check-passage" } });
@@ -4911,7 +4911,7 @@ var BibleView = class extends import_obsidian.ItemView {
       } else {
         this.secondVersion = null;
       }
-      this.render();
+      void this.render();
     });
     if (this.secondVersion) {
       navControls.createEl("span", { text: "\u2192", cls: "parallel-separator" });
@@ -4923,7 +4923,7 @@ var BibleView = class extends import_obsidian.ItemView {
       });
       secondVersionSelect.addEventListener("change", (e) => {
         this.secondVersion = e.target.value;
-        this.render();
+        void this.render();
       });
     }
     const layerGroup = navControls.createDiv({ cls: "nav-layer-group" });
@@ -4960,7 +4960,7 @@ var BibleView = class extends import_obsidian.ItemView {
           this.plugin.settings.visibleAnnotationLayers.push(layer.id);
         }
         await this.plugin.saveSettings();
-        this.render();
+        await this.render();
       });
     });
     const checkboxGroup = navControls.createDiv({ cls: "nav-checkbox-group" });
@@ -4971,7 +4971,7 @@ var BibleView = class extends import_obsidian.ItemView {
     strongsInput.addEventListener("change", async () => {
       this.plugin.settings.enableStrongs = strongsInput.checked;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const notesCheckbox = checkboxGroup.createDiv({ cls: "nav-checkbox" });
     const notesInput = notesCheckbox.createEl("input", { type: "checkbox", attr: { id: "notes-check-passage" } });
@@ -4980,7 +4980,7 @@ var BibleView = class extends import_obsidian.ItemView {
     notesInput.addEventListener("change", async () => {
       this.plugin.settings.showNoteIndicators = notesInput.checked;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     if (this.lookupInput) {
       const parsed = this.parsePassageReference(this.lookupInput);
@@ -5118,7 +5118,7 @@ var BibleView = class extends import_obsidian.ItemView {
                 this.currentBook = book;
                 this.currentChapter = v.chapter;
                 this.viewMode = "chapter" /* CHAPTER */;
-                this.render();
+                void this.render();
                 setTimeout(() => {
                   const verseEl = this.containerEl.querySelector(`[data-verse="${v.verse}"]`);
                   if (verseEl)
@@ -5173,7 +5173,7 @@ var BibleView = class extends import_obsidian.ItemView {
     }
   }
   performStrongsLookup() {
-    this.render();
+    void this.render();
   }
   async renderChapterViewer(container, version) {
     const chapter = this.plugin.getChapter(version, this.currentBook, this.currentChapter);
@@ -5233,7 +5233,7 @@ var BibleView = class extends import_obsidian.ItemView {
             await this.plugin.app.vault.delete(file);
           }
           this.plugin.removeNoteReference(this.currentBook, 0, 0);
-          this.render();
+          await this.render();
           showToast("Book note deleted");
         });
       } else {
@@ -5297,7 +5297,7 @@ var BibleView = class extends import_obsidian.ItemView {
             await this.plugin.app.vault.delete(file);
           }
           this.plugin.removeNoteReference(this.currentBook, this.currentChapter, 0);
-          this.render();
+          await this.render();
           showToast("Chapter note deleted");
         });
       } else {
@@ -5345,7 +5345,7 @@ var BibleView = class extends import_obsidian.ItemView {
           const selectedColor = e.target.value;
           if (selectedColor === "all") {
             showToast("Showing all highlights");
-            this.render();
+            void this.render();
           } else {
             const colorName = ((_a = this.plugin.settings.highlightColors.find((c) => c.color === selectedColor)) == null ? void 0 : _a.name) || "Color";
             showToast(`Filtering by ${colorName}`);
@@ -5619,7 +5619,7 @@ ${disputedInfo.manuscriptInfo}`);
               tagPill.addEventListener("click", (e) => {
                 e.stopPropagation();
                 this.viewMode = "tags-browser" /* TAGS_BROWSER */;
-                this.render();
+                void this.render();
                 showToast(`Viewing "${tag.tag}" tag`);
               });
               tagPill.addEventListener("contextmenu", (e) => {
@@ -5903,7 +5903,7 @@ ${disputedInfo.manuscriptInfo}`);
         }
         this.plugin.settings.contextSidebarTab = "word-study";
         await this.plugin.saveSettings();
-        this.render();
+        await this.render();
       });
       lastIndex = strongsPattern.lastIndex;
     }
@@ -5949,10 +5949,10 @@ ${disputedInfo.manuscriptInfo}`);
     return null;
   }
   performVerseLookup() {
-    this.render();
+    void this.render();
   }
   performPassageLookup() {
-    this.render();
+    void this.render();
   }
   /**
    * Show a popup with session details (books and chapters visited)
@@ -6015,7 +6015,7 @@ ${disputedInfo.manuscriptInfo}`);
           this.currentBook = book;
           this.currentChapter = chapters[0] || 1;
           this.viewMode = "chapter" /* CHAPTER */;
-          this.render();
+          void this.render();
           overlay.remove();
         });
         const chapterList = bookItem.createSpan({
@@ -6586,7 +6586,7 @@ ${disputedInfo.manuscriptInfo}`);
       this.currentBook = book.trim();
       this.currentChapter = parseInt(chapter);
       this.viewMode = "chapter" /* CHAPTER */;
-      this.render();
+      void this.render();
       setTimeout(() => {
         var _a;
         const verseElements = this.containerEl.querySelectorAll(".bible-verse-number");
@@ -6611,7 +6611,7 @@ ${disputedInfo.manuscriptInfo}`);
       this.currentBook = book.trim();
       this.currentChapter = parseInt(chapter);
       this.viewMode = "chapter" /* CHAPTER */;
-      this.render();
+      void this.render();
       return;
     }
     const bookMatch = reference.match(/^([A-Za-z]+(?:\s+[A-Za-z]+)?)$/);
@@ -6624,7 +6624,7 @@ ${disputedInfo.manuscriptInfo}`);
             this.currentBook = book;
             this.currentChapter = 1;
             this.viewMode = "chapter" /* CHAPTER */;
-            this.render();
+            void this.render();
             return;
           }
         }
@@ -6775,7 +6775,7 @@ ${disputedInfo.manuscriptInfo}`);
           resultItem.addEventListener("click", () => {
             this.currentBook = result.book;
             this.currentChapter = result.chapter;
-            this.render();
+            void this.render();
             overlay.remove();
             showToast(`Jumped to ${result.book} ${result.chapter}:${result.verse}`);
             setTimeout(() => {
@@ -6925,7 +6925,7 @@ ${disputedInfo.manuscriptInfo}`);
         goToVerseBtn.addEventListener("click", () => {
           this.currentBook = result.book;
           this.currentChapter = result.chapter;
-          this.render();
+          void this.render();
           overlay.remove();
           showToast(`Jumped to ${result.reference}`);
         });
@@ -7029,7 +7029,7 @@ ${disputedInfo.manuscriptInfo}`);
         bookmarkItem.addEventListener("click", () => {
           this.currentBook = bookmark.book;
           this.currentChapter = bookmark.chapter || 1;
-          this.render();
+          void this.render();
           overlay.remove();
           showToast(`Jumped to ${bookmark.book} ${bookmark.chapter}:${bookmark.verse}`);
           setTimeout(() => {
@@ -7197,7 +7197,7 @@ ${disputedInfo.manuscriptInfo}`);
       goToBtn.addEventListener("click", () => {
         this.currentBook = noteRef.book;
         this.currentChapter = noteRef.chapter;
-        this.render();
+        void this.render();
         overlay.remove();
         showToast(`Jumped to ${reference}`);
       });
@@ -7265,7 +7265,7 @@ ${disputedInfo.manuscriptInfo}`);
     }
     this.currentBook = matchedBook;
     this.currentChapter = parseInt(chapter);
-    this.render();
+    void this.render();
     if (verse) {
       setTimeout(() => {
         const verseEl = this.containerEl.querySelector(`.bible-verse-number:contains("${verse}")`);
@@ -7307,7 +7307,7 @@ ${disputedInfo.manuscriptInfo}`);
     const leaf = this.plugin.app.workspace.getLeaf("split", "vertical");
     await leaf.openFile(this.plugin.app.vault.getAbstractFileByPath(notePath));
     this.plugin.trackNoteCreated();
-    this.render();
+    await this.render();
     showToast(`Note created for ${book} ${chapter}:${verse}`);
   }
   async createNoteForVerseWithType(book, chapter, verse, noteType) {
@@ -8513,7 +8513,7 @@ ${orphanList}`,
         this.plugin.noteReferences = validNotes;
         await this.plugin.saveHighlightsAndNotes();
         showToast(`Removed ${orphanedNotes.length} orphaned reference${orphanedNotes.length > 1 ? "s" : ""}`);
-        this.render();
+        await this.render();
       }
     });
     const exportBtn = actionsDiv.createEl("button", {
@@ -8625,7 +8625,7 @@ ${orphanList}`,
             imported++;
           }
           await this.plugin.saveHighlightsAndNotes();
-          this.render();
+          await this.render();
           let msg = `Imported ${imported} notes`;
           if (filesCreated > 0)
             msg += ` (${filesCreated} files created)`;
@@ -9215,7 +9215,7 @@ ${orphanList}`,
           this.plugin.noteReferences = this.plugin.noteReferences.filter((n) => n.notePath !== note.notePath);
           await this.plugin.saveHighlightsAndNotes();
           showToast("Note deleted");
-          this.render();
+          await this.render();
         }
       });
       const previewContent = previewPanel.createDiv({ cls: "notes-preview-content" });
@@ -9697,7 +9697,7 @@ ${orphanList}`,
           return !visibleLayers2.includes(highlightLayer);
         });
         await this.plugin.saveHighlightsAndNotes();
-        this.render();
+        await this.render();
         showToast(`Cleared ${visibleHighlights2.length} highlights from visible layers`);
       }
     });
@@ -9816,7 +9816,7 @@ ${orphanList}`,
         this.currentBook = highlight.book;
         this.currentChapter = highlight.chapter;
         this.viewMode = "chapter" /* CHAPTER */;
-        this.render();
+        void this.render();
         showToast(`Navigated to ${referenceText}`);
       });
       const deleteBtn = actionsDiv2.createEl("button", { text: "\u{1F5D1}\uFE0F Delete", cls: "preview-action-btn danger" });
@@ -10345,7 +10345,7 @@ ${orphanList}`,
         this.currentBook = analytics.mostRecent.book;
         this.currentChapter = analytics.mostRecent.chapter || 1;
         this.viewMode = "chapter" /* CHAPTER */;
-        this.render();
+        void this.render();
         showToast(`Continuing from ${refText}`);
       });
     }
@@ -10406,7 +10406,7 @@ ${orphanList}`,
       if (confirmed) {
         this.plugin.bookmarks = [];
         await this.plugin.saveHighlightsAndNotes();
-        this.render();
+        await this.render();
         showToast("All bookmarks cleared");
       }
     });
@@ -10461,7 +10461,7 @@ ${orphanList}`,
         this.currentBook = bookmark.book;
         this.currentChapter = bookmark.chapter || 1;
         this.viewMode = "chapter" /* CHAPTER */;
-        this.render();
+        void this.render();
         showToast(`Navigated to ${referenceText}`);
       });
       const renameBtn = actionsDiv2.createEl("button", { text: "\u270F\uFE0F Rename", cls: "preview-action-btn" });
@@ -10962,7 +10962,7 @@ ${orphanList}`,
             this.currentBook = ref.book;
             this.currentChapter = ref.chapter;
             this.viewMode = "chapter" /* CHAPTER */;
-            this.render();
+            void this.render();
             showToast(`${ref.book} ${ref.chapter}:${ref.verse}`);
           });
         });
@@ -11266,7 +11266,7 @@ ${orphanList}`,
             this.currentBook = vt.book;
             this.currentChapter = vt.chapter;
             this.viewMode = "chapter" /* CHAPTER */;
-            this.render();
+            void this.render();
             showToast(`Navigated to ${referenceText}`);
           });
           verseItem.addEventListener("contextmenu", (e) => {
@@ -11663,7 +11663,7 @@ ${orphanList}`,
         this.plugin.renameTag(oldName, newName);
         showToast(`Renamed "${oldName}" to "${newName}"`);
         modal.close();
-        this.render();
+        void this.render();
       }
     });
     modal.open();
@@ -11696,7 +11696,7 @@ ${orphanList}`,
       this.plugin.deleteTagFromAll(tagName);
       showToast(`Deleted tag "${tagName}" from ${verseCount} verses`);
       modal.close();
-      this.render();
+      void this.render();
     });
     modal.open();
   }
@@ -11776,7 +11776,7 @@ ${orphanList}`,
             });
           }
           await this.plugin.saveHighlightsAndNotes();
-          this.render();
+          await this.render();
           if (mode === "replace") {
             showToast(`\u2713 Replaced all bookmarks with ${imported} imported bookmarks`);
           } else {
@@ -12002,7 +12002,7 @@ ${orphanList}`,
             });
           }
           await this.plugin.saveHighlightsAndNotes();
-          this.render();
+          await this.render();
           if (mode === "replace") {
             showToast(`\u2713 Replaced all highlights with ${imported} imported highlights`);
           } else {
@@ -12172,7 +12172,7 @@ ${orphanList}`,
       checkbox.checked = isActive;
       checkbox.addEventListener("change", async () => {
         await this.plugin.toggleReadingPlan(p.id);
-        this.render();
+        await this.render();
         showToast(checkbox.checked ? `Started ${p.name}!` : `Paused ${p.name}`);
       });
       const toggleSlider = toggleLabel.createSpan({ cls: "plan-toggle-slider" });
@@ -12210,7 +12210,7 @@ ${orphanList}`,
         modeCard.addEventListener("click", async () => {
           this.plugin.settings.readingPlanMode = mode.id;
           await this.plugin.saveSettings();
-          this.render();
+          await this.render();
           showToast(`Switched to ${mode.label} mode`);
         });
       });
@@ -12243,7 +12243,7 @@ ${orphanList}`,
               this.currentBook = parsed.book;
               this.currentChapter = parsed.chapter;
               this.viewMode = "chapter" /* CHAPTER */;
-              this.render();
+              void this.render();
               showToast(`Navigated to ${passage}`);
             }
           });
@@ -12257,7 +12257,7 @@ ${orphanList}`,
           markCompleteBtn.createSpan({ text: "Mark as Complete" });
           markCompleteBtn.addEventListener("click", async () => {
             await this.plugin.markReadingComplete(reading.day, reading.plan.id);
-            this.render();
+            await this.render();
             showToast(`${reading.plan.name} Day ${reading.day} complete! \u{1F389}`);
           });
         }
@@ -12423,7 +12423,7 @@ ${orphanList}`,
               this.plugin.settings.journalEntries.splice(index, 1);
               await this.plugin.saveSettings();
               showToast("Entry deleted");
-              this.render();
+              await this.render();
             }
           }
         });
@@ -12506,7 +12506,7 @@ ${orphanList}`,
       this.plugin.settings.collections.push(collection);
       await this.plugin.saveSettings();
       this.selectedCollectionId = newId;
-      this.render();
+      await this.render();
       showToast("Created new collection - click the name to rename it");
     });
     const templates = listPanel.createDiv({ cls: "collections-templates" });
@@ -12535,7 +12535,7 @@ ${orphanList}`,
         }
         this.plugin.settings.collections.push(collection);
         await this.plugin.saveSettings();
-        this.render();
+        await this.render();
         showToast(`Created "${t.name}" collection`);
       });
     });
@@ -12593,7 +12593,7 @@ ${orphanList}`,
     this.registerDomEvent(nameInput, "change", async () => {
       collection.name = nameInput.value || "Untitled collection";
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     if (collection.name === "New collection") {
       setTimeout(() => {
@@ -12617,7 +12617,7 @@ ${orphanList}`,
           this.plugin.settings.collections.splice(idx, 1);
           await this.plugin.saveSettings();
           showToast("Collection deleted");
-          this.render();
+          await this.render();
         }
       }
     });
@@ -12656,7 +12656,7 @@ ${orphanList}`,
         collection.verses.push({ reference: ref, completed: false });
         await this.plugin.saveSettings();
         showToast(`Added ${ref} to collection`);
-        this.render();
+        await this.render();
       }
     };
     this.registerDomEvent(addBtn, "click", addVerse);
@@ -12794,7 +12794,7 @@ ${orphanList}`,
             if (confirmed) {
               this.plugin.settings.memorizationVerses = verses.filter((v) => v.reference !== verse.reference);
               await this.plugin.saveSettings();
-              this.render();
+              await this.render();
               showToast("Verse removed from memorization");
             }
           });
@@ -12921,7 +12921,7 @@ ${orphanList}`,
         } else {
           modal.remove();
           showToast(`Session complete! ${cards.length} cards reviewed.`);
-          this.render();
+          await this.render();
         }
       });
     });
@@ -13079,7 +13079,7 @@ ${orphanList}`,
       this.plugin.settings.memorizationVerses.push(newVerse);
       await this.plugin.saveSettings();
       modal.remove();
-      this.render();
+      await this.render();
       showToast(`Added "${reference}" to memorization`);
     });
   }
@@ -13095,7 +13095,7 @@ ${orphanList}`,
     this.registerDomEvent(closeBtn, "click", async () => {
       this.plugin.settings.showContextSidebar = false;
       await this.plugin.saveSettings();
-      this.render();
+      await this.render();
     });
     const tabBar = container.createDiv({ cls: "context-sidebar-tabs" });
     const tabs = [
@@ -13237,7 +13237,7 @@ ${orphanList}`,
         downloadBtn.disabled = true;
         downloadBtn.textContent = "Downloading...";
         await this.plugin.downloadStrongsDictionaries();
-        this.render();
+        await this.render();
       });
       return;
     }
@@ -13287,7 +13287,7 @@ ${orphanList}`,
         this.registerDomEvent(lookupBtn, "click", () => {
           this.strongsLookupInput = this.selectedStrongsWord;
           this.viewMode = "strongs" /* STRONGS */;
-          this.render();
+          void this.render();
         });
       }
     } else {
@@ -13338,7 +13338,7 @@ ${orphanList}`,
           this.registerDomEvent(wordCard, "click", () => {
             this.strongsLookupInput = strongsNum;
             this.viewMode = "strongs" /* STRONGS */;
-            this.render();
+            void this.render();
           });
         }
       }
@@ -13360,7 +13360,7 @@ ${orphanList}`,
           this.registerDomEvent(wordCard, "click", () => {
             this.strongsLookupInput = strongsNum;
             this.viewMode = "strongs" /* STRONGS */;
-            this.render();
+            void this.render();
           });
         }
       }
@@ -13381,7 +13381,7 @@ ${orphanList}`,
           this.registerDomEvent(wordCard, "click", () => {
             this.strongsLookupInput = strongsNum;
             this.viewMode = "strongs" /* STRONGS */;
-            this.render();
+            void this.render();
           });
         }
       }
@@ -13404,7 +13404,7 @@ ${orphanList}`,
         downloadBtn.disabled = true;
         downloadBtn.textContent = "Downloading...";
         await this.plugin.downloadTheographicData();
-        this.render();
+        await this.render();
       });
       return;
     }
@@ -13541,7 +13541,7 @@ ${orphanList}`,
         downloadBtn.disabled = true;
         downloadBtn.textContent = "Downloading...";
         await this.plugin.downloadCrossReferences();
-        this.render();
+        await this.render();
       });
       return;
     }
@@ -13584,7 +13584,7 @@ ${orphanList}`,
               this.currentChapter = parseInt(match[2]);
               this.selectedVerseStart = parseInt(match[3]);
               this.viewMode = "chapter" /* CHAPTER */;
-              this.render();
+              void this.render();
             }
           });
         }
@@ -13844,7 +13844,7 @@ ${orphanList}`,
         this.currentBook = book;
         this.currentChapter = 1;
         this.viewMode = "chapter" /* CHAPTER */;
-        this.render();
+        void this.render();
       });
     });
     const exportSection = container.createDiv({ cls: "insights-export-section" });

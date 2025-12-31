@@ -5825,7 +5825,7 @@ class BibleView extends ItemView {
 								highlight.layer = layer.id;
 							}
 							await this.plugin.saveHighlightsAndNotes();
-							this.render();
+							await this.render();
 							showToast(`Moved ${chapterHighlights.length} highlight${chapterHighlights.length !== 1 ? 's' : ''} to ${layer.name} layer`);
 						});
 					});
@@ -5876,7 +5876,7 @@ class BibleView extends ItemView {
 		bookSelect.addEventListener('change', (e) => {
 			this.currentBook = (e.target as HTMLSelectElement).value;
 			this.currentChapter = 1;
-			this.render();
+			void this.render();
 		});
 
 		// Chapter selector
@@ -5893,7 +5893,7 @@ class BibleView extends ItemView {
 		});
 		chapterSelect.addEventListener('change', (e) => {
 			this.currentChapter = parseInt((e.target as HTMLSelectElement).value);
-			this.render();
+			void this.render();
 		});
 
 		// Previous/Next buttons with cross-book navigation
@@ -5904,7 +5904,7 @@ class BibleView extends ItemView {
 			if (this.currentChapter > 1) {
 				// Go to previous chapter in same book
 				this.currentChapter--;
-				this.render();
+				void this.render();
 			} else {
 				// At chapter 1 - go to previous book's last chapter
 				const books = this.plugin.getBooksArray(this.currentVersion);
@@ -5924,7 +5924,7 @@ class BibleView extends ItemView {
 
 				this.currentBook = prevBook;
 				this.currentChapter = lastChapter;
-				this.render();
+				void this.render();
 			}
 		});
 
@@ -5938,7 +5938,7 @@ class BibleView extends ItemView {
 			if (this.currentChapter < maxChapter) {
 				// Go to next chapter in same book
 				this.currentChapter++;
-				this.render();
+				void this.render();
 			} else {
 				// At last chapter - go to next book's first chapter
 				const books = this.plugin.getBooksArray(this.currentVersion);
@@ -5954,7 +5954,7 @@ class BibleView extends ItemView {
 
 				this.currentBook = books[nextBookIndex];
 				this.currentChapter = 1;
-				this.render();
+				void this.render();
 			}
 		});
 
@@ -5970,7 +5970,7 @@ class BibleView extends ItemView {
 		toggleSecondaryBtn.addEventListener('click', async () => {
 			this.plugin.settings.showSecondaryNav = !this.plugin.settings.showSecondaryNav;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		// ===== SECONDARY NAV BAR (collapsible) =====
@@ -5986,7 +5986,7 @@ class BibleView extends ItemView {
 		});
 		versionSelect.addEventListener('change', (e) => {
 			this.currentVersion = (e.target as HTMLSelectElement).value;
-			this.render();
+			void this.render();
 		});
 
 		// Parallel view toggle
@@ -6008,7 +6008,7 @@ class BibleView extends ItemView {
 			} else {
 				this.secondVersion = null;
 			}
-			this.render();
+			void this.render();
 		});
 
 		// Second version selector (only shown when parallel view is enabled)
@@ -6021,7 +6021,7 @@ class BibleView extends ItemView {
 			});
 			secondVersionSelect.addEventListener('change', (e) => {
 				this.secondVersion = (e.target as HTMLSelectElement).value;
-				this.render();
+				void this.render();
 			});
 
 			// Sync scroll toggle
@@ -6077,7 +6077,7 @@ class BibleView extends ItemView {
 					this.plugin.settings.visibleAnnotationLayers.push(layer.id);
 				}
 				await this.plugin.saveSettings();
-				this.render();
+				await this.render();
 			});
 		});
 
@@ -6092,7 +6092,7 @@ class BibleView extends ItemView {
 		strongsInput.addEventListener('change', async () => {
 			this.plugin.settings.enableStrongs = strongsInput.checked;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		// Notes checkbox
@@ -6103,7 +6103,7 @@ class BibleView extends ItemView {
 		notesInput.addEventListener('change', async () => {
 			this.plugin.settings.showNoteIndicators = notesInput.checked;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		// Tags checkbox
@@ -6114,7 +6114,7 @@ class BibleView extends ItemView {
 		tagsInput.addEventListener('change', async () => {
 			this.plugin.settings.showTagIndicators = tagsInput.checked;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		// Tags filter dropdown (only show if tags are enabled)
@@ -6137,7 +6137,7 @@ class BibleView extends ItemView {
 
 			tagsSelect.addEventListener('change', () => {
 				this.tagFilter = tagsSelect.value || null;
-				this.render();
+				void this.render();
 			});
 		}
 
@@ -6243,7 +6243,7 @@ class BibleView extends ItemView {
 
 				if (step === 'complete') {
 					// Re-render to show Bible content
-					setTimeout(() => this.render(), 500);
+					setTimeout(() => void this.render(), 500);
 				} else if (step === 'error') {
 					// Show error and restore button
 					progressContainer.style.display = 'none';
@@ -6344,7 +6344,7 @@ class BibleView extends ItemView {
 		});
 		versionSelect.addEventListener('change', (e) => {
 			this.currentVersion = (e.target as HTMLSelectElement).value;
-			this.render();
+			void this.render();
 		});
 
 		// Parallel view toggle
@@ -6359,7 +6359,7 @@ class BibleView extends ItemView {
 			} else {
 				this.secondVersion = null;
 			}
-			this.render();
+			void this.render();
 		});
 
 		// Second version selector (only shown when parallel view is enabled)
@@ -6372,7 +6372,7 @@ class BibleView extends ItemView {
 			});
 			secondVersionSelect.addEventListener('change', (e) => {
 				this.secondVersion = (e.target as HTMLSelectElement).value;
-				this.render();
+				void this.render();
 			});
 		}
 
@@ -6414,7 +6414,7 @@ class BibleView extends ItemView {
 					this.plugin.settings.visibleAnnotationLayers.push(layer.id);
 				}
 				await this.plugin.saveSettings();
-				this.render();
+				await this.render();
 			});
 		});
 
@@ -6428,7 +6428,7 @@ class BibleView extends ItemView {
 		strongsInput.addEventListener('change', async () => {
 			this.plugin.settings.enableStrongs = strongsInput.checked;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		const notesCheckbox = checkboxGroup.createDiv({ cls: 'nav-checkbox' });
@@ -6438,7 +6438,7 @@ class BibleView extends ItemView {
 		notesInput.addEventListener('change', async () => {
 			this.plugin.settings.showNoteIndicators = notesInput.checked;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		// Verse display
@@ -6603,7 +6603,7 @@ class BibleView extends ItemView {
 		});
 		versionSelect.addEventListener('change', (e) => {
 			this.currentVersion = (e.target as HTMLSelectElement).value;
-			this.render();
+			void this.render();
 		});
 
 		// Parallel view toggle
@@ -6618,7 +6618,7 @@ class BibleView extends ItemView {
 			} else {
 				this.secondVersion = null;
 			}
-			this.render();
+			void this.render();
 		});
 
 		// Second version selector (only shown when parallel view is enabled)
@@ -6631,7 +6631,7 @@ class BibleView extends ItemView {
 			});
 			secondVersionSelect.addEventListener('change', (e) => {
 				this.secondVersion = (e.target as HTMLSelectElement).value;
-				this.render();
+				void this.render();
 			});
 		}
 
@@ -6673,7 +6673,7 @@ class BibleView extends ItemView {
 					this.plugin.settings.visibleAnnotationLayers.push(layer.id);
 				}
 				await this.plugin.saveSettings();
-				this.render();
+				await this.render();
 			});
 		});
 
@@ -6687,7 +6687,7 @@ class BibleView extends ItemView {
 		strongsInput.addEventListener('change', async () => {
 			this.plugin.settings.enableStrongs = strongsInput.checked;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		const notesCheckbox = checkboxGroup.createDiv({ cls: 'nav-checkbox' });
@@ -6697,7 +6697,7 @@ class BibleView extends ItemView {
 		notesInput.addEventListener('change', async () => {
 			this.plugin.settings.showNoteIndicators = notesInput.checked;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		// Passage display
@@ -6887,7 +6887,7 @@ class BibleView extends ItemView {
 								this.currentBook = book;
 								this.currentChapter = v.chapter;
 								this.viewMode = ViewMode.CHAPTER;
-								this.render();
+								void this.render();
 								// Scroll to verse after render
 								setTimeout(() => {
 									const verseEl = this.containerEl.querySelector(`[data-verse="${v.verse}"]`);
@@ -6953,7 +6953,7 @@ class BibleView extends ItemView {
 	}
 
 	performStrongsLookup() {
-		this.render();
+		void this.render();
 	}
 
 	async renderChapterViewer(container: HTMLElement, version: string) {
@@ -7036,7 +7036,7 @@ class BibleView extends ItemView {
 						await this.plugin.app.vault.delete(file);
 					}
 					this.plugin.removeNoteReference(this.currentBook, 0, 0);
-					this.render();
+					await this.render();
 					showToast('Book note deleted');
 				});
 			} else {
@@ -7115,7 +7115,7 @@ class BibleView extends ItemView {
 						await this.plugin.app.vault.delete(file);
 					}
 					this.plugin.removeNoteReference(this.currentBook, this.currentChapter, 0);
-					this.render();
+					await this.render();
 					showToast('Chapter note deleted');
 				});
 			} else {
@@ -7173,7 +7173,7 @@ class BibleView extends ItemView {
 					const selectedColor = (e.target as HTMLSelectElement).value;
 					if (selectedColor === 'all') {
 						showToast('Showing all highlights');
-						this.render();
+						void this.render();
 					} else {
 						const colorName = this.plugin.settings.highlightColors.find(c => c.color === selectedColor)?.name || 'Color';
 						showToast(`Filtering by ${colorName}`);
@@ -7552,7 +7552,7 @@ class BibleView extends ItemView {
 							e.stopPropagation();
 							// Navigate to Tags Browser and show this tag
 							this.viewMode = ViewMode.TAGS_BROWSER;
-							this.render();
+							void this.render();
 							showToast(`Viewing "${tag.tag}" tag`);
 						});
 
@@ -7954,7 +7954,7 @@ class BibleView extends ItemView {
 				}
 				this.plugin.settings.contextSidebarTab = 'word-study';
 				await this.plugin.saveSettings();
-				this.render();
+				await this.render();
 			});
 
 			lastIndex = strongsPattern.lastIndex;
@@ -8010,11 +8010,11 @@ class BibleView extends ItemView {
 	}
 
 	performVerseLookup() {
-		this.render();
+		void this.render();
 	}
 
 	performPassageLookup() {
-		this.render();
+		void this.render();
 	}
 
 	/**
@@ -8093,7 +8093,7 @@ class BibleView extends ItemView {
 					this.currentBook = book;
 					this.currentChapter = chapters[0] || 1;
 					this.viewMode = ViewMode.CHAPTER;
-					this.render();
+					void this.render();
 					overlay.remove();
 				});
 
@@ -8804,7 +8804,7 @@ class BibleView extends ItemView {
 
 			// Switch to chapter mode and render
 			this.viewMode = ViewMode.CHAPTER;
-			this.render();
+			void this.render();
 
 			// Scroll to the verse after rendering
 			setTimeout(() => {
@@ -8833,7 +8833,7 @@ class BibleView extends ItemView {
 			this.currentBook = book.trim();
 			this.currentChapter = parseInt(chapter);
 			this.viewMode = ViewMode.CHAPTER;
-			this.render();
+			void this.render();
 			return;
 		}
 
@@ -8850,7 +8850,7 @@ class BibleView extends ItemView {
 						this.currentBook = book;
 						this.currentChapter = 1;
 						this.viewMode = ViewMode.CHAPTER;
-						this.render();
+						void this.render();
 						return;
 					}
 				}
@@ -9061,7 +9061,7 @@ class BibleView extends ItemView {
 					resultItem.addEventListener('click', () => {
 						this.currentBook = result.book;
 						this.currentChapter = result.chapter;
-						this.render();
+						void this.render();
 						overlay.remove();
 						showToast(`Jumped to ${result.book} ${result.chapter}:${result.verse}`);
 
@@ -9283,7 +9283,7 @@ class BibleView extends ItemView {
 				goToVerseBtn.addEventListener('click', () => {
 					this.currentBook = result.book;
 					this.currentChapter = result.chapter;
-					this.render();
+					void this.render();
 					overlay.remove();
 					showToast(`Jumped to ${result.reference}`);
 				});
@@ -9420,7 +9420,7 @@ class BibleView extends ItemView {
 				bookmarkItem.addEventListener('click', () => {
 					this.currentBook = bookmark.book;
 					this.currentChapter = bookmark.chapter || 1;
-					this.render();
+					void this.render();
 					overlay.remove();
 					showToast(`Jumped to ${bookmark.book} ${bookmark.chapter}:${bookmark.verse}`);
 
@@ -9648,7 +9648,7 @@ class BibleView extends ItemView {
 			goToBtn.addEventListener('click', () => {
 				this.currentBook = noteRef.book;
 				this.currentChapter = noteRef.chapter;
-				this.render();
+				void this.render();
 				overlay.remove();
 				showToast(`Jumped to ${reference}`);
 			});
@@ -9730,7 +9730,7 @@ class BibleView extends ItemView {
 
 		this.currentBook = matchedBook;
 		this.currentChapter = parseInt(chapter);
-		this.render();
+		void this.render();
 
 		// Scroll to verse if specified
 		if (verse) {
@@ -9788,7 +9788,7 @@ class BibleView extends ItemView {
 		await leaf.openFile(this.plugin.app.vault.getAbstractFileByPath(notePath) as any);
 
 		this.plugin.trackNoteCreated(); // Track for study session
-		this.render();
+		await this.render();
 		showToast(`Note created for ${book} ${chapter}:${verse}`);
 	}
 
@@ -11192,7 +11192,7 @@ class BibleView extends ItemView {
 				this.plugin.noteReferences = validNotes;
 				await this.plugin.saveHighlightsAndNotes();
 				showToast(`Removed ${orphanedNotes.length} orphaned reference${orphanedNotes.length > 1 ? 's' : ''}`);
-				this.render();
+				await this.render();
 			}
 		});
 
@@ -11336,7 +11336,7 @@ class BibleView extends ItemView {
 						imported++;
 					}
 					await this.plugin.saveHighlightsAndNotes();
-					this.render();
+					await this.render();
 					let msg = `Imported ${imported} notes`;
 					if (filesCreated > 0) msg += ` (${filesCreated} files created)`;
 					if (skipped > 0) msg += `, ${skipped} skipped`;
@@ -12101,7 +12101,7 @@ class BibleView extends ItemView {
 					this.plugin.noteReferences = this.plugin.noteReferences.filter(n => n.notePath !== note.notePath);
 					await this.plugin.saveHighlightsAndNotes();
 					showToast('Note deleted');
-					this.render();
+					await this.render();
 				}
 			});
 
@@ -12724,7 +12724,7 @@ class BibleView extends ItemView {
 					return !visibleLayers.includes(highlightLayer);
 				});
 				await this.plugin.saveHighlightsAndNotes();
-				this.render();
+				await this.render();
 				showToast(`Cleared ${visibleHighlights.length} highlights from visible layers`);
 			}
 		});
@@ -12878,7 +12878,7 @@ class BibleView extends ItemView {
 				this.currentBook = highlight.book;
 				this.currentChapter = highlight.chapter;
 				this.viewMode = ViewMode.CHAPTER;
-				this.render();
+				void this.render();
 				showToast(`Navigated to ${referenceText}`);
 			});
 
@@ -13483,7 +13483,7 @@ class BibleView extends ItemView {
 				this.currentBook = analytics.mostRecent!.book;
 				this.currentChapter = analytics.mostRecent!.chapter || 1;
 				this.viewMode = ViewMode.CHAPTER;
-				this.render();
+				void this.render();
 				showToast(`Continuing from ${refText}`);
 			});
 		}
@@ -13562,7 +13562,7 @@ class BibleView extends ItemView {
 			if (confirmed) {
 				this.plugin.bookmarks = [];
 				await this.plugin.saveHighlightsAndNotes();
-				this.render();
+				await this.render();
 				showToast('All bookmarks cleared');
 			}
 		});
@@ -13635,7 +13635,7 @@ class BibleView extends ItemView {
 				this.currentBook = bookmark.book;
 				this.currentChapter = bookmark.chapter || 1;
 				this.viewMode = ViewMode.CHAPTER;
-				this.render();
+				void this.render();
 				showToast(`Navigated to ${referenceText}`);
 			});
 
@@ -14196,7 +14196,7 @@ class BibleView extends ItemView {
 						this.currentBook = ref.book;
 						this.currentChapter = ref.chapter;
 						this.viewMode = ViewMode.CHAPTER;
-						this.render();
+						void this.render();
 						showToast(`${ref.book} ${ref.chapter}:${ref.verse}`);
 					});
 				});
@@ -14597,7 +14597,7 @@ class BibleView extends ItemView {
 								this.currentBook = vt.book;
 								this.currentChapter = vt.chapter;
 								this.viewMode = ViewMode.CHAPTER;
-								this.render();
+								void this.render();
 								showToast(`Navigated to ${referenceText}`);
 							});
 
@@ -15040,7 +15040,7 @@ class BibleView extends ItemView {
 				this.plugin.renameTag(oldName, newName);
 				showToast(`Renamed "${oldName}" to "${newName}"`);
 				modal.close();
-				this.render();
+				void this.render();
 			}
 		});
 
@@ -15080,7 +15080,7 @@ class BibleView extends ItemView {
 			this.plugin.deleteTagFromAll(tagName);
 			showToast(`Deleted tag "${tagName}" from ${verseCount} verses`);
 			modal.close();
-			this.render();
+			void this.render();
 		});
 
 		modal.open();
@@ -15194,7 +15194,7 @@ class BibleView extends ItemView {
 					await this.plugin.saveHighlightsAndNotes();
 
 					// Refresh view
-					this.render();
+					await this.render();
 
 					// Show result
 					if (mode === 'replace') {
@@ -15483,7 +15483,7 @@ class BibleView extends ItemView {
 					await this.plugin.saveHighlightsAndNotes();
 
 					// Refresh view
-					this.render();
+					await this.render();
 
 					// Show result
 					if (mode === 'replace') {
@@ -15699,7 +15699,7 @@ class BibleView extends ItemView {
 			checkbox.checked = isActive;
 			checkbox.addEventListener('change', async () => {
 				await this.plugin.toggleReadingPlan(p.id);
-				this.render();
+				await this.render();
 				showToast(checkbox.checked ? `Started ${p.name}!` : `Paused ${p.name}`);
 			});
 			const toggleSlider = toggleLabel.createSpan({ cls: 'plan-toggle-slider' });
@@ -15746,7 +15746,7 @@ class BibleView extends ItemView {
 				modeCard.addEventListener('click', async () => {
 					this.plugin.settings.readingPlanMode = mode.id;
 					await this.plugin.saveSettings();
-					this.render();
+					await this.render();
 					showToast(`Switched to ${mode.label} mode`);
 				});
 			});
@@ -15786,7 +15786,7 @@ class BibleView extends ItemView {
 							this.currentBook = parsed.book;
 							this.currentChapter = parsed.chapter;
 							this.viewMode = ViewMode.CHAPTER;
-							this.render();
+							void this.render();
 							showToast(`Navigated to ${passage}`);
 						}
 					});
@@ -15801,7 +15801,7 @@ class BibleView extends ItemView {
 					markCompleteBtn.createSpan({ text: 'Mark as Complete' });
 					markCompleteBtn.addEventListener('click', async () => {
 						await this.plugin.markReadingComplete(reading.day, reading.plan.id);
-						this.render();
+						await this.render();
 						showToast(`${reading.plan.name} Day ${reading.day} complete! 🎉`);
 					});
 				}
@@ -16008,7 +16008,7 @@ class BibleView extends ItemView {
 							this.plugin.settings.journalEntries.splice(index, 1);
 							await this.plugin.saveSettings();
 							showToast('Entry deleted');
-							this.render();
+							await this.render();
 						}
 					}
 				});
@@ -16093,7 +16093,7 @@ class BibleView extends ItemView {
 			await this.plugin.saveSettings();
 			// Auto-select the new collection
 			this.selectedCollectionId = newId;
-			this.render();
+			await this.render();
 			showToast('Created new collection - click the name to rename it');
 		});
 
@@ -16125,7 +16125,7 @@ class BibleView extends ItemView {
 				}
 				this.plugin.settings.collections.push(collection);
 				await this.plugin.saveSettings();
-				this.render();
+				await this.render();
 				showToast(`Created "${t.name}" collection`);
 			});
 		});
@@ -16202,7 +16202,7 @@ class BibleView extends ItemView {
 		this.registerDomEvent(nameInput, 'change', async () => {
 			collection.name = nameInput.value || 'Untitled collection';
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		// Focus the name input if this is a new collection with default name
@@ -16230,7 +16230,7 @@ class BibleView extends ItemView {
 					this.plugin.settings.collections.splice(idx, 1);
 					await this.plugin.saveSettings();
 					showToast('Collection deleted');
-					this.render();
+					await this.render();
 				}
 			}
 		});
@@ -16280,7 +16280,7 @@ class BibleView extends ItemView {
 				await this.plugin.saveSettings();
 				showToast(`Added ${ref} to collection`);
 				// Re-render entire view to update both list and detail panels
-				this.render();
+				await this.render();
 			}
 		};
 
@@ -16452,7 +16452,7 @@ class BibleView extends ItemView {
 						if (confirmed) {
 							this.plugin.settings.memorizationVerses = verses.filter(v => v.reference !== verse.reference);
 							await this.plugin.saveSettings();
-							this.render();
+							await this.render();
 							showToast('Verse removed from memorization');
 						}
 					});
@@ -16612,7 +16612,7 @@ class BibleView extends ItemView {
 				} else {
 					modal.remove();
 					showToast(`Session complete! ${cards.length} cards reviewed.`);
-					this.render();
+					await this.render();
 				}
 			});
 		});
@@ -16811,7 +16811,7 @@ class BibleView extends ItemView {
 			this.plugin.settings.memorizationVerses.push(newVerse);
 			await this.plugin.saveSettings();
 			modal.remove();
-			this.render();
+			await this.render();
 			showToast(`Added "${reference}" to memorization`);
 		});
 	}
@@ -16830,7 +16830,7 @@ class BibleView extends ItemView {
 		this.registerDomEvent(closeBtn, 'click', async () => {
 			this.plugin.settings.showContextSidebar = false;
 			await this.plugin.saveSettings();
-			this.render();
+			await this.render();
 		});
 
 		// Tab bar
@@ -17011,7 +17011,7 @@ class BibleView extends ItemView {
 				downloadBtn.disabled = true;
 				downloadBtn.textContent = 'Downloading...';
 				await this.plugin.downloadStrongsDictionaries();
-				this.render();
+				await this.render();
 			});
 			return;
 		}
@@ -17085,7 +17085,7 @@ class BibleView extends ItemView {
 				this.registerDomEvent(lookupBtn, 'click', () => {
 					this.strongsLookupInput = this.selectedStrongsWord!;
 					this.viewMode = ViewMode.STRONGS;
-					this.render();
+					void this.render();
 				});
 			}
 		} else {
@@ -17160,7 +17160,7 @@ class BibleView extends ItemView {
 					this.registerDomEvent(wordCard, 'click', () => {
 						this.strongsLookupInput = strongsNum;
 						this.viewMode = ViewMode.STRONGS;
-						this.render();
+						void this.render();
 					});
 				}
 			}
@@ -17186,7 +17186,7 @@ class BibleView extends ItemView {
 					this.registerDomEvent(wordCard, 'click', () => {
 						this.strongsLookupInput = strongsNum;
 						this.viewMode = ViewMode.STRONGS;
-						this.render();
+						void this.render();
 					});
 				}
 			}
@@ -17211,7 +17211,7 @@ class BibleView extends ItemView {
 					this.registerDomEvent(wordCard, 'click', () => {
 						this.strongsLookupInput = strongsNum;
 						this.viewMode = ViewMode.STRONGS;
-						this.render();
+						void this.render();
 					});
 				}
 			}
@@ -17236,7 +17236,7 @@ class BibleView extends ItemView {
 				downloadBtn.disabled = true;
 				downloadBtn.textContent = 'Downloading...';
 				await this.plugin.downloadTheographicData();
-				this.render();
+				await this.render();
 			});
 			return;
 		}
@@ -17396,7 +17396,7 @@ class BibleView extends ItemView {
 				downloadBtn.disabled = true;
 				downloadBtn.textContent = 'Downloading...';
 				await this.plugin.downloadCrossReferences();
-				this.render();
+				await this.render();
 			});
 			return;
 		}
@@ -17452,7 +17452,7 @@ class BibleView extends ItemView {
 							this.currentChapter = parseInt(match[2]);
 							this.selectedVerseStart = parseInt(match[3]);
 							this.viewMode = ViewMode.CHAPTER;
-							this.render();
+							void this.render();
 						}
 					});
 				}
@@ -17724,7 +17724,7 @@ class BibleView extends ItemView {
 				this.currentBook = book;
 				this.currentChapter = 1;
 				this.viewMode = ViewMode.CHAPTER;
-				this.render();
+				void this.render();
 			});
 		});
 
